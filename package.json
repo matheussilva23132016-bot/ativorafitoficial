@@ -2,13 +2,11 @@
   "name": "ativorafitoficial",
   "version": "0.1.0",
   "private": true,
- {
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
-  }
-}
+    "start": "next start",
+    "lint": "eslint"
   },
   "dependencies": {
     "framer-motion": "^12.38.0",
