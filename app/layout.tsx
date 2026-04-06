@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { CacheBuster } from './components/CacheBuster'; // Importando o protetor de cache
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -17,6 +18,8 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className="dark">
       <body className={`${inter.className} bg-slate-950 antialiased`}>
+        {/* O CacheBuster roda em segundo plano garantindo o sangue novo do sistema */}
+        <CacheBuster /> 
         {children}
       </body>
     </html>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { motion, Variants, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
   User, Dumbbell, Apple, GraduationCap, 
   Star, ChevronRight, Signal, Wifi, Battery, 
@@ -13,9 +13,10 @@ import {
 
 interface ProfileProps {
   onBack: () => void;
+  onSelectProfile: (role: string) => void; // Prop adicionada para controle de fluxo
 }
 
-export const ProfileSelection = ({ onBack }: ProfileProps) => {
+export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [time, setTime] = useState("");
@@ -116,7 +117,7 @@ export const ProfileSelection = ({ onBack }: ProfileProps) => {
     <div className="relative min-h-dvh w-full bg-[#010307] text-[#F8FAFC] overflow-y-auto overflow-x-hidden flex flex-col items-center justify-between font-sans scroll-smooth">
       
       {/* 1. MARCA D'ÁGUA BETA (ONIPRESENTE) */}
-      <div className="fixed top-0 left-0 w-full z-[100] pointer-events-none">
+      <div className="fixed top-0 left-0 w-full z-100 pointer-events-none">
         <div className="bg-sky-500/10 border-b border-sky-500/30 backdrop-blur-xl py-3 px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
              <div className="w-2 h-2 rounded-full bg-sky-500 animate-pulse shadow-[0_0_15px_#0EA5E9]" />
@@ -140,12 +141,18 @@ export const ProfileSelection = ({ onBack }: ProfileProps) => {
           </div>
           <div className="flex items-center gap-3 text-sm font-bold tracking-tighter">
             <span>{time}</span>
-            <div className="flex gap-2.5"><Signal className="w-5 h-5"/><Wifi className="w-5 h-5"/><Battery className="w-5 h-5"/></div>
+            <div className="flex gap-2.5">
+              <Signal className="w-5 h-5"/>
+              <Wifi className="w-5 h-5"/>
+              <div className="md:hidden">
+                <Battery className="w-5 h-5"/>
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* 3. CONTEÚDO CENTRAL: TAMANHO AJUSTADO DESKTOP */}
+      {/* 3. CONTEÚDO CENTRAL */}
       <main className="w-full max-w-6xl px-6 flex flex-col items-center justify-center z-10 py-10 md:py-4">
         <div className="text-center mb-10 md:mb-14">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-center gap-4 mb-4">
@@ -188,10 +195,11 @@ export const ProfileSelection = ({ onBack }: ProfileProps) => {
           ))}
         </div>
 
-        {/* BOTÃO AVANÇAR: TAMANHO EQUILIBRADO */}
+        {/* BOTÃO AVANÇAR: AGORA CONECTADO À NAVEGAÇÃO */}
         <div className="w-full flex flex-col items-center gap-6 mb-16">
           <button 
             disabled={!selectedId}
+            onClick={() => selectedId && onSelectProfile(selectedId)} // Dispara a função com o ID do perfil
             className={`group relative w-full max-w-[320px] md:max-w-md py-6 md:py-8 bg-sky-500 text-[#010409] font-black text-xl md:text-2xl rounded-3xl md:rounded-4xl shadow-2xl flex items-center justify-center gap-4 overflow-hidden cursor-pointer border-none active:scale-95 transition-all
               ${!selectedId ? 'opacity-30 cursor-not-allowed grayscale' : ''}`}
           >
@@ -224,10 +232,10 @@ export const ProfileSelection = ({ onBack }: ProfileProps) => {
         ))}
       </footer>
 
-      {/* MODAIS: CONTEÚDO PROTEGIDO */}
+      {/* MODAIS */}
       <AnimatePresence>
         {activeTab && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setActiveTab(null)} className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setActiveTab(null)} className="fixed inset-0 z-1000 bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
             <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-lg md:max-w-5xl bg-[#020617] border border-white/10 rounded-4xl md:rounded-[4rem] p-8 md:p-16 relative shadow-2xl flex flex-col items-center">
               <button onClick={() => setActiveTab(null)} className="absolute top-6 right-6 md:top-10 md:right-10 p-3 md:p-6 rounded-full bg-white/5 border-none cursor-pointer text-white/50 hover:text-white transition-colors"><X className="w-6 h-6 md:w-10 md:h-10" /></button>
               <div className="flex flex-col md:flex-row items-center gap-6 md:gap-12 mb-10 md:mb-12 w-full">
