@@ -16,15 +16,6 @@ interface HeroProps {
 }
 
 export const HeroSection = ({ onExplore }: HeroProps) => {
-  // LÓGICA DE MEMÓRIA: Evita repetir o carregamento na mesma sessão
-  const [status, setStatus] = useState(() => {
-    if (typeof window !== "undefined") {
-      return sessionStorage.getItem("ativora_carregado") === "true" ? "portal" : "loading";
-    }
-    return "loading";
-  });
-
-  const [progress, setProgress] = useState(0);
   const [time, setTime] = useState("");
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
@@ -35,32 +26,12 @@ export const HeroSection = ({ onExplore }: HeroProps) => {
     };
     updateTime();
     const timer = setInterval(updateTime, 1000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      // Garantimos que o sistema saiba que já foi "carregado" para outras lógicas
+      sessionStorage.setItem("ativora_carregado", "true");
+    };
   }, []);
-
-  useEffect(() => {
-    if (status === "loading") {
-      const interval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            sessionStorage.setItem("ativora_carregado", "true");
-            setTimeout(() => setStatus("portal"), 1200);
-            return 100;
-          }
-          return prev + 4;
-        });
-      }, 30);
-      return () => clearInterval(interval);
-    }
-  }, [status]);
-
-  const getLoadingText = (p: number) => {
-    if (p < 30) return "Iniciando Sistema Ativora...";
-    if (p < 60) return "Sincronizando Banco de Dados...";
-    if (p < 90) return "Validando Protocolos de Performance...";
-    return "Acesso Autorizado.";
-  };
 
   // --- 🛡️ CONTEÚDO BLINDADO (NUNCA ALTERAR) ---
   const sections = {
@@ -141,7 +112,6 @@ export const HeroSection = ({ onExplore }: HeroProps) => {
   return (
     <div className="relative min-h-dvh w-full bg-[#010307] text-[#F8FAFC] overflow-y-auto overflow-x-hidden flex flex-col items-center justify-between font-sans scroll-smooth">
       
-      {/* BANNER BETA FIXO NO TOPO */}
       <div className="fixed top-0 left-0 w-full z-100 pointer-events-none">
         <div className="bg-sky-500/10 border-b border-sky-500/30 backdrop-blur-xl py-3 px-6 flex items-center justify-between shadow-2xl">
           <div className="flex items-center gap-3">
@@ -154,72 +124,53 @@ export const HeroSection = ({ onExplore }: HeroProps) => {
 
       <div className="absolute inset-0 z-0 pointer-events-none opacity-5 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay" />
 
-      <AnimatePresence mode="wait">
-        {status === "loading" ? (
-          <motion.div key="loader" exit={{ opacity: 0, scale: 0.95, filter: "blur(40px)" }} className="flex flex-col items-center justify-center min-h-dvh z-50 w-full px-4">
-            <div className="relative w-24 h-24 md:w-48 md:h-48 flex items-center justify-center mb-10">
-              <svg className="absolute w-full h-full -rotate-90">
-                <circle cx="48" cy="48" r="44" fill="transparent" stroke="white" strokeWidth="1" className="opacity-5 md:hidden" />
-                <circle cx="96" cy="96" r="88" fill="transparent" stroke="white" strokeWidth="1" className="opacity-5 hidden md:block" />
-                <motion.circle cx="48" cy="48" r="44" fill="transparent" stroke="#0EA5E9" strokeWidth="2" strokeDasharray="276" initial={{ strokeDashoffset: 276 }} animate={{ strokeDashoffset: 276 - (276 * progress) / 100 }} className="md:hidden" />
-                <motion.circle cx="96" cy="96" r="88" fill="transparent" stroke="#0EA5E9" strokeWidth="3" strokeDasharray="553" initial={{ strokeDashoffset: 553 }} animate={{ strokeDashoffset: 553 - (553 * progress) / 100 }} className="hidden md:block drop-shadow-[0_0_15px_#0EA5E9]" />
-              </svg>
-              <Image src="/logo.png" alt="Ativora" width={48} height={48} className="grayscale brightness-200 md:w-24 md:h-24" />
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 w-full flex flex-col items-center">
+        
+        <header className="w-full max-w-7xl px-6 md:px-12 py-16 md:py-24 flex justify-between items-center shrink-0">
+           <div className="bg-white/5 px-6 py-4 rounded-full border border-white/10 flex items-center gap-5 shadow-xl">
+              <span className="text-[10px] md:text-sm font-black uppercase tracking-widest">{time}</span>
+              <div className="w-px h-4 bg-white/20 hidden md:block" />
+              <span className="hidden md:inline text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-sky-500 italic uppercase">SISTEMA ATIVO</span>
             </div>
-            <div className="flex flex-col items-center gap-6 text-center">
-               <span className="text-[10px] md:text-2xl font-black uppercase tracking-[0.8em] text-sky-500">{getLoadingText(progress)}</span>
+            <div className="flex items-center gap-4">
+               <Signal className="w-5 h-5 opacity-70" /><Wifi className="w-5 h-5 opacity-70" />
             </div>
+        </header>
+
+        <main className="w-full max-w-7xl px-6 flex flex-col items-center gap-10 md:gap-16 text-center py-10 md:py-20">
+          <motion.div animate={{ y: [0, -12, 0] }} transition={{ duration: 5, repeat: Infinity }} className="relative w-32 h-32 md:w-64 md:h-64">
+            <Image src="/logo.png" alt="AtivoraFit" fill className="object-contain drop-shadow-[0_0_40px_#0EA5E966]" priority />
           </motion.div>
-        ) : (
-          <motion.div key="portal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 w-full flex flex-col items-center">
-            
-            <header className="w-full max-w-7xl px-6 md:px-12 py-16 md:py-24 flex justify-between items-center shrink-0">
-               <div className="bg-white/5 px-6 py-4 rounded-full border border-white/10 flex items-center gap-5 shadow-xl">
-                  <span className="text-[10px] md:text-sm font-black uppercase tracking-widest">{time}</span>
-                  <div className="w-px h-4 bg-white/20 hidden md:block" />
-                  <span className="hidden md:inline text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-sky-500 italic uppercase">SISTEMA ATIVO</span>
-                </div>
-                <div className="flex items-center gap-4">
-                   <Signal className="w-5 h-5 opacity-70" /><Wifi className="w-5 h-5 opacity-70" />
-                </div>
-            </header>
 
-            <main className="w-full max-w-7xl px-6 flex flex-col items-center gap-10 md:gap-16 text-center py-10 md:py-20">
-              <motion.div animate={{ y: [0, -12, 0] }} transition={{ duration: 5, repeat: Infinity }} className="relative w-32 h-32 md:w-64 md:h-64">
-                <Image src="/logo.png" alt="AtivoraFit" fill className="object-contain drop-shadow-[0_0_40px_#0EA5E966]" priority />
-              </motion.div>
+          <div className="w-full">
+            <h1 className="text-5xl md:text-[110px] font-black tracking-[-0.08em] leading-none uppercase italic text-center">ATIVORA<span className="text-sky-500">FIT</span></h1>
+            <p className="text-white/30 md:text-white/50 text-[10px] md:text-3xl font-black uppercase tracking-[0.4em] mt-4 md:mt-8 text-center">A evolução na palma da sua mão</p>
+          </div>
 
-              <div className="w-full">
-                <h1 className="text-5xl md:text-[110px] font-black tracking-[-0.08em] leading-none uppercase italic text-center">ATIVORA<span className="text-sky-500">FIT</span></h1>
-                <p className="text-white/30 md:text-white/50 text-[10px] md:text-3xl font-black uppercase tracking-[0.4em] mt-4 md:mt-8 text-center">A evolução na palma da sua mão</p>
-              </div>
+          <div className="w-full flex flex-col items-center gap-4 shrink-0">
+            <button onClick={onExplore} className="group relative w-full max-w-[320px] md:max-w-md py-6 md:py-10 bg-sky-500 text-[#010409] font-black text-xl md:text-3xl rounded-3xl md:rounded-4xl shadow-2xl flex items-center justify-center gap-4 overflow-hidden cursor-pointer border-none active:scale-95 transition-all">
+              <span className="relative z-10 uppercase tracking-tighter">Explorar Plataforma</span>
+              <ChevronRight className="w-6 h-6 md:w-10 md:h-10 group-hover:translate-x-2 transition-transform" />
+              <motion.div initial={{ x: "-100%" }} animate={{ x: "200%" }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }} className="absolute inset-y-0 w-40 bg-linear-to-r from-transparent via-white/40 to-transparent skew-x-35" />
+            </button>
+            <button className="w-full max-w-[320px] md:max-w-md py-5 border border-white/10 bg-white/5 text-white font-bold text-sm md:text-xl rounded-3xl md:rounded-4xl cursor-pointer active:scale-95 uppercase opacity-60">Já tenho conta</button>
+          </div>
+        </main>
 
-              <div className="w-full flex flex-col items-center gap-4 shrink-0">
-                <button onClick={onExplore} className="group relative w-full max-w-[320px] md:max-w-md py-6 md:py-10 bg-sky-500 text-[#010409] font-black text-xl md:text-3xl rounded-3xl md:rounded-4xl shadow-2xl flex items-center justify-center gap-4 overflow-hidden cursor-pointer border-none active:scale-95 transition-all">
-                  <span className="relative z-10 uppercase tracking-tighter">Explorar Plataforma</span>
-                  <ChevronRight className="w-6 h-6 md:w-10 md:h-10 group-hover:translate-x-2 transition-transform" />
-                  <motion.div initial={{ x: "-100%" }} animate={{ x: "200%" }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }} className="absolute inset-y-0 w-40 bg-linear-to-r from-transparent via-white/40 to-transparent skew-x-35" />
-                </button>
-                <button className="w-full max-w-[320px] md:max-w-md py-5 border border-white/10 bg-white/5 text-white font-bold text-sm md:text-xl rounded-3xl md:rounded-4xl cursor-pointer active:scale-95 uppercase opacity-60">Já tenho conta</button>
-              </div>
-            </main>
-
-            <footer className="w-full max-w-7xl grid grid-cols-4 gap-4 md:gap-10 px-6 md:px-12 py-10 md:py-24 shrink-0 mt-auto border-t border-white/5">
-              {[
-                { id: "sobre", n: "Sobre", i: Info },
-                { id: "funcionalidades", n: "Recursos", i: LayoutDashboard },
-                { id: "como_funciona", n: "Sistema", i: Cpu },
-                { id: "novidades", n: "Beta", i: Rocket }
-              ].map((item) => (
-                <button key={item.id} onClick={() => setActiveTab(item.id)} className={`flex flex-col items-center justify-center gap-3 md:gap-6 p-5 md:p-14 rounded-3xl md:rounded-[3rem] transition-all border active:scale-95 shadow-lg ${activeTab === item.id ? 'bg-sky-500/20 border-sky-500/50' : 'bg-white/10 md:bg-white/3 border-white/10 hover:border-white/20 hover:bg-white/15'}`}>
-                  <item.i className={`w-6 h-6 md:w-12 md:h-12 ${activeTab === item.id ? 'text-sky-500' : 'text-white/70'}`} />
-                  <span className={`text-[8px] md:text-sm font-black uppercase tracking-[0.3em] ${activeTab === item.id ? 'text-white' : 'text-white/40'}`}>{item.n}</span>
-                </button>
-              ))}
-            </footer>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        <footer className="w-full max-w-7xl grid grid-cols-4 gap-4 md:gap-10 px-6 md:px-12 py-10 md:py-24 shrink-0 mt-auto border-t border-white/5">
+          {[
+            { id: "sobre", n: "Sobre", i: Info },
+            { id: "funcionalidades", n: "Recursos", i: LayoutDashboard },
+            { id: "como_funciona", n: "Sistema", i: Cpu },
+            { id: "novidades", n: "Beta", i: Rocket }
+          ].map((item) => (
+            <button key={item.id} onClick={() => setActiveTab(item.id)} className={`flex flex-col items-center justify-center gap-3 md:gap-6 p-5 md:p-14 rounded-3xl md:rounded-[3rem] transition-all border active:scale-95 shadow-lg ${activeTab === item.id ? 'bg-sky-500/20 border-sky-500/50' : 'bg-white/10 md:bg-white/3 border-white/10 hover:border-white/20 hover:bg-white/15'}`}>
+              <item.i className={`w-6 h-6 md:w-12 md:h-12 ${activeTab === item.id ? 'text-sky-500' : 'text-white/70'}`} />
+              <span className={`text-[8px] md:text-sm font-black uppercase tracking-[0.3em] ${activeTab === item.id ? 'text-white' : 'text-white/40'}`}>{item.n}</span>
+            </button>
+          ))}
+        </footer>
+      </motion.div>
 
       <AnimatePresence>
         {activeTab && (
