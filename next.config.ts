@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Isso força o Next.js a gerar headers que desativam o cache agressivo no HTML
   async headers() {
     return [
       {
@@ -8,7 +7,8 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+            value: 'public, s-maxage=1, stale-while-revalidate=59', 
+            // Explicação: O servidor entrega rápido, mas checa atualizações em background
           },
         ],
       },

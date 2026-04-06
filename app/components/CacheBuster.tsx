@@ -4,23 +4,17 @@ import { useEffect } from "react";
 
 export const CacheBuster = () => {
   useEffect(() => {
-    // 1. Lógica para recarregar assim que entrar (apenas uma vez por sessão)
-    const foiLimpoNestaSessao = sessionStorage.getItem("ativora_cache_limpo");
+    // Mantemos apenas a verificação de entrada para garantir a versão nova
+    const sistemaAtualizado = sessionStorage.getItem("ativora_sessao_v1");
 
-    if (!foiLimpoNestaSessao) {
-      sessionStorage.setItem("ativora_cache_limpo", "true");
-      // Força um reload buscando do servidor, ignorando o cache do navegador
+    if (!sistemaAtualizado) {
+      sessionStorage.setItem("ativora_sessao_v1", "true");
+      // O reload acontece uma única vez por acesso, limpando o lixo inicial
       window.location.reload();
     }
-
-    // 2. Lógica para atualizar de 5 em 5 minutos automaticamente
-    const intervalo = setInterval(() => {
-      console.log("Sincronizando nova versão do sistema...");
-      window.location.reload();
-    }, 5 * 60 * 1000); // 5 minutos em milissegundos
-
-    return () => clearInterval(intervalo);
+    
+    // REMOVEMOS o setInterval de 5 minutos que estava derrubando o servidor
   }, []);
 
-  return null; // Componente invisível, apenas lógica
+  return null;
 };
