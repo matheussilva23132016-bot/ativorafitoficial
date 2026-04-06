@@ -8,7 +8,7 @@ import {
   Info, Rocket, X, CheckCircle2, BrainCircuit, 
   Utensils, TrendingUp, Users, Target, BarChart3, Bell, 
   UserSquare2, Cpu, Globe, ZapOff, Fingerprint, Activity, 
-  ShieldCheck
+  ShieldCheck, Lock
 } from "lucide-react";
 
 interface HeroProps {
@@ -27,7 +27,7 @@ export const HeroSection = ({ onExplore }: HeroProps) => {
     updateTime();
     const timer = setInterval(updateTime, 1000);
     
-    // Sincroniza que o sistema já está ativo na sessão
+    // Sincroniza que o sistema está ativo na sessão atual
     sessionStorage.setItem("ativora_carregado", "true");
     
     return () => clearInterval(timer);
@@ -125,10 +125,14 @@ export const HeroSection = ({ onExplore }: HeroProps) => {
 
       <div className="absolute inset-0 z-0 pointer-events-none opacity-5 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay" />
 
-      {/* PORTAL PRINCIPAL (CARREGA IMEDIATAMENTE) */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 w-full flex flex-col items-center">
+      {/* PORTAL PRINCIPAL (BOOT REMOVIDO) */}
+      <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }} 
+        className="relative z-10 w-full flex flex-col items-center"
+      >
         
-        {/* HEADER */}
+        {/* HEADER: STATUS BAR */}
         <header className="w-full max-w-7xl px-6 md:px-12 py-16 md:py-24 flex justify-between items-center shrink-0">
            <div className="bg-white/5 px-6 py-4 rounded-full border border-white/10 flex items-center gap-5 shadow-xl">
               <span className="text-[10px] md:text-sm font-black uppercase tracking-widest">{time}</span>
@@ -136,11 +140,14 @@ export const HeroSection = ({ onExplore }: HeroProps) => {
               <span className="hidden md:inline text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-sky-500 italic uppercase">SISTEMA ATIVO</span>
             </div>
             <div className="flex items-center gap-4">
-               <Signal className="w-5 h-5 opacity-70" /><Wifi className="w-5 h-5 opacity-70" />
+               <div className="hidden md:flex items-center gap-2 text-[10px] font-black text-sky-400"><Activity className="w-3.5 h-3.5 animate-pulse" /> SISTEMA ATIVO</div>
+               <div className="hidden md:flex items-center gap-2 text-white/40 text-[10px] font-black uppercase tracking-widest"><Lock className="w-3.5 h-3.5" /> SEGURO</div>
+               <Signal className="w-5 h-5 opacity-70" />
+               <Wifi className="w-5 h-5 opacity-70" />
             </div>
         </header>
 
-        {/* CONTEÚDO CENTRAL */}
+        {/* CONTEÚDO CENTRAL: HERO SLIDE */}
         <main className="w-full max-w-7xl px-6 flex flex-col items-center gap-10 md:gap-16 text-center py-10 md:py-20">
           <motion.div animate={{ y: [0, -12, 0] }} transition={{ duration: 5, repeat: Infinity }} className="relative w-32 h-32 md:w-64 md:h-64">
             <Image src="/logo.png" alt="AtivoraFit" fill className="object-contain drop-shadow-[0_0_40px_#0EA5E966]" priority />
@@ -152,7 +159,10 @@ export const HeroSection = ({ onExplore }: HeroProps) => {
           </div>
 
           <div className="w-full flex flex-col items-center gap-4 shrink-0">
-            <button onClick={onExplore} className="group relative w-full max-w-[320px] md:max-w-md py-6 md:py-10 bg-sky-500 text-[#010409] font-black text-xl md:text-3xl rounded-3xl md:rounded-4xl shadow-2xl flex items-center justify-center gap-4 overflow-hidden cursor-pointer border-none active:scale-95 transition-all">
+            <button 
+              onClick={onExplore} 
+              className="group relative w-full max-w-[320px] md:max-w-md py-6 md:py-10 bg-sky-500 text-[#010409] font-black text-xl md:text-3xl rounded-3xl md:rounded-4xl shadow-2xl flex items-center justify-center gap-4 overflow-hidden cursor-pointer border-none active:scale-95 transition-all"
+            >
               <span className="relative z-10 uppercase tracking-tighter">Explorar Plataforma</span>
               <ChevronRight className="w-6 h-6 md:w-10 md:h-10 group-hover:translate-x-2 transition-transform" />
               <motion.div initial={{ x: "-100%" }} animate={{ x: "200%" }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }} className="absolute inset-y-0 w-40 bg-linear-to-r from-transparent via-white/40 to-transparent skew-x-35" />
@@ -169,7 +179,11 @@ export const HeroSection = ({ onExplore }: HeroProps) => {
             { id: "como_funciona", n: "Sistema", i: Cpu },
             { id: "novidades", n: "Beta", i: Rocket }
           ].map((item) => (
-            <button key={item.id} onClick={() => setActiveTab(item.id)} className={`flex flex-col items-center justify-center gap-3 md:gap-6 p-5 md:p-14 rounded-3xl md:rounded-[3rem] transition-all border active:scale-95 shadow-lg ${activeTab === item.id ? 'bg-sky-500/20 border-sky-500/50' : 'bg-white/10 md:bg-white/3 border-white/10 hover:border-white/20 hover:bg-white/15'}`}>
+            <button 
+              key={item.id} 
+              onClick={() => setActiveTab(item.id)} 
+              className={`flex flex-col items-center justify-center gap-3 md:gap-6 p-5 md:p-14 rounded-3xl md:rounded-[3rem] transition-all border active:scale-95 shadow-lg ${activeTab === item.id ? 'bg-sky-500/20 border-sky-500/50' : 'bg-white/10 md:bg-white/3 border-white/10 hover:border-white/20 hover:bg-white/15'}`}
+            >
               <item.i className={`w-6 h-6 md:w-12 md:h-12 ${activeTab === item.id ? 'text-sky-500' : 'text-white/70'}`} />
               <span className={`text-[8px] md:text-sm font-black uppercase tracking-[0.3em] ${activeTab === item.id ? 'text-white' : 'text-white/40'}`}>{item.n}</span>
             </button>
