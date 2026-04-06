@@ -2,19 +2,32 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { motion, AnimatePresence, Variants } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
-  ChevronRight, ShieldCheck, Zap, 
-  Globe, Cpu, LayoutDashboard,
-  UserCircle2, Wifi, Battery, Signal, Sparkles
+  ChevronRight, Zap, LayoutDashboard, Wifi, Signal, 
+  Info, Rocket, X, CheckCircle2, BrainCircuit, 
+  Utensils, TrendingUp, Users, Target, BarChart3, Bell, 
+  UserSquare2, Cpu, Globe, ZapOff, Fingerprint, Activity, 
+  ShieldCheck
 } from "lucide-react";
 
-export const HeroSection = () => {
-  const [status, setStatus] = useState("loading"); 
+interface HeroProps {
+  onExplore: () => void;
+}
+
+export const HeroSection = ({ onExplore }: HeroProps) => {
+  // LÓGICA DE MEMÓRIA: Evita repetir o carregamento na mesma sessão
+  const [status, setStatus] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("ativora_carregado") === "true" ? "portal" : "loading";
+    }
+    return "loading";
+  });
+
   const [progress, setProgress] = useState(0);
   const [time, setTime] = useState("");
+  const [activeTab, setActiveTab] = useState<string | null>(null);
 
-  // Relógio de Alta Precisão
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
@@ -25,193 +38,208 @@ export const HeroSection = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Simulação de Scan Biométrico e Boot
   useEffect(() => {
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => setStatus("portal"), 1000);
-          return 100;
-        }
-        return prev + 1.2;
-      });
-    }, 30);
-    return () => clearInterval(interval);
-  }, []);
+    if (status === "loading") {
+      const interval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            sessionStorage.setItem("ativora_carregado", "true");
+            setTimeout(() => setStatus("portal"), 1200);
+            return 100;
+          }
+          return prev + 4;
+        });
+      }, 30);
+      return () => clearInterval(interval);
+    }
+  }, [status]);
 
-  // --- ANIMAÇÕES DE ELITE ---
-  const portalVariants: Variants = {
-    hidden: { opacity: 0, scale: 1.1, filter: "blur(40px)" },
-    visible: { 
-      opacity: 1, scale: 1, filter: "blur(0px)",
-      transition: { staggerChildren: 0.12, delayChildren: 0.4, duration: 1.5, ease: [0.16, 1, 0.3, 1] }
+  const getLoadingText = (p: number) => {
+    if (p < 30) return "Iniciando Sistema Ativora...";
+    if (p < 60) return "Sincronizando Banco de Dados...";
+    if (p < 90) return "Validando Protocolos de Performance...";
+    return "Acesso Autorizado.";
+  };
+
+  // --- 🛡️ CONTEÚDO BLINDADO (NUNCA ALTERAR) ---
+  const sections = {
+    sobre: {
+      title: "Sobre nós",
+      icon: <Info className="w-6 h-6 text-sky-400" />,
+      content: (
+        <div className="space-y-6 md:space-y-10 w-full text-center md:text-left pb-10">
+          <p className="text-sky-400 font-black text-xl md:text-4xl italic uppercase tracking-tighter leading-tight">AtivoraFit é a evolução definitiva do treino digital.</p>
+          <div className="space-y-4 md:space-y-8">
+            <p className="text-white/80 leading-relaxed text-sm md:text-xl font-medium">Nascemos para integrar tecnologia de ponta e performance humana. Somos um ecossistema que une alunos, nutricionistas e treinadores em uma infraestrutura única.</p>
+            <p className="text-white font-bold text-sm md:text-xl border-l-4 border-sky-500 pl-6 italic uppercase tracking-wider">Nosso objetivo: Construir a maior rede global de evolução física através de dados e resultados reais.</p>
+          </div>
+        </div>
+      )
+    },
+    funcionalidades: {
+      title: "Recursos",
+      icon: <LayoutDashboard className="w-6 h-6 text-sky-400" />,
+      content: (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 pb-12 w-full">
+          {[
+            { i: <BrainCircuit />, t: "Treinos Inteligentes", d: "Planos adaptativos gerados por Inteligência Artificial conforme seu nível." },
+            { i: <Utensils />, t: "Dieta Dinâmica", d: "Nutrição personalizada que se ajusta à sua rotina e queima calórica." },
+            { i: <TrendingUp />, t: "Evolução Visual", d: "Histórico completo de medidas, peso e comparativo de fotos em tempo real." },
+            { i: <Users />, t: "Conexão com Elite", d: "Acesso direto aos melhores personal trainers e nutricionistas do país." },
+            { i: <Target />, t: "Metas de Foco", d: "Defina objetivos claros e receba caminhos precisos para atingi-los." },
+            { i: <BarChart3 />, t: "Métricas Reais", d: "Gráficos avançados de força, resistência e composição corporal." },
+            { i: <Bell />, t: "Alertas Ativos", d: "Lembretes inteligentes para você nunca perder o horário de treinar ou comer." },
+            { i: <UserSquare2 />, t: "Prontuário Digital", d: "Centralize todos os seus dados de saúde e histórico físico em um só lugar." }
+          ].map((f, i) => (
+            <div key={i} className="p-6 rounded-3xl bg-white/5 border border-white/5 flex flex-col gap-3 items-center text-center md:items-start md:text-left hover:bg-white/10 transition-colors">
+              <div className="flex items-center gap-3"><span className="text-sky-400 scale-110">{f.i}</span><h4 className="text-sky-400 font-black text-xs md:text-xl uppercase tracking-widest">{f.t}</h4></div>
+              <p className="text-white/40 text-[10px] md:text-base leading-relaxed">{f.d}</p>
+            </div>
+          ))}
+        </div>
+      )
+    },
+    como_funciona: {
+      title: "Sistema OS",
+      icon: <Cpu className="w-6 h-6 text-sky-400" />,
+      content: (
+        <div className="space-y-6 md:space-y-10 pb-12 w-full">
+          {[
+            { i: <Fingerprint />, t: "01. Matriz de Identidade", d: "Mapeamos seu DNA de treino através de biometria e análise de rotina para criar um plano 100% exclusivo." },
+            { i: <Globe />, t: "02. Shopping de Especialistas", d: "Conectamos você aos profissionais de elite. Escolha por avaliação, especialidade e gerencie tudo pelo app." },
+            { i: <Zap />, t: "03. Protocolo de Performance", d: "Seu treino e dieta não são estáticos. Eles evoluem toda semana baseados no seu feedback e progresso real." },
+            { i: <ZapOff />, t: "04. Sincronismo Híbrido", d: "Treine sem internet. O sistema funciona totalmente offline e sincroniza seus dados assim que detectar conexão." },
+            { i: <ShieldCheck />, t: "05. Segurança e Transparência", d: "Transações protegidas, Score de Confiança para profissionais e política de reembolso garantida pela plataforma." }
+          ].map((s, i) => (
+            <div key={i} className="flex flex-col md:flex-row gap-6 items-center md:items-start p-6 rounded-4xl bg-white/2 border border-white/5 text-center md:text-left group hover:bg-white/5 transition-all">
+              <div className="p-4 rounded-2xl bg-sky-500/10 text-sky-400 shadow-lg">{s.i}</div>
+              <div><h4 className="text-white font-black text-sm md:text-2xl uppercase italic tracking-tight">{s.t}</h4><p className="text-white/40 text-[11px] md:text-lg mt-2 leading-relaxed">{s.d}</p></div>
+            </div>
+          ))}
+        </div>
+      )
+    },
+    novidades: {
+      title: "Versão Beta",
+      icon: <Rocket className="w-6 h-6 text-sky-400" />,
+      content: (
+        <div className="space-y-8 md:space-y-12 pb-10 w-full">
+          <div className="p-8 md:p-14 rounded-4xl bg-white/3 border border-white/5">
+            <h4 className="text-sky-400 font-black text-xs md:text-2xl uppercase mb-8 tracking-[0.3em] text-center italic">Ativo na Versão 1.0</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+              {["Painel de Performance", "Onboarding Inteligente", "Treinos via IA", "Evolução por Fotos", "Comunidades Ativas", "Interface Mobile"].map(t => (
+                <div key={t} className="flex items-center justify-center md:justify-start gap-4 text-xs md:text-xl font-bold text-white/70 uppercase italic tracking-tighter"><CheckCircle2 className="w-5 h-5 md:w-8 md:h-8 text-sky-500" /> {t}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )
     }
   };
 
-  const fadeInUp: Variants = {
-    hidden: { opacity: 0, y: 60, filter: "blur(20px)" },
-    visible: { opacity: 1, y: 0, filter: "blur(0px)", transition: { type: "spring", stiffness: 70, damping: 24 } }
-  };
-
   return (
-    <div className="relative h-dvh w-full bg-[#010307] text-[#F8FAFC] overflow-hidden flex flex-col items-center justify-center font-sans selection:bg-[#0EA5E9]/40">
+    <div className="relative min-h-dvh w-full bg-[#010307] text-[#F8FAFC] overflow-y-auto overflow-x-hidden flex flex-col items-center justify-between font-sans scroll-smooth">
       
-      {/* TEXTURA DE HARDWARE (GRÃO CINEMATOGRÁFICO) */}
-      <div className="absolute inset-0 z-50 pointer-events-none opacity-[0.06] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay" />
+      {/* BANNER BETA FIXO NO TOPO */}
+      <div className="fixed top-0 left-0 w-full z-100 pointer-events-none">
+        <div className="bg-sky-500/10 border-b border-sky-500/30 backdrop-blur-xl py-3 px-6 flex items-center justify-between shadow-2xl">
+          <div className="flex items-center gap-3">
+             <div className="w-2 h-2 rounded-full bg-sky-500 animate-pulse shadow-[0_0_15px_#0EA5E9]" />
+             <span className="text-[9px] md:text-xs font-black uppercase tracking-[0.5em] text-sky-400">Ambiente de Testes • Versão Beta 1.0</span>
+          </div>
+          <span className="hidden md:block text-[9px] font-black uppercase tracking-[0.3em] text-white/30 italic">SALVADOR - BAHIA • SISTEMA DE EVOLUÇÃO GLOBAL</span>
+        </div>
+      </div>
+
+      <div className="absolute inset-0 z-0 pointer-events-none opacity-5 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay" />
 
       <AnimatePresence mode="wait">
         {status === "loading" ? (
-          /* --- LOADING: ESCANEAMENTO BIOMÉTRICO --- */
-          <motion.div 
-            key="loader" 
-            exit={{ opacity: 0, scale: 0.8, filter: "blur(60px)" }}
-            className="flex flex-col items-center z-50"
-          >
-            <div className="relative w-32 h-32 flex items-center justify-center mb-16">
-              {/* Anel de Scan */}
+          <motion.div key="loader" exit={{ opacity: 0, scale: 0.95, filter: "blur(40px)" }} className="flex flex-col items-center justify-center min-h-dvh z-50 w-full px-4">
+            <div className="relative w-24 h-24 md:w-48 md:h-48 flex items-center justify-center mb-10">
               <svg className="absolute w-full h-full -rotate-90">
-                <circle cx="64" cy="64" r="60" fill="transparent" stroke="white" strokeWidth="1" className="opacity-5" />
-                <motion.circle 
-                  cx="64" cy="64" r="60" fill="transparent" stroke="#0EA5E9" strokeWidth="2"
-                  strokeDasharray="377" initial={{ strokeDashoffset: 377 }} animate={{ strokeDashoffset: 377 - (377 * progress) / 100 }}
-                  className="drop-shadow-[0_0_8px_#0EA5E9]"
-                />
+                <circle cx="48" cy="48" r="44" fill="transparent" stroke="white" strokeWidth="1" className="opacity-5 md:hidden" />
+                <circle cx="96" cy="96" r="88" fill="transparent" stroke="white" strokeWidth="1" className="opacity-5 hidden md:block" />
+                <motion.circle cx="48" cy="48" r="44" fill="transparent" stroke="#0EA5E9" strokeWidth="2" strokeDasharray="276" initial={{ strokeDashoffset: 276 }} animate={{ strokeDashoffset: 276 - (276 * progress) / 100 }} className="md:hidden" />
+                <motion.circle cx="96" cy="96" r="88" fill="transparent" stroke="#0EA5E9" strokeWidth="3" strokeDasharray="553" initial={{ strokeDashoffset: 553 }} animate={{ strokeDashoffset: 553 - (553 * progress) / 100 }} className="hidden md:block drop-shadow-[0_0_15px_#0EA5E9]" />
               </svg>
-              <motion.div 
-                animate={{ opacity: [0.4, 1, 0.4], scale: [0.95, 1, 0.95] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="relative w-16 h-16"
-              >
-                <Image src="/logo.png" alt="Ativora OS" fill className="object-contain grayscale brightness-200" />
-              </motion.div>
+              <Image src="/logo.png" alt="Ativora" width={48} height={48} className="grayscale brightness-200 md:w-24 md:h-24" />
             </div>
-
-            <div className="flex flex-col items-center gap-4 text-center">
-              <span className="text-[10px] font-black uppercase tracking-[1em] text-[#0EA5E9] ml-[1em]">
-                {progress < 50 ? "Autenticando" : "Sincronizando"}
-              </span>
-              <div className="flex gap-1">
-                {[0, 1, 2].map((i) => (
-                  <motion.div key={i} animate={{ scaleY: [1, 2, 1], opacity: [0.2, 1, 0.2] }} transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }} className="w-[2px] h-3 bg-[#0EA5E9]" />
-                ))}
-              </div>
+            <div className="flex flex-col items-center gap-6 text-center">
+               <span className="text-[10px] md:text-2xl font-black uppercase tracking-[0.8em] text-sky-500">{getLoadingText(progress)}</span>
             </div>
           </motion.div>
         ) : (
-          /* --- PORTAL ATIVORAFIT (APP CONSOLE) --- */
-          <motion.div
-            key="portal"
-            variants={portalVariants}
-            initial="hidden"
-            animate="visible"
-            className="relative z-10 w-full h-full flex flex-col items-center justify-between"
-          >
-            {/* 1. STATUS BAR (DENSIDADE DE PIXEL PREMIUM) */}
-            <header className="w-full max-w-[1920px] px-8 md:px-14 py-6 flex justify-between items-center pointer-events-none sticky top-0">
-              <div className="flex items-center gap-2">
-                <span className="text-xs md:text-sm font-bold tracking-tight">{time}</span>
-                <div className="w-1 h-1 bg-sky-500 rounded-full animate-pulse" />
-              </div>
-              <div className="flex items-center gap-4 opacity-60 scale-90 md:scale-100">
-                <Signal className="w-4 h-4 stroke-[2.5]" />
-                <Wifi className="w-4 h-4 stroke-[2.5]" />
-                <div className="flex items-center gap-1 border border-white/20 rounded-sm px-1 py-0.5">
-                   <span className="text-[8px] font-black italic leading-none">100%</span>
-                   <Battery className="w-4 h-4 stroke-[2.5] fill-white/20" />
+          <motion.div key="portal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 w-full flex flex-col items-center">
+            
+            <header className="w-full max-w-7xl px-6 md:px-12 py-16 md:py-24 flex justify-between items-center shrink-0">
+               <div className="bg-white/5 px-6 py-4 rounded-full border border-white/10 flex items-center gap-5 shadow-xl">
+                  <span className="text-[10px] md:text-sm font-black uppercase tracking-widest">{time}</span>
+                  <div className="w-px h-4 bg-white/20 hidden md:block" />
+                  <span className="hidden md:inline text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-sky-500 italic uppercase">SISTEMA ATIVO</span>
                 </div>
-              </div>
+                <div className="flex items-center gap-4">
+                   <Signal className="w-5 h-5 opacity-70" /><Wifi className="w-5 h-5 opacity-70" />
+                </div>
             </header>
 
-            {/* 2. CONTEÚDO HERO (PERFEITAMENTE CENTRALIZADO) */}
-            <main className="flex-1 flex flex-col items-center justify-center w-full px-6 relative">
-              
-              {/* Atmosfera e Grid Dinâmico */}
-              <div className="absolute inset-0 -z-10 pointer-events-none">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-[radial-gradient(circle_at_center,#0EA5E906_0%,transparent_65%)]" />
-                <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: `radial-gradient(#38BDF8 1px, transparent 1px)`, backgroundSize: 'clamp(60px, 10vw, 120px) 100px' }} />
+            <main className="w-full max-w-7xl px-6 flex flex-col items-center gap-10 md:gap-16 text-center py-10 md:py-20">
+              <motion.div animate={{ y: [0, -12, 0] }} transition={{ duration: 5, repeat: Infinity }} className="relative w-32 h-32 md:w-64 md:h-64">
+                <Image src="/logo.png" alt="AtivoraFit" fill className="object-contain drop-shadow-[0_0_40px_#0EA5E966]" priority />
+              </motion.div>
+
+              <div className="w-full">
+                <h1 className="text-5xl md:text-[110px] font-black tracking-[-0.08em] leading-none uppercase italic text-center">ATIVORA<span className="text-sky-500">FIT</span></h1>
+                <p className="text-white/30 md:text-white/50 text-[10px] md:text-3xl font-black uppercase tracking-[0.4em] mt-4 md:mt-8 text-center">A evolução na palma da sua mão</p>
               </div>
 
-              {/* Badge de Verificação */}
-              <motion.div variants={fadeInUp} className="mb-10 flex items-center gap-3 px-6 py-2 rounded-2xl border border-white/5 bg-white/[0.02] backdrop-blur-3xl shadow-2xl">
-                <Sparkles className="w-3.5 h-3.5 text-[#0EA5E9] animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-[0.5em] text-[#0EA5E9]">Ecossistema Global Elite</span>
-              </motion.div>
-
-              {/* Logo Central (Aura de Performance) */}
-              <motion.div 
-                variants={fadeInUp}
-                animate={{ y: [0, -12, 0], scale: [1, 1.03, 1] }}
-                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                className="relative w-36 h-36 md:w-56 md:h-56 mb-12"
-              >
-                <div className="absolute inset-0 bg-[#0EA5E9] blur-[100px] md:blur-[150px] opacity-25 rounded-full" />
-                <Image src="/logo.png" alt="AtivoraFit" fill className="object-contain drop-shadow-[0_0_50px_rgba(14,165,233,0.45)] z-10" priority />
-              </motion.div>
-
-              {/* Título Massivo */}
-              <motion.h1 
-                variants={fadeInUp} 
-                className="text-[clamp(3.5rem,18vw,12rem)] font-black tracking-[-0.08em] leading-[0.7] mb-8 uppercase"
-              >
-                ATIVORA<span className="text-[#0EA5E9]">FIT</span>
-              </motion.h1>
-
-              {/* Slogan */}
-              <motion.div variants={fadeInUp} className="flex flex-col items-center gap-8 mb-16">
-                <div className="relative">
-                  <p className="text-[#F8FAFC] text-sm md:text-3xl font-black uppercase tracking-[0.5em] px-4">
-                    A evolução na palma da sua mão
-                  </p>
-                  <motion.div 
-                    initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ delay: 1.5, duration: 1.5 }}
-                    className="absolute -bottom-5 left-0 h-[1px] bg-linear-to-r from-transparent via-sky-500/50 to-transparent" 
-                  />
-                </div>
-              </motion.div>
-
-              {/* Botões de Ação */}
-              <motion.div variants={fadeInUp} className="w-full flex flex-col items-center gap-5 md:gap-7">
-                <button className="group relative w-full max-w-[360px] md:max-w-md py-6 md:py-8 bg-[#0EA5E9] hover:bg-[#0284C7] text-white font-black text-xl rounded-[2.5rem] transition-all shadow-[0_30px_70px_-10px_rgba(14,165,233,0.5)] flex items-center justify-center gap-3 overflow-hidden border-none cursor-pointer active:scale-95">
+              <div className="w-full flex flex-col items-center gap-4 shrink-0">
+                <button onClick={onExplore} className="group relative w-full max-w-[320px] md:max-w-md py-6 md:py-10 bg-sky-500 text-[#010409] font-black text-xl md:text-3xl rounded-3xl md:rounded-4xl shadow-2xl flex items-center justify-center gap-4 overflow-hidden cursor-pointer border-none active:scale-95 transition-all">
                   <span className="relative z-10 uppercase tracking-tighter">Explorar Plataforma</span>
-                  <ChevronRight className="w-6 h-6 relative z-10 transition-transform group-hover:translate-x-2" />
-                  <motion.div 
-                    initial={{ x: "-100%" }} animate={{ x: "200%" }}
-                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                    className="absolute inset-y-0 w-32 bg-linear-to-r from-transparent via-white/30 to-transparent skew-x-[38deg]"
-                  />
+                  <ChevronRight className="w-6 h-6 md:w-10 md:h-10 group-hover:translate-x-2 transition-transform" />
+                  <motion.div initial={{ x: "-100%" }} animate={{ x: "200%" }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }} className="absolute inset-y-0 w-40 bg-linear-to-r from-transparent via-white/40 to-transparent skew-x-35" />
                 </button>
-                
-                <button className="w-full max-w-[360px] md:max-w-md py-6 md:py-8 border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] text-white font-bold text-lg rounded-[2.5rem] transition-all backdrop-blur-3xl cursor-pointer active:scale-95 uppercase tracking-[0.2em] text-[11px]">
-                  Já tenho uma conta
-                </button>
-              </motion.div>
+                <button className="w-full max-w-[320px] md:max-w-md py-5 border border-white/10 bg-white/5 text-white font-bold text-sm md:text-xl rounded-3xl md:rounded-4xl cursor-pointer active:scale-95 uppercase opacity-60">Já tenho conta</button>
+              </div>
             </main>
 
-            {/* 3. TAB BAR NATIVA (ILUSTRATIVA) */}
-            <footer className="w-full max-w-6xl flex justify-center gap-12 md:gap-28 border-t border-white/[0.05] py-10 md:py-14 px-12 opacity-40 pointer-events-none">
+            <footer className="w-full max-w-7xl grid grid-cols-4 gap-4 md:gap-10 px-6 md:px-12 py-10 md:py-24 shrink-0 mt-auto border-t border-white/5">
               {[
-                { n: "Treino", i: Zap },
-                { n: "Painel", i: LayoutDashboard },
-                { n: "Evolução", i: Globe },
-                { n: "Perfil", i: UserCircle2 }
+                { id: "sobre", n: "Sobre", i: Info },
+                { id: "funcionalidades", n: "Recursos", i: LayoutDashboard },
+                { id: "como_funciona", n: "Sistema", i: Cpu },
+                { id: "novidades", n: "Beta", i: Rocket }
               ].map((item) => (
-                <div key={item.n} className="flex flex-col items-center gap-3">
-                  <item.i className="w-5 h-5 text-[#475569]" />
-                  <span className="text-[9px] font-black uppercase tracking-[0.4em] text-[#475569]">
-                    {item.n}
-                  </span>
-                </div>
+                <button key={item.id} onClick={() => setActiveTab(item.id)} className={`flex flex-col items-center justify-center gap-3 md:gap-6 p-5 md:p-14 rounded-3xl md:rounded-[3rem] transition-all border active:scale-95 shadow-lg ${activeTab === item.id ? 'bg-sky-500/20 border-sky-500/50' : 'bg-white/10 md:bg-white/3 border-white/10 hover:border-white/20 hover:bg-white/15'}`}>
+                  <item.i className={`w-6 h-6 md:w-12 md:h-12 ${activeTab === item.id ? 'text-sky-500' : 'text-white/70'}`} />
+                  <span className={`text-[8px] md:text-sm font-black uppercase tracking-[0.3em] ${activeTab === item.id ? 'text-white' : 'text-white/40'}`}>{item.n}</span>
+                </button>
               ))}
             </footer>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Marca d'água técnica */}
-      <div className="absolute bottom-4 w-full flex justify-center pointer-events-none opacity-[0.04]">
-         <span className="text-[7px] font-black uppercase tracking-[2em]">Ativora OS 2026</span>
-      </div>
+      <AnimatePresence>
+        {activeTab && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setActiveTab(null)} className="fixed inset-0 z-1000 bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
+            <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-lg md:max-w-5xl bg-[#020617] border border-white/10 rounded-4xl p-8 md:p-20 relative shadow-2xl flex flex-col items-center">
+              <button onClick={() => setActiveTab(null)} className="absolute top-6 right-6 md:top-10 md:right-10 p-3 md:p-6 rounded-full bg-white/5 border-none cursor-pointer text-white/50 hover:text-white transition-colors"><X className="w-6 h-6 md:w-10 md:h-10" /></button>
+              <div className="flex flex-col md:flex-row items-center gap-6 md:gap-12 mb-10 md:mb-16 w-full">
+                <div className="p-4 md:p-10 rounded-3xl bg-sky-500/10 border border-sky-500/20 text-sky-400 scale-110 md:scale-125">{sections[activeTab as keyof typeof sections].icon}</div>
+                <h2 className="text-3xl md:text-8xl font-black uppercase tracking-tighter italic leading-none text-center md:text-left">{sections[activeTab as keyof typeof sections].title}</h2>
+              </div>
+              <div className="max-h-[55vh] md:max-h-[60vh] overflow-y-auto pr-3 custom-scrollbar w-full text-white/80">{sections[activeTab as keyof typeof sections].content}</div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(14, 165, 233, 0.4); border-radius: 10px; }
+      `}</style>
     </div>
   );
 };
