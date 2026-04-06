@@ -26,11 +26,11 @@ export const HeroSection = ({ onExplore }: HeroProps) => {
     };
     updateTime();
     const timer = setInterval(updateTime, 1000);
-    return () => {
-      clearInterval(timer);
-      // Garantimos que o sistema saiba que já foi "carregado" para outras lógicas
-      sessionStorage.setItem("ativora_carregado", "true");
-    };
+    
+    // Sincroniza que o sistema já está ativo na sessão
+    sessionStorage.setItem("ativora_carregado", "true");
+    
+    return () => clearInterval(timer);
   }, []);
 
   // --- 🛡️ CONTEÚDO BLINDADO (NUNCA ALTERAR) ---
@@ -95,9 +95,9 @@ export const HeroSection = ({ onExplore }: HeroProps) => {
       title: "Versão Beta",
       icon: <Rocket className="w-6 h-6 text-sky-400" />,
       content: (
-        <div className="space-y-8 md:space-y-12 pb-10 w-full">
+        <div className="space-y-8 md:space-y-12 pb-10 w-full text-center">
           <div className="p-8 md:p-14 rounded-4xl bg-white/3 border border-white/5">
-            <h4 className="text-sky-400 font-black text-xs md:text-2xl uppercase mb-8 tracking-[0.3em] text-center italic">Ativo na Versão 1.0</h4>
+            <h4 className="text-sky-400 font-black text-xs md:text-2xl uppercase mb-8 tracking-[0.3em] italic">Ativo na Versão 1.0</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {["Painel de Performance", "Onboarding Inteligente", "Treinos via IA", "Evolução por Fotos", "Comunidades Ativas", "Interface Mobile"].map(t => (
                 <div key={t} className="flex items-center justify-center md:justify-start gap-4 text-xs md:text-xl font-bold text-white/70 uppercase italic tracking-tighter"><CheckCircle2 className="w-5 h-5 md:w-8 md:h-8 text-sky-500" /> {t}</div>
@@ -112,6 +112,7 @@ export const HeroSection = ({ onExplore }: HeroProps) => {
   return (
     <div className="relative min-h-dvh w-full bg-[#010307] text-[#F8FAFC] overflow-y-auto overflow-x-hidden flex flex-col items-center justify-between font-sans scroll-smooth">
       
+      {/* 1. MARCA D'ÁGUA BETA (FIXA) */}
       <div className="fixed top-0 left-0 w-full z-100 pointer-events-none">
         <div className="bg-sky-500/10 border-b border-sky-500/30 backdrop-blur-xl py-3 px-6 flex items-center justify-between shadow-2xl">
           <div className="flex items-center gap-3">
@@ -124,8 +125,10 @@ export const HeroSection = ({ onExplore }: HeroProps) => {
 
       <div className="absolute inset-0 z-0 pointer-events-none opacity-5 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay" />
 
+      {/* PORTAL PRINCIPAL (CARREGA IMEDIATAMENTE) */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative z-10 w-full flex flex-col items-center">
         
+        {/* HEADER */}
         <header className="w-full max-w-7xl px-6 md:px-12 py-16 md:py-24 flex justify-between items-center shrink-0">
            <div className="bg-white/5 px-6 py-4 rounded-full border border-white/10 flex items-center gap-5 shadow-xl">
               <span className="text-[10px] md:text-sm font-black uppercase tracking-widest">{time}</span>
@@ -137,6 +140,7 @@ export const HeroSection = ({ onExplore }: HeroProps) => {
             </div>
         </header>
 
+        {/* CONTEÚDO CENTRAL */}
         <main className="w-full max-w-7xl px-6 flex flex-col items-center gap-10 md:gap-16 text-center py-10 md:py-20">
           <motion.div animate={{ y: [0, -12, 0] }} transition={{ duration: 5, repeat: Infinity }} className="relative w-32 h-32 md:w-64 md:h-64">
             <Image src="/logo.png" alt="AtivoraFit" fill className="object-contain drop-shadow-[0_0_40px_#0EA5E966]" priority />
@@ -157,6 +161,7 @@ export const HeroSection = ({ onExplore }: HeroProps) => {
           </div>
         </main>
 
+        {/* FOOTER GLOBAL BLINDADO */}
         <footer className="w-full max-w-7xl grid grid-cols-4 gap-4 md:gap-10 px-6 md:px-12 py-10 md:py-24 shrink-0 mt-auto border-t border-white/5">
           {[
             { id: "sobre", n: "Sobre", i: Info },
@@ -172,6 +177,7 @@ export const HeroSection = ({ onExplore }: HeroProps) => {
         </footer>
       </motion.div>
 
+      {/* MODAIS (CONTEÚDO BLINDADO) */}
       <AnimatePresence>
         {activeTab && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setActiveTab(null)} className="fixed inset-0 z-1000 bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
