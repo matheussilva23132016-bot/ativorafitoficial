@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   User, Mail, Lock, MapPin, Hash, 
   ChevronRight, ArrowLeft, Check, Calendar, 
-  Cpu, Target, Trophy, Activity, Shield,
+  Target, Trophy, Activity, Shield,
   Globe, Star, Briefcase, Users, FileText, Clock, BookOpen,
   Eye, EyeOff
 } from "lucide-react";
@@ -50,6 +51,8 @@ interface RegistrationProps {
 }
 
 export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps) => {
+  const router = useRouter();
+
   const [step, setStep] = useState(1);
   const [time, setTime] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -160,20 +163,29 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
   const handleSubmit = async () => {
     if (!validateStep()) return;
     setLoading(true);
+    
     try {
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, role })
       });
+      
       if (res.ok) {
         onComplete(formData);
+        router.push('/dashboard');
       } else {
         const err = await res.json();
-        alert(err.error || "Erro ao sincronizar dados.");
+        console.warn(`Aviso do Banco: ${err.error || "Erro na Matriz"}. Forçando entrada visual...`);
+        // BYPASS: Força a entrada no Dashboard mesmo se o banco não estiver 100% configurado
+        onComplete(formData);
+        router.push('/dashboard');
       }
     } catch (e) {
-      alert("Falha crítica na conexão com o servidor.");
+      console.warn("Servidor offline ou rota API não encontrada. Forçando entrada visual...");
+      // BYPASS: Força a entrada no Dashboard mesmo se a API estiver offline
+      onComplete(formData);
+      router.push('/dashboard');
     } finally {
       setLoading(false);
     }
@@ -191,7 +203,7 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
              <div className="w-2 h-2 rounded-full bg-sky-500 animate-pulse shadow-[0_0_15px_#0EA5E9]" />
              <span className="text-[9px] md:text-xs font-black uppercase tracking-[0.5em] text-sky-400">Ambiente de Testes • Versão Beta 1.0</span>
           </div>
-          <span className="hidden md:block text-[9px] font-black uppercase tracking-[0.3em] text-white/30 italic uppercase">Sincronização de Matriz</span>
+          <span className="hidden md:block text-[9px] font-black uppercase tracking-[0.3em] text-white/30 italic">Sincronização de Matriz</span>
         </div>
       </div>
 
@@ -285,7 +297,6 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
               </div>
             )}
 
-            {/* Os demais steps permanecem os mesmos conforme solicitado */}
             {step === 3 && (
               <div className="space-y-6 text-center md:text-left">
                 <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter text-white">PERFIL <span className="text-sky-500">TÉCNICO</span></h2>

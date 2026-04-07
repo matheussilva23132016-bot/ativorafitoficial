@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ChevronRight, Zap, LayoutDashboard, Wifi, Signal, 
@@ -167,7 +168,10 @@ export const HeroSection = ({ onExplore }: HeroProps) => {
               <ChevronRight className="w-6 h-6 md:w-10 md:h-10 group-hover:translate-x-2 transition-transform" />
               <motion.div initial={{ x: "-100%" }} animate={{ x: "200%" }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }} className="absolute inset-y-0 w-40 bg-linear-to-r from-transparent via-white/40 to-transparent skew-x-35" />
             </button>
-            <button className="w-full max-w-[320px] md:max-w-md py-5 border border-white/10 bg-white/5 text-white font-bold text-sm md:text-xl rounded-3xl md:rounded-4xl cursor-pointer active:scale-95 uppercase opacity-60">Já tenho conta</button>
+            {/* TAG LINK ADICIONADA AQUI */}
+            <Link href="/login" className="w-full max-w-[320px] md:max-w-md py-5 border border-white/10 bg-white/5 text-white font-bold text-sm md:text-xl rounded-3xl md:rounded-4xl cursor-pointer active:scale-95 uppercase opacity-60 flex items-center justify-center">
+              Já tenho conta
+            </Link>
           </div>
         </main>
 

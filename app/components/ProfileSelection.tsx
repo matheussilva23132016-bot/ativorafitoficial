@@ -13,7 +13,7 @@ import {
 
 interface ProfileProps {
   onBack: () => void;
-  onSelectProfile: (role: string) => void; // Prop adicionada para controle de fluxo
+  onSelectProfile: (role: string) => void; 
 }
 
 export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
@@ -116,9 +116,8 @@ export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
   return (
     <div className="relative min-h-dvh w-full bg-[#010307] text-[#F8FAFC] overflow-y-auto overflow-x-hidden flex flex-col items-center justify-between font-sans scroll-smooth">
       
-      {/* 1. MARCA D'ÁGUA BETA (ONIPRESENTE) */}
       <div className="fixed top-0 left-0 w-full z-100 pointer-events-none">
-        <div className="bg-sky-500/10 border-b border-sky-500/30 backdrop-blur-xl py-3 px-6 flex items-center justify-between">
+        <div className="bg-sky-500/10 border-b border-sky-500/30 backdrop-blur-xl py-3 px-6 flex items-center justify-between shadow-2xl">
           <div className="flex items-center gap-3">
              <div className="w-2 h-2 rounded-full bg-sky-500 animate-pulse shadow-[0_0_15px_#0EA5E9]" />
              <span className="text-[9px] md:text-xs font-black uppercase tracking-[0.5em] text-sky-400">Ambiente de Testes • Versão Beta 1.0</span>
@@ -127,7 +126,6 @@ export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
         </div>
       </div>
 
-      {/* 2. HEADER: STATUS BAR */}
       <header className="w-full max-w-7xl px-6 md:px-12 py-16 md:py-20 flex justify-between items-center z-20 shrink-0">
         <button onClick={onBack} className="flex items-center gap-3 bg-white/5 px-6 py-3 rounded-full border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all group">
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
@@ -152,7 +150,6 @@ export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
         </div>
       </header>
 
-      {/* 3. CONTEÚDO CENTRAL */}
       <main className="w-full max-w-6xl px-6 flex flex-col items-center justify-center z-10 py-10 md:py-4">
         <div className="text-center mb-10 md:mb-14">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-center gap-4 mb-4">
@@ -163,7 +160,6 @@ export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
           <p className="text-white/30 text-[10px] md:text-lg font-bold uppercase tracking-[0.5em] max-w-2xl mx-auto leading-relaxed">Sincronize sua identidade no ecossistema AtivoraFit</p>
         </div>
 
-        {/* GRID DE PERFIS RECALIBRADO */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-5 w-full mb-12">
           {profiles.map((p, index) => (
             <motion.button
@@ -195,11 +191,10 @@ export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
           ))}
         </div>
 
-        {/* BOTÃO AVANÇAR: AGORA CONECTADO À NAVEGAÇÃO */}
         <div className="w-full flex flex-col items-center gap-6 mb-16">
           <button 
             disabled={!selectedId}
-            onClick={() => selectedId && onSelectProfile(selectedId)} // Dispara a função com o ID do perfil
+            onClick={() => selectedId && onSelectProfile(selectedId)} 
             className={`group relative w-full max-w-[320px] md:max-w-md py-6 md:py-8 bg-sky-500 text-[#010409] font-black text-xl md:text-2xl rounded-3xl md:rounded-4xl shadow-2xl flex items-center justify-center gap-4 overflow-hidden cursor-pointer border-none active:scale-95 transition-all
               ${!selectedId ? 'opacity-30 cursor-not-allowed grayscale' : ''}`}
           >
@@ -211,7 +206,6 @@ export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
         </div>
       </main>
 
-      {/* 4. FOOTER GLOBAL BLINDADO */}
       <footer className="w-full max-w-7xl grid grid-cols-4 gap-4 md:gap-8 px-6 md:px-12 py-10 md:py-20 shrink-0 mt-auto border-t border-white/5">
         {[
           { id: "sobre", n: "Sobre", i: Info },
@@ -232,7 +226,6 @@ export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
         ))}
       </footer>
 
-      {/* MODAIS */}
       <AnimatePresence>
         {activeTab && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setActiveTab(null)} className="fixed inset-0 z-1000 bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
