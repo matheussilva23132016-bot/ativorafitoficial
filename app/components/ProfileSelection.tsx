@@ -13,10 +13,10 @@ import {
 
 interface ProfileProps {
   onBack: () => void;
-  onSelect: (role: string) => void;
+  onSelectProfile: (role: string) => void;
 }
 
-export const ProfileSelection = ({ onBack, onSelect }: ProfileProps) => {
+export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [time, setTime] = useState("");
@@ -192,7 +192,7 @@ export const ProfileSelection = ({ onBack, onSelect }: ProfileProps) => {
         <div className="w-full flex flex-col items-center gap-6 mb-16">
           <button 
             disabled={!selectedId}
-            onClick={() => selectedId && onSelect(selectedId)} 
+            onClick={() => selectedId && onSelectProfile(selectedId)} 
             className={`group relative w-full max-w-[320px] md:max-w-md py-6 md:py-8 bg-sky-500 text-[#010409] font-black text-xl md:text-2xl rounded-3xl md:rounded-4xl shadow-2xl flex items-center justify-center gap-4 overflow-hidden cursor-pointer border-none active:scale-95 transition-all
               ${!selectedId ? 'opacity-30 cursor-not-allowed grayscale' : ''}`}
           >

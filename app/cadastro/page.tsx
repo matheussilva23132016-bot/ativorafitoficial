@@ -6,11 +6,9 @@ import { RegistrationFlow } from "@/app/components/RegistrationFlow";
 import { AnimatePresence, motion } from "framer-motion";
 
 export default function CadastroPage() {
-  // Estado para controlar se estamos escolhendo o perfil ou preenchendo os dados
   const [step, setStep] = useState<'selection' | 'form'>('selection');
   const [selectedRole, setSelectedRole] = useState<string>("");
 
-  // Função chamada quando o usuário escolhe um perfil (Aluno, Personal, etc)
   const handleProfileSelect = (role: string) => {
     setSelectedRole(role);
     setStep('form');
@@ -27,10 +25,13 @@ export default function CadastroPage() {
             exit={{ opacity: 0, y: -20 }}
             className="w-full"
           >
-            {/* Sincronizado: Enviando onSelect e a prop obrigatória onBack */}
+            {/* CORREÇÃO AQUI: 
+                Mudamos de 'onSelect' para 'onSelectProfile' 
+                para casar com o componente 
+            */}
             <ProfileSelection 
               onBack={() => window.history.back()} 
-              onSelect={handleProfileSelect} 
+              onSelectProfile={handleProfileSelect} 
             />
           </motion.div>
         ) : (
