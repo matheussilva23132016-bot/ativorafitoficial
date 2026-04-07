@@ -1,54 +1,118 @@
-import { NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
-import bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
+import { NextResponse } from "next/server";
+import mysql from "mysql2/promise";
+import bcrypt from "bcryptjs";
 
-export async function POST(request: Request) {
+const db = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+});
+
+export async function POST(req: Request) {
   try {
-    const data = await request.json();
-    const { 
-      nomeCompleto, email, senha, nickname, role, 
-      dataNascimento, cidadeEstado, interesses 
-    } = data;
+    const body = await req.json();
 
-    const userId = uuidv4();
+    const {
+      email,
+      senha,
+      nomeCompleto,
+      nickname,
+      genero,
+      cidadeEstado,
+      dataNascimento,
+      role
+    } = body;
+
+    if (!email || !senha || !nomeCompleto || !role) {
+      return NextResponse.json(
+        { error: "Campos obrigatórios faltando" },
+        { status: 400 }
+      );
+    }
+
     const passwordHash = await bcrypt.hash(senha, 10);
 
-    // 1. Inserir na tabela Mestre (users)
-    await pool.query(
-      `INSERT INTO users (id, email, password_hash, full_name, username, role, birth_date, location) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId, email, passwordHash, nomeCompleto, nickname, role, dataNascimento, cidadeEstado]
-    );
+    const conn = await db.getConnection();
 
-    // 2. Inserir na tabela específica de perfil (Ex: Aluno/Student)
-    if (role === 'aluno') {
-      await pool.query(
-        `INSERT INTO student_profiles (user_id, weight, height, limitations) VALUES (?, ?, ?, ?)`,
-        [userId, data.peso || 0, data.altura || 0, data.limitacoes || '']
-      );
-    } else if (role === 'personal') {
-      await pool.query(
-        `INSERT INTO personal_profiles (user_id, license_number, experience_years, bio) VALUES (?, ?, ?, ?)`,
-        [userId, data.registro || '', data.exp || 0, data.bio || '']
-      );
-    }
+    try {
+      await conn.beginTransaction();
 
-    // 3. Vincular Interesses/Objetivos
-    if (interesses && interesses.length > 0) {
-      for (const tag of interesses) {
-        await pool.query(
-          `INSERT INTO user_interests (user_id, interest_name) VALUES (?, ?)`,
-          [userId, tag]
+      const [userResult]: any = await conn.query(
+        `INSERT INTO users (email, password_hash, accepted_terms_at, accepted_privacy_at)
+         VALUES (?, ?, NOW(), NOW())`,
+        [email.trim().toLowerCase(), passwordHash]
+      );
+
+      const userId = userResult.insertId;
+
+      await conn.query(
+        `INSERT INTO profiles (user_id, role, nome_completo, nickname, genero, cidade_estado, data_nascimento)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          userId,
+          role,
+          nomeCompleto,
+          nickname || null,
+          genero || null,
+          cidadeEstado || null,
+          dataNascimento || null
+        ]
+      );
+
+      if (role === "aluno") {
+        await conn.query(
+          `INSERT INTO student_profiles (user_id) VALUES (?)`,
+          [userId]
         );
       }
+
+      if (role === "personal") {
+        await conn.query(
+          `INSERT INTO personal_profiles (user_id) VALUES (?)`,
+          [userId]
+        );
+      }
+
+      if (role === "nutricionista") {
+        await conn.query(
+          `INSERT INTO nutritionist_profiles (user_id) VALUES (?)`,
+          [userId]
+        );
+      }
+
+      if (role === "estagiario") {
+        await conn.query(
+          `INSERT INTO intern_profiles (user_id) VALUES (?)`,
+          [userId]
+        );
+      }
+
+      if (role === "influencer") {
+        await conn.query(
+          `INSERT INTO influencer_profiles (user_id) VALUES (?)`,
+          [userId]
+        );
+      }
+
+      await conn.commit();
+
+      return NextResponse.json({ success: true, userId }, { status: 201 });
+    } catch (error) {
+      await conn.rollback();
+      console.error("Erro na transação:", error);
+      return NextResponse.json(
+        { error: "Erro ao salvar no banco" },
+        { status: 500 }
+      );
+    } finally {
+      conn.release();
     }
-
-    return NextResponse.json({ message: "Sincronização concluída!" }, { status: 201 });
-
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Erro desconhecido";
-    console.error("ERRO NO BANCO:", msg);
-    return NextResponse.json({ error: "Falha ao gravar na matriz." }, { status: 500 });
+  } catch (error) {
+    console.error("Erro geral:", error);
+    return NextResponse.json(
+      { error: "Erro interno do servidor" },
+      { status: 500 }
+    );
   }
 }
