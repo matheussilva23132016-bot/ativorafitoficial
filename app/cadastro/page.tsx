@@ -27,7 +27,11 @@ export default function CadastroPage() {
             exit={{ opacity: 0, y: -20 }}
             className="w-full"
           >
-            <ProfileSelection onSelect={handleProfileSelect} />
+            {/* Sincronizado: Enviando onSelect e a prop obrigatória onBack */}
+            <ProfileSelection 
+              onBack={() => window.history.back()} 
+              onSelect={handleProfileSelect} 
+            />
           </motion.div>
         ) : (
           <motion.div

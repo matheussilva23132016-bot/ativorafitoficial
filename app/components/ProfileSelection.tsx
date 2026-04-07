@@ -13,10 +13,10 @@ import {
 
 interface ProfileProps {
   onBack: () => void;
-  onSelectProfile: (role: string) => void; 
+  onSelect: (role: string) => void;
 }
 
-export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
+export const ProfileSelection = ({ onBack, onSelect }: ProfileProps) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [time, setTime] = useState("");
@@ -29,7 +29,6 @@ export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
     return () => clearInterval(timer);
   }, []);
 
-  // --- 🛡️ INFORMAÇÕES BLINDADAS (NUNCA ALTERAR) ---
   const profiles = [
     { id: "aluno", title: "Aluno", icon: User, desc: "Performance máxima. Evolução inteligente." },
     { id: "personal", title: "Personal Trainer", icon: Dumbbell, desc: "Escale sua consultoria. Gerencie com elite." },
@@ -115,7 +114,6 @@ export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
 
   return (
     <div className="relative min-h-dvh w-full bg-[#010307] text-[#F8FAFC] overflow-y-auto overflow-x-hidden flex flex-col items-center justify-between font-sans scroll-smooth">
-      
       <div className="fixed top-0 left-0 w-full z-100 pointer-events-none">
         <div className="bg-sky-500/10 border-b border-sky-500/30 backdrop-blur-xl py-3 px-6 flex items-center justify-between shadow-2xl">
           <div className="flex items-center gap-3">
@@ -185,7 +183,7 @@ export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
               
               <div className={`absolute top-6 right-6 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all
                 ${selectedId === p.id ? 'bg-sky-500 border-sky-500 scale-110 shadow-lg' : 'border-white/10 scale-90 opacity-0 group-hover:opacity-100'}`}>
-                {selectedId === p.id && <Check className="w-3 h-3 text-[#010307] stroke-[4]" />}
+                {selectedId === p.id && <Check className="w-3 h-3 text-[#010307] stroke-4" />}
               </div>
             </motion.button>
           ))}
@@ -194,7 +192,7 @@ export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
         <div className="w-full flex flex-col items-center gap-6 mb-16">
           <button 
             disabled={!selectedId}
-            onClick={() => selectedId && onSelectProfile(selectedId)} 
+            onClick={() => selectedId && onSelect(selectedId)} 
             className={`group relative w-full max-w-[320px] md:max-w-md py-6 md:py-8 bg-sky-500 text-[#010409] font-black text-xl md:text-2xl rounded-3xl md:rounded-4xl shadow-2xl flex items-center justify-center gap-4 overflow-hidden cursor-pointer border-none active:scale-95 transition-all
               ${!selectedId ? 'opacity-30 cursor-not-allowed grayscale' : ''}`}
           >
