@@ -6,7 +6,8 @@ import {
   User, Mail, Lock, MapPin, Hash, 
   ChevronRight, ArrowLeft, Check, Calendar, 
   Cpu, Target, Trophy, Activity, Shield,
-  Globe, Star, Briefcase, Users, FileText, Clock, BookOpen
+  Globe, Star, Briefcase, Users, FileText, Clock, BookOpen,
+  Eye, EyeOff
 } from "lucide-react";
 
 // --- CONFIGURAÇÕES DE ELITE ---
@@ -19,6 +20,12 @@ const INTERESSES_LIST = [
   "Hipertrofia", "Emagrecimento", "Saúde", "Performance", "Consultoria", 
   "Lifestyle", "Nutrição", "Flexibilidade", "Treino Funcional", "Atendimento Online",
   "Marketing Fitness", "Mentoria", "Presença Digital", "Reabilitação", "Avaliação Física"
+];
+
+const CIDADES_SUGESTOES = [
+  "Salvador, BA", "São Paulo, SP", "Rio de Janeiro, RJ", "Brasília, DF", 
+  "Belo Horizonte, MG", "Curitiba, PR", "Manaus, AM", "Recife, PE", 
+  "Porto Alegre, RS", "Fortaleza, CE", "Goiânia, GO", "Belém, PA"
 ];
 
 interface RegistrationFormData {
@@ -48,6 +55,11 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   
+  // Estados para novas funcionalidades
+  const [showPass, setShowPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [filteredCities, setFilteredCities] = useState<string[]>([]);
+
   const [formData, setFormData] = useState<RegistrationFormData>({
     nomeCompleto: "",
     email: "",
@@ -121,6 +133,17 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
       finalValue = value.replace(/\s+/g, '').toLowerCase();
     }
 
+    if (name === "cidadeEstado") {
+      if (value.length >= 3) {
+        const matches = CIDADES_SUGESTOES.filter(c => 
+          c.toLowerCase().includes(value.toLowerCase())
+        );
+        setFilteredCities(matches);
+      } else {
+        setFilteredCities([]);
+      }
+    }
+
     setFormData(prev => ({ ...prev, [name]: finalValue }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
   };
@@ -178,7 +201,7 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
         </button>
         <div className="text-right">
           <span className="text-[10px] font-black tracking-widest opacity-60 block">{time}</span>
-          <span className="text-[9px] font-black text-sky-500 uppercase tracking-widest">Etapa {step}/{totalSteps}</span>
+          <span className="text-[9px] font-black text-sky-500 uppercase tracking-widest">Passo {step}/{totalSteps}</span>
         </div>
       </header>
 
@@ -197,11 +220,33 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
                 <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter text-white">ACESSO AO <span className="text-sky-500">SISTEMA</span></h2>
                 <p className="text-white/30 text-[10px] font-black uppercase tracking-widest">Defina suas credenciais de entrada</p>
                 <div className="space-y-4">
-                  <Input name="nomeCompleto" icon={<User />} placeholder="NOME COMPLETO" error={errors.nomeCompleto} value={formData.nomeCompleto} onChange={handleInputChange} />
-                  <Input name="email" icon={<Mail />} placeholder="E-MAIL" type="email" error={errors.email} value={formData.email} onChange={handleInputChange} />
+                  <Input name="nomeCompleto" icon={<User />} placeholder="Nome Completo" error={errors.nomeCompleto} value={formData.nomeCompleto} onChange={handleInputChange} />
+                  <Input name="email" icon={<Mail />} placeholder="E-mail" type="email" error={errors.email} value={formData.email} onChange={handleInputChange} />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input name="senha" icon={<Lock />} placeholder="SENHA" type="password" error={errors.senha} value={formData.senha} onChange={handleInputChange} />
-                    <Input name="confirmarSenha" icon={<Check />} placeholder="REPETIR SENHA" type="password" error={errors.confirmarSenha} value={formData.confirmarSenha} onChange={handleInputChange} />
+                    <Input 
+                      name="senha" 
+                      icon={<Lock />} 
+                      placeholder="Senha" 
+                      type={showPass ? "text" : "password"} 
+                      error={errors.senha} 
+                      value={formData.senha} 
+                      onChange={handleInputChange}
+                      hasToggle
+                      isToggled={showPass}
+                      onToggle={() => setShowPass(!showPass)}
+                    />
+                    <Input 
+                      name="confirmarSenha" 
+                      icon={<Check />} 
+                      placeholder="Repetir Senha" 
+                      type={showConfirmPass ? "text" : "password"} 
+                      error={errors.confirmarSenha} 
+                      value={formData.confirmarSenha} 
+                      onChange={handleInputChange}
+                      hasToggle
+                      isToggled={showConfirmPass}
+                      onToggle={() => setShowConfirmPass(!showConfirmPass)}
+                    />
                   </div>
                 </div>
               </div>
@@ -212,16 +257,35 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
                 <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter text-white">IDENTIDADE <span className="text-sky-500">DIGITAL</span></h2>
                 <p className="text-white/30 text-[10px] font-black uppercase tracking-widest">Como sua marca pessoal será exibida</p>
                 <div className="space-y-4">
-                  <Input name="nickname" icon={<Hash />} placeholder="NICKNAME" error={errors.nickname} value={formData.nickname} onChange={handleInputChange} />
+                  <Input name="nickname" icon={<Hash />} placeholder="nickname" error={errors.nickname} value={formData.nickname} onChange={handleInputChange} />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input name="dataNascimento" icon={<Calendar />} type="date" error={errors.dataNascimento} value={formData.dataNascimento} onChange={handleInputChange} />
                     <Select name="genero" icon={<User />} options={["Masculino", "Feminino", "Outro"]} value={formData.genero} onChange={handleInputChange} />
                   </div>
-                  <Input name="cidadeEstado" icon={<MapPin />} placeholder="CIDADE / ESTADO" error={errors.cidadeEstado} value={formData.cidadeEstado} onChange={handleInputChange} />
+                  <div className="relative">
+                    <Input name="cidadeEstado" icon={<MapPin />} placeholder="Cidade / Estado" error={errors.cidadeEstado} value={formData.cidadeEstado} onChange={handleInputChange} autoComplete="off" />
+                    {filteredCities.length > 0 && (
+                      <div className="absolute top-full left-0 w-full bg-[#0F172A] border border-white/10 rounded-2xl mt-2 overflow-hidden z-50 shadow-2xl">
+                        {filteredCities.map((city) => (
+                          <button
+                            key={city}
+                            onClick={() => {
+                              setFormData(prev => ({ ...prev, cidadeEstado: city }));
+                              setFilteredCities([]);
+                            }}
+                            className="w-full text-left px-6 py-4 text-xs font-bold text-white/70 hover:bg-sky-500 hover:text-black transition-all border-b border-white/5 last:border-none"
+                          >
+                            {city}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
 
+            {/* Os demais steps permanecem os mesmos conforme solicitado */}
             {step === 3 && (
               <div className="space-y-6 text-center md:text-left">
                 <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter text-white">PERFIL <span className="text-sky-500">TÉCNICO</span></h2>
@@ -310,12 +374,30 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
 };
 
 // --- COMPONENTES ATÔMICOS ---
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> { icon: React.ReactNode; error?: string; }
-const Input = ({ icon, error, ...props }: InputProps) => (
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> { 
+  icon: React.ReactNode; 
+  error?: string; 
+  hasToggle?: boolean; 
+  isToggled?: boolean; 
+  onToggle?: () => void; 
+}
+const Input = ({ icon, error, hasToggle, isToggled, onToggle, ...props }: InputProps) => (
   <div className="flex flex-col gap-2 w-full text-left">
     <div className="relative group">
       <div className={`absolute left-5 top-1/2 -translate-y-1/2 transition-colors ${error ? 'text-red-500' : 'text-white/20 group-focus-within:text-sky-500'}`}>{icon}</div>
-      <input {...props} className={`w-full bg-white/5 border rounded-2xl py-6 pl-14 pr-6 text-sm font-bold uppercase tracking-widest outline-none transition-all text-white ${error ? 'border-red-500/50 bg-red-500/5' : 'border-white/10 focus:border-sky-500'}`} />
+      <input 
+        {...props} 
+        className={`w-full bg-white/5 border rounded-2xl py-6 pl-14 pr-14 text-sm font-bold tracking-widest outline-none transition-all text-white ${error ? 'border-red-500/50 bg-red-500/5' : 'border-white/10 focus:border-sky-500'}`} 
+      />
+      {hasToggle && (
+        <button 
+          type="button" 
+          onClick={onToggle}
+          className="absolute right-5 top-1/2 -translate-y-1/2 text-white/20 hover:text-sky-500 transition-colors"
+        >
+          {isToggled ? <EyeOff size={20} /> : <Eye size={20} />}
+        </button>
+      )}
     </div>
     {error && <span className="text-[9px] text-red-500 font-black ml-4 uppercase tracking-widest">{error}</span>}
   </div>
@@ -325,7 +407,7 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> { ic
 const Select = ({ icon, options, ...props }: SelectProps) => (
   <div className="relative w-full group">
     <div className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-sky-500 transition-colors pointer-events-none">{icon}</div>
-    <select {...props} className="w-full bg-white/5 border border-white/10 rounded-2xl py-6 pl-14 pr-6 text-sm font-bold uppercase tracking-widest outline-none focus:border-sky-500 appearance-none text-white">
+    <select {...props} className="w-full bg-white/5 border border-white/10 rounded-2xl py-6 pl-14 pr-6 text-sm font-bold tracking-widest outline-none focus:border-sky-500 appearance-none text-white">
       {options.map(o => <option key={o} value={o.split(':').pop()?.trim()} className="bg-slate-950 text-white">{o}</option>)}
     </select>
   </div>
