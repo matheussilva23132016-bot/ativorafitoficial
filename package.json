@@ -16,13 +16,18 @@
     "framer-motion": "latest",
     "mysql2": "latest",
     "clsx": "latest",
-    "tailwind-merge": "latest"
+    "tailwind-merge": "latest",
+    "bcryptjs": "latest",
+    "nodemailer": "latest",
+    "@tailwindcss/postcss": "latest"
   },
   "devDependencies": {
     "typescript": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "@types/bcryptjs": "latest",
+    "@types/nodemailer": "latest",
     "postcss": "latest",
     "tailwindcss": "latest",
     "eslint": "latest",
