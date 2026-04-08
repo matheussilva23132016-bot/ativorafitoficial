@@ -1,40 +1,43 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { AnimatePresence } from "framer-motion";
-
-import { WelcomeSlide } from "@/app/components/dashboard/WelcomeSlide";
-import { FitaoOnboarding } from "@/app/components/dashboard/FitaoOnboarding";
-import { MainDashboard } from "@/app/components/dashboard/MainDashboard";
+// Importes relativos blindados
+import { WelcomeSlide } from "../components/dashboard/WelcomeSlide";
+import { FitaoOnboarding } from "../components/dashboard/FitaoOnboarding";
+import { MainDashboard } from "../components/dashboard/MainDashboard";
 
 export default function DashboardPage() {
-  const [flowState, setFlowState] = useState<'welcome' | 'fitao' | 'dashboard'>('welcome');
+  const [stage, setStage] = useState<'welcome' | 'onboarding' | 'main'>('welcome');
 
   useEffect(() => {
-    if (flowState === 'welcome') {
-      const timer = setTimeout(() => setFlowState('fitao'), 3500);
-      return () => clearTimeout(timer);
-    }
-  }, [flowState]);
+    // Se o usuário já passou pelo onboarding antes, podemos pular direto (Opcional)
+    const hasSeenOnboarding = localStorage.getItem('@ativora_onboarding_done');
+    
+    const timer = setTimeout(() => {
+      if (hasSeenOnboarding) {
+        setStage('main');
+      } else {
+        setStage('onboarding');
+      }
+    }, 3500); // Tempo do Welcome Slide
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleOnboardingComplete = () => {
+    localStorage.setItem('@ativora_onboarding_done', 'true');
+    setStage('main');
+  };
 
   return (
-    <div className="relative min-h-dvh w-full bg-[#010307] overflow-hidden">
-      <AnimatePresence mode="wait">
-        {flowState === 'welcome' && (
-          <WelcomeSlide key="welcome" />
-        )}
-        
-        {flowState === 'fitao' && (
-          <FitaoOnboarding 
-            key="fitao" 
-            onComplete={() => setFlowState('dashboard')} 
-          />
-        )}
-
-        {flowState === 'dashboard' && (
-          <MainDashboard key="dashboard" />
-        )}
-      </AnimatePresence>
+    <div className="min-h-screen bg-[#010307]">
+      {stage === 'welcome' && <WelcomeSlide />}
+      
+      {stage === 'onboarding' && (
+        <FitaoOnboarding onComplete={handleOnboardingComplete} />
+      )}
+      
+      {stage === 'main' && <MainDashboard />}
     </div>
   );
 }
