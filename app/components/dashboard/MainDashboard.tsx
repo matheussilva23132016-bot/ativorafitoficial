@@ -3,23 +3,62 @@
 import React, { useState, useEffect } from "react";
 import { AtivoraSocial } from "./social/AtivoraSocial";
 import { 
-  LayoutDashboard, Users, Target, TrendingUp, 
-  Settings, LogOut, Bell, Shield, Zap, ChevronRight,
-  Activity, Utensils, Award, Beaker 
+  // --- ÍCONES DE NAVEGAÇÃO ---
+  LayoutDashboard, Users, Target, TrendingUp, Settings, LogOut,
+  // --- ÍCONES DE UI ---
+  Bell, Shield, Zap, ChevronRight, Menu, X,
+  // --- ÍCONES DE RECURSOS ---
+  Activity, Utensils, Award, Beaker, Flame
 } from "lucide-react";
 import { motion, Variants, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
-// --- INTERFACES ---
+// --- INTERFACES E TIPAGEM ---
 type ViewState = 'home' | 'social' | 'treinos' | 'metricas' | 'config';
 
-interface UserData { nickname: string; id: string; avatar: string; }
-interface SidebarItemProps { icon: React.ReactNode; label: string; active?: boolean; danger?: boolean; code: string; index: number; onClick: () => void; }
-interface FunctionCardProps { icon: React.ReactNode; title: string; desc: string; code: string; bgImage: string; onClick: () => void; }
-interface MobileNavItemProps { icon: React.ReactNode; label: string; active?: boolean; onClick: () => void; }
+interface UserData { 
+  nickname: string; 
+  id: string; 
+  avatar: string; 
+  role?: string;
+  streak?: number;
+}
 
-const containerVariants: Variants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
-const itemVariants: Variants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 100, damping: 15 } } };
+interface SidebarItemProps { 
+  icon: React.ReactNode; 
+  label: string; 
+  active?: boolean; 
+  danger?: boolean; 
+  code: string; 
+  index: number; 
+  onClick: () => void; 
+}
+
+interface FunctionCardProps { 
+  icon: React.ReactNode; 
+  title: string; 
+  desc: string; 
+  code: string; 
+  bgImage: string; 
+  onClick: () => void; 
+}
+
+interface MobileNavItemProps { 
+  icon: React.ReactNode; 
+  label: string; 
+  active?: boolean; 
+  onClick: () => void; 
+}
+
+const containerVariants: Variants = { 
+  hidden: { opacity: 0 }, 
+  visible: { opacity: 1, transition: { staggerChildren: 0.1 } } 
+};
+
+const itemVariants: Variants = { 
+  hidden: { y: 20, opacity: 0 }, 
+  visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 100, damping: 15 } } 
+};
 
 export const MainDashboard = () => {
   const [currentView, setCurrentView] = useState<ViewState>('home');
@@ -27,23 +66,39 @@ export const MainDashboard = () => {
   const [isSocialEditOpen, setIsSocialEditOpen] = useState(false);
   const [isGuestMode, setIsGuestMode] = useState(false);
   const [hasProfile, setHasProfile] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserData | null>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setHasProfile(!!localStorage.getItem('@ativora_profile'));
-    }, 0);
-    return () => clearTimeout(timer);
+    const savedProfile = localStorage.getItem('@ativora_profile');
+    if (savedProfile) {
+      const parsed = JSON.parse(savedProfile);
+      setHasProfile(true);
+      setUserProfile({
+        nickname: parsed.username || "MATHEUS",
+        id: "001",
+        avatar: parsed.avatar || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=100",
+        role: parsed.role || "aluno",
+        streak: parsed.streak || 0
+      });
+    } else {
+      setHasProfile(false);
+    }
   }, [currentView]);
-
-  const [user] = useState<UserData>({
-    nickname: "MATHEUS", id: "001", avatar: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=100"
-  });
 
   const handleLogout = () => {
     if(window.confirm("Deseja desconectar e limpar os dados locais do AtivoraFit?")) {
       localStorage.removeItem('@ativora_profile');
       window.location.reload();
     }
+  };
+
+  // Fallback para quando não há perfil carregado ainda
+  const displayUser = userProfile || {
+    nickname: "GUEST",
+    id: "---",
+    avatar: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=100",
+    role: "aluno",
+    streak: 0
   };
 
   return (
@@ -73,7 +128,7 @@ export const MainDashboard = () => {
           <div className="mt-6 px-4 py-4 rounded-3xl bg-sky-500/5 border border-sky-500/10 flex flex-col gap-2">
              <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse shadow-neon" />
-                <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">Laboratório Ativora v1.0.4</span>
+                <span className="text-[8px] font-black text-white/40 uppercase tracking-widest italic">Laboratório Ativora v1.0.4</span>
              </div>
              <p className="text-[7px] font-medium text-white/20 uppercase leading-relaxed italic">Otimizações constantes para sua performance.</p>
           </div>
@@ -95,20 +150,28 @@ export const MainDashboard = () => {
                   <span className="text-[10px] font-black uppercase tracking-widest text-white/60 italic">Protocolo Ativora</span>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-sky-500/20 bg-sky-500/5 backdrop-blur-md">
-                 <Beaker size={12} className="text-sky-500" />
-                 <div className="flex flex-col text-[8px] font-black text-sky-500 uppercase tracking-tighter leading-none italic">
+                  <Beaker size={12} className="text-sky-500" />
+                  <div className="flex flex-col text-[8px] font-black text-sky-500 uppercase tracking-tighter leading-none italic">
                     <span>Acesso Antecipado</span>
-                    <span className="text-[6px] opacity-40 mt-0.5 tracking-widest">Versão de Testes</span>
-                 </div>
+                    <span className="text-[6px] opacity-40 mt-0.5 tracking-widest uppercase">Versão de Testes</span>
+                  </div>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-4 lg:gap-8">
             <div className="hidden md:flex flex-col items-end">
-                <span className="text-[9px] font-black text-sky-500 uppercase tracking-widest italic text-right shadow-neon">Núcleo de Performance</span>
+                <div className="flex items-center gap-2">
+                  {displayUser.streak! > 0 && (
+                    <div className="flex items-center gap-1 bg-orange-500/10 px-2 py-0.5 rounded-full border border-orange-500/20">
+                      <Flame size={10} className="text-orange-500 fill-orange-500" />
+                      <span className="text-[8px] font-black text-orange-500">{displayUser.streak}</span>
+                    </div>
+                  )}
+                  <span className="text-[9px] font-black text-sky-500 uppercase tracking-widest italic text-right shadow-neon">Núcleo de Performance</span>
+                </div>
                 <span className="text-xs font-bold uppercase text-white/40 tracking-tighter italic">
-                  {user.nickname} {" // "} #{user.id}
+                  {displayUser.nickname} {" // "} #{displayUser.id}
                 </span>
             </div>
             <button className="relative p-3 bg-white/5 rounded-2xl border border-white/10 text-white/40 hover:text-sky-500 transition-all shadow-inner">
@@ -116,7 +179,7 @@ export const MainDashboard = () => {
               <span className="absolute top-3 right-3 w-2 h-2 bg-sky-500 rounded-full shadow-neon" />
             </button>
             <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl border-2 border-white/10 overflow-hidden relative shadow-2xl">
-              <Image src={user.avatar} alt="Perfil" fill className="object-cover" />
+              <Image src={displayUser.avatar} alt="Perfil" fill className="object-cover" unoptimized />
             </div>
           </div>
         </header>
@@ -128,13 +191,13 @@ export const MainDashboard = () => {
                 
                 <motion.section variants={itemVariants} className="relative group rounded-5xl overflow-hidden border border-white/10 shadow-2xl">
                   <div className="absolute inset-0 z-0">
-                    <Image src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200" alt="Ativora Social" fill className="object-cover grayscale brightness-50 group-hover:scale-105 group-hover:brightness-75 transition-all duration-1000" />
-                    <div className="absolute inset-0 bg-linear-to-r from-black via-black/40 to-transparent z-10" />
+                    <Image src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200" alt="Ativora Social" fill className="object-cover grayscale brightness-50 group-hover:scale-105 group-hover:brightness-75 transition-all duration-1000" unoptimized />
+                    <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent z-10" />
                   </div>
 
-                  <div className="relative z-20 p-8 lg:p-20 flex flex-col justify-center min-h-100 lg:min-h-125">
+                  <div className="relative z-20 p-8 lg:p-20 flex flex-col justify-center min-h-[400px] lg:min-h-[500px]">
                     <div className="space-y-6 max-w-2xl text-left">
-                      <div className="inline-flex items-center gap-2 bg-sky-500 text-black px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">
+                      <div className="inline-flex items-center gap-2 bg-sky-500 text-black px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest italic">
                         <Users size={12} fill="currentColor" /> Portal da Elite
                       </div>
                       <h2 className="text-5xl lg:text-8xl font-black uppercase italic tracking-tighter leading-none text-white">
@@ -192,7 +255,11 @@ export const MainDashboard = () => {
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-20 bg-[#030508]/90 backdrop-blur-3xl border-t border-white/5 flex items-center justify-around px-4 z-50">
           <MobileNavItem icon={<LayoutDashboard size={22} />} label="Início" active={currentView === 'home'} onClick={() => setCurrentView('home')} />
           <MobileNavItem icon={<Users size={22} />} label="Social" active={currentView === 'social'} onClick={() => setCurrentView('social')} />
-          <div className="relative -top-6"><button className="relative w-16 h-16 bg-sky-500 rounded-2xl flex items-center justify-center text-black shadow-2xl active:scale-90 transition-transform"><Zap size={28} fill="currentColor" /></button></div>
+          <div className="relative -top-6">
+            <button className="relative w-16 h-16 bg-sky-500 rounded-2xl flex items-center justify-center text-black shadow-[0_0_20px_rgba(14,165,233,0.4)] active:scale-90 transition-transform">
+              <Zap size={28} fill="currentColor" />
+            </button>
+          </div>
           <MobileNavItem icon={<TrendingUp size={22} />} label="Rank" active={false} onClick={() => {}} />
           <MobileNavItem icon={<Settings size={22} />} label="Ajustes" active={currentView === 'config'} onClick={() => setCurrentView('config')} />
         </nav>
@@ -200,19 +267,19 @@ export const MainDashboard = () => {
 
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(14, 165, 233, 0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(14, 165, 233, 0.2); border-radius: 10px; }
         .shadow-neon { filter: drop-shadow(0 0 8px rgba(14, 165, 233, 0.6)); }
       `}</style>
     </div>
   );
 };
 
-// --- AUXILIARES ORIGINAIS COM COMENTÁRIOS FIX ---
+// --- COMPONENTES AUXILIARES ---
 
 const FunctionCard = ({ icon, title, desc, code, bgImage, onClick }: FunctionCardProps) => (
   <motion.div variants={itemVariants} whileHover={{ y: -8, scale: 1.02 }} onClick={onClick} className="group relative h-64 rounded-4xl overflow-hidden border border-white/5 cursor-pointer shadow-xl transition-all duration-500">
-    <Image src={bgImage} alt={title} fill className="object-cover grayscale brightness-[0.2] group-hover:brightness-[0.4] group-hover:grayscale-0 transition-all duration-700" />
-    <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent z-10" />
+    <Image src={bgImage} alt={title} fill className="object-cover grayscale brightness-[0.2] group-hover:brightness-[0.4] group-hover:grayscale-0 transition-all duration-700" unoptimized />
+    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent z-10" />
     <div className="relative z-20 p-8 h-full flex flex-col justify-between">
       <div className="flex justify-between items-start">
         <div className="p-3 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 group-hover:bg-sky-500 group-hover:text-black transition-all">{icon}</div>
@@ -220,7 +287,7 @@ const FunctionCard = ({ icon, title, desc, code, bgImage, onClick }: FunctionCar
       </div>
       <div className="text-left">
         <h4 className="text-xl font-black uppercase italic tracking-tighter text-white mb-1 leading-none">{title}</h4>
-        <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest">{desc}</p>
+        <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest italic">{desc}</p>
         <div className="mt-4 flex items-center gap-2 text-sky-500 text-[9px] font-black uppercase italic opacity-0 group-hover:opacity-100 transform -translate-x-2.5 group-hover:translate-x-0 transition-all">
           Acessar <ChevronRight size={12} />
         </div>
@@ -231,7 +298,10 @@ const FunctionCard = ({ icon, title, desc, code, bgImage, onClick }: FunctionCar
 
 const SidebarItem = ({ icon, label, active, danger, code, index, onClick }: SidebarItemProps) => (
   <motion.button initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: index * 0.1 }} onClick={onClick} className={`w-full flex items-center justify-between p-4 rounded-[1.25rem] transition-all group relative overflow-hidden border ${active ? 'border-sky-500/30' : 'border-transparent'} ${active ? 'bg-sky-500 text-black shadow-xl shadow-sky-500/20 font-black' : danger ? 'text-rose-500 hover:bg-rose-500/10 font-bold' : 'text-white/30 hover:text-white hover:bg-white/3 font-bold'}`}>
-    <div className="flex items-center gap-4 relative z-10">{icon}<span className="hidden xl:block uppercase italic text-xs tracking-widest leading-none">{label}</span></div>
+    <div className="flex items-center gap-4 relative z-10">
+      {icon}
+      <span className="hidden xl:block uppercase italic text-xs tracking-widest leading-none">{label}</span>
+    </div>
     <span className={`hidden xl:block text-[8px] font-black opacity-40 italic relative z-10 ${active ? 'text-black' : ''}`}>{" // "}{code}</span>
     {active && <motion.div layoutId="activeNav" className="absolute inset-0 bg-sky-500 z-0" />}
   </motion.button>
@@ -240,6 +310,6 @@ const SidebarItem = ({ icon, label, active, danger, code, index, onClick }: Side
 const MobileNavItem = ({ icon, label, active, onClick }: MobileNavItemProps) => (
   <button onClick={onClick} className={`flex flex-col items-center gap-1.5 transition-all ${active ? 'text-sky-500 shadow-neon' : 'text-white/20'}`}>
     {icon}
-    <span className="text-[8px] font-black uppercase tracking-widest">{label}</span>
+    <span className="text-[8px] font-black uppercase tracking-widest italic">{label}</span>
   </button>
 );

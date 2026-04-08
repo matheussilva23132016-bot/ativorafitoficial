@@ -3,12 +3,16 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  User, Dumbbell, Apple, GraduationCap, 
-  Star, ChevronRight, Signal, Wifi, Battery, 
-  Sparkles, Check, ArrowLeft, Fingerprint, Activity,
-  Cpu, Info, LayoutDashboard, Rocket, X, CheckCircle2,
-  BrainCircuit, Utensils, TrendingUp, Users, Target, BarChart3, Bell, UserSquare2,
-  ShieldCheck, Globe, Zap, ZapOff, Lock
+  // --- ÍCONES DE PERFIL ---
+  User, Dumbbell, Apple, GraduationCap, Star, 
+  // --- ÍCONES DE UI ---
+  ChevronRight, ArrowLeft, X, Check, Sparkles, CheckCircle2,
+  // --- ÍCONES DE STATUS ---
+  Signal, Wifi, Battery, Activity, Fingerprint,
+  // --- ÍCONES DE RECURSOS E SEÇÕES ---
+  Info, LayoutDashboard, Cpu, Rocket, BrainCircuit, 
+  Utensils, TrendingUp, Users, Target, BarChart3, 
+  Bell, UserSquare2, ShieldCheck, Globe, Zap, ZapOff
 } from "lucide-react";
 
 interface ProfileProps {
@@ -183,7 +187,7 @@ export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
               
               <div className={`absolute top-6 right-6 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all
                 ${selectedId === p.id ? 'bg-sky-500 border-sky-500 scale-110 shadow-lg' : 'border-white/10 scale-90 opacity-0 group-hover:opacity-100'}`}>
-                {selectedId === p.id && <Check className="w-3 h-3 text-[#010307] stroke-4" />}
+                {selectedId === p.id && <Check className="w-3 h-3 text-[#010307] stroke-[4]" />}
               </div>
             </motion.button>
           ))}
@@ -198,7 +202,7 @@ export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
           >
             <span className="relative z-10 uppercase tracking-tighter">Avançar</span>
             <ChevronRight className="w-6 h-6 md:w-8 md:h-8 group-hover:translate-x-2 transition-transform" />
-            <motion.div initial={{ x: "-100%" }} animate={{ x: "200%" }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }} className="absolute inset-y-0 w-40 bg-linear-to-r from-transparent via-white/40 to-transparent skew-x-35" />
+            <motion.div initial={{ x: "-100%" }} animate={{ x: "200%" }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }} className="absolute inset-y-0 w-40 bg-linear-to-r from-transparent via-white/40 to-transparent skew-x-[-35deg]" />
           </button>
           <div className="flex items-center gap-3 opacity-60"><Activity className="w-5 h-5 text-sky-500 animate-pulse" /><span className="text-[10px] font-black uppercase tracking-[0.5em]">Validando Identidade</span></div>
         </div>
@@ -226,7 +230,7 @@ export const ProfileSelection = ({ onBack, onSelectProfile }: ProfileProps) => {
 
       <AnimatePresence>
         {activeTab && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setActiveTab(null)} className="fixed inset-0 z-1000 bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setActiveTab(null)} className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
             <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-lg md:max-w-5xl bg-[#020617] border border-white/10 rounded-4xl md:rounded-[4rem] p-8 md:p-16 relative shadow-2xl flex flex-col items-center">
               <button onClick={() => setActiveTab(null)} className="absolute top-6 right-6 md:top-10 md:right-10 p-3 md:p-6 rounded-full bg-white/5 border-none cursor-pointer text-white/50 hover:text-white transition-colors"><X className="w-6 h-6 md:w-10 md:h-10" /></button>
               <div className="flex flex-col md:flex-row items-center gap-6 md:gap-12 mb-10 md:mb-12 w-full">
