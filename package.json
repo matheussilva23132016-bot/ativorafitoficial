@@ -18,7 +18,8 @@
     "clsx": "^2.1.1",
     "tailwind-merge": "^2.5.5",
     "bcryptjs": "^2.4.3",
-    "nodemailer": "^6.9.16"
+    "nodemailer": "^6.9.16",
+    "@tailwindcss/postcss": "^4.0.0-alpha.31"
   },
   "devDependencies": {
     "typescript": "5.7.2",
