@@ -3,10 +3,9 @@
 import React, { useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 
-// Importações com caminhos absolutos (à prova de erros)
 import { WelcomeSlide } from "@/app/components/dashboard/WelcomeSlide";
 import { FitaoOnboarding } from "@/app/components/dashboard/FitaoOnboarding";
-import { DashboardLayout } from "@/app/components/dashboard/DashboardLayout";
+import { MainDashboard } from "@/app/components/dashboard/MainDashboard";
 
 export default function DashboardPage() {
   const [flowState, setFlowState] = useState<'welcome' | 'fitao' | 'dashboard'>('welcome');
@@ -26,11 +25,14 @@ export default function DashboardPage() {
         )}
         
         {flowState === 'fitao' && (
-          <FitaoOnboarding key="fitao" onComplete={() => setFlowState('dashboard')} />
+          <FitaoOnboarding 
+            key="fitao" 
+            onComplete={() => setFlowState('dashboard')} 
+          />
         )}
 
         {flowState === 'dashboard' && (
-          <DashboardLayout key="dashboard" />
+          <MainDashboard key="dashboard" />
         )}
       </AnimatePresence>
     </div>
