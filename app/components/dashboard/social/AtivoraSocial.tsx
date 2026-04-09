@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { AnimatePresence } from "framer-motion";
+import React, { useState, useEffect, useCallback } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { SocialOnboarding } from "./SocialOnboarding";
 import { AtivoraFeed } from "./AtivoraFeed";
 import { SocialProfile } from "./SocialProfile";
+import { SocialMessages } from "./SocialMessages";
+import { SocialNotifications } from "./SocialNotifications";
 
-// --- INTERFACE ATUALIZADA COM HIERARQUIA ---
+// --- INTERFACE ATUALIZADA ---
 export interface UserProfileData {
   username: string;
   bio: string;
@@ -14,9 +16,12 @@ export interface UserProfileData {
   avatar: string | null;
   role: 'aluno' | 'personal' | 'nutri' | 'estagiario' | 'influencer'; 
   is_verified: boolean;
+  is_private?: boolean; 
+  xp?: number;
+  nivel?: number;
 }
 
-type SocialView = 'onboarding' | 'feed' | 'profile' | 'messages';
+type SocialView = 'onboarding' | 'feed' | 'profile' | 'messages' | 'notifications';
 
 interface AtivoraSocialProps {
   onBack: () => void;
@@ -29,18 +34,77 @@ export const AtivoraSocial = ({ onBack, initialRoute, openEditMode, isGuest }: A
   const [currentSocialView, setCurrentSocialView] = useState<SocialView>('onboarding');
   const [userProfile, setUserProfile] = useState<UserProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [notificacoes, setNotificacoes] = useState<any[]>([]);
+
+  const [viewingTarget, setViewingTarget] = useState<string | null>(null);
+  const [targetProfileData, setTargetProfileData] = useState<UserProfileData | null>(null);
+
+  const fetchNotificacoes = useCallback(async () => {
+    if (!userProfile || isGuest) return;
+    try {
+      const res = await fetch(`/api/social/notificacoes?username=${userProfile.username}`);
+      if (res.ok) setNotificacoes(await res.json());
+    } catch { console.error("Falha ao sincronizar alertas."); }
+  }, [userProfile, isGuest]);
+
+  // --- PROTOCOLO DE PRIVACIDADE: ALTERAR STATUS DA CONTA ---
+  const handlePrivacyToggle = async (isPrivate: boolean) => {
+    if (!userProfile) return;
+    try {
+      const res = await fetch('/api/perfil/privacidade', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nickname: userProfile.username, isPrivate })
+      });
+
+      if (res.ok) {
+        const updated = { ...userProfile, is_private: isPrivate };
+        setUserProfile(updated);
+        localStorage.setItem('@ativora_profile', JSON.stringify(updated));
+      }
+    } catch {
+      alert("⚠️ ERRO NA MATRIZ: Falha ao alterar status de privacidade.");
+    }
+  };
+
+  const handleClearNotifications = async () => {
+    if (!userProfile) return;
+    try {
+      const res = await fetch('/api/social/notificacoes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: userProfile.username })
+      });
+      if (res.ok) fetchNotificacoes();
+    } catch { alert("Erro ao limpar central."); }
+  };
+
+  const handleOpenUserProfile = async (nickname: string) => {
+    if (nickname === userProfile?.username) {
+      setViewingTarget(null);
+      setCurrentSocialView('profile');
+      return;
+    }
+    try {
+      const res = await fetch(`/api/perfil/publico?nickname=${nickname}&viewer=${userProfile?.username}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTargetProfileData(data);
+        setViewingTarget(nickname);
+        setCurrentSocialView('profile');
+      }
+    } catch {
+      alert("⚠️ ERRO DE SINCRONIZAÇÃO: Não foi possível localizar o atleta.");
+    }
+  };
 
   useEffect(() => {
-    const timer = setTimeout(async () => {
+    const syncMatrix = async () => {
       if (isGuest) {
-        // Inicializa o visitante como 'aluno' por padrão
         setUserProfile({ 
-          username: "Visitante", 
-          bio: "Modo visualização", 
-          description: "", 
-          avatar: null,
-          role: 'aluno',
-          is_verified: false 
+          username: "Visitante", bio: "Modo visualização ativa", 
+          description: "Acesso limitado aos dados públicos.", 
+          avatar: null, role: 'aluno', is_verified: false, is_private: false 
         });
         setCurrentSocialView('feed');
         setIsLoading(false);
@@ -49,35 +113,34 @@ export const AtivoraSocial = ({ onBack, initialRoute, openEditMode, isGuest }: A
 
       const savedProfile = localStorage.getItem('@ativora_profile');
       if (savedProfile) {
-        const parsedProfile = JSON.parse(savedProfile);
+        const localData = JSON.parse(savedProfile);
+        setUserProfile(localData);
+        setCurrentSocialView(initialRoute === 'profile' ? 'profile' : 'feed');
+        setIsLoading(false);
+
         try {
-          const response = await fetch(`/api/perfil/buscar?username=${parsedProfile.username}`);
+          const response = await fetch(`/api/perfil/buscar?username=${localData.username}`);
           if (response.ok) {
-            setUserProfile(parsedProfile);
-            setCurrentSocialView(initialRoute === 'profile' ? 'profile' : 'feed');
-          } else if (response.status === 404) {
-            localStorage.removeItem('@ativora_profile');
-            setUserProfile(null);
-            setCurrentSocialView('onboarding');
-          } else {
-            setUserProfile(parsedProfile);
-            setCurrentSocialView(initialRoute === 'profile' ? 'profile' : 'feed');
+            const serverData = await response.json();
+            setUserProfile(serverData);
+            localStorage.setItem('@ativora_profile', JSON.stringify(serverData));
           }
-        } catch {
-          setUserProfile(parsedProfile);
-          setCurrentSocialView(initialRoute === 'profile' ? 'profile' : 'feed');
-        }
+        } catch (err) { console.warn("Operando em modo cache."); }
       } else {
         setCurrentSocialView('onboarding');
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    }, 0);
-    return () => clearTimeout(timer);
+    };
+    syncMatrix();
   }, [initialRoute, isGuest]);
 
+  useEffect(() => {
+    if (currentSocialView === 'notifications') fetchNotificacoes();
+  }, [currentSocialView, fetchNotificacoes]);
+
   const handleProfileCreated = (data: UserProfileData) => {
-    setUserProfile(data);
     localStorage.setItem('@ativora_profile', JSON.stringify(data));
+    setUserProfile(data);
     setCurrentSocialView('feed');
   };
 
@@ -86,31 +149,75 @@ export const AtivoraSocial = ({ onBack, initialRoute, openEditMode, isGuest }: A
     localStorage.setItem('@ativora_profile', JSON.stringify(data));
   };
 
-  if (isLoading) return <div className="flex items-center justify-center h-full text-sky-500 font-black italic uppercase tracking-widest">Sincronizando...</div>;
+  const handleGuestAction = (actionLabel: string, callback: () => void) => {
+    if (isGuest) {
+      alert(`ACESSO NEGADO: Crie uma conta real para ${actionLabel}.`);
+      return;
+    }
+    callback();
+  };
+
+  if (isLoading) return (
+    <div className="flex flex-col items-center justify-center h-full bg-[#010307]">
+      <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mb-4" />
+      <div className="text-sky-500 font-black italic uppercase tracking-[0.3em] animate-pulse">Iniciando Protocolo...</div>
+    </div>
+  );
 
   return (
-    <div className="w-full min-h-full">
+    <div className="w-full min-h-full bg-[#010307] text-[#F8FAFC]">
       <AnimatePresence mode="wait">
         {currentSocialView === 'onboarding' && (
-          <SocialOnboarding key="onboarding" onFinish={handleProfileCreated} onBack={onBack} />
+          <motion.div key="onboarding" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+            <SocialOnboarding onFinish={handleProfileCreated} onBack={onBack} />
+          </motion.div>
         )}
+
         {currentSocialView === 'feed' && userProfile && (
-          <AtivoraFeed 
-            key="feed" 
-            currentUser={userProfile}
-            isGuest={isGuest}
-            onViewProfile={() => isGuest ? alert("Crie uma conta para acessar seu perfil!") : setCurrentSocialView('profile')}
-            onOpenMessages={() => isGuest ? alert("Crie uma conta para enviar mensagens!") : setCurrentSocialView('messages')}
-          />
+          <motion.div key="feed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+            <AtivoraFeed 
+              currentUser={userProfile}
+              isGuest={isGuest}
+              onViewProfile={() => { setViewingTarget(null); setCurrentSocialView('profile'); }}
+              onOpenMessages={() => handleGuestAction("enviar mensagens", () => setCurrentSocialView('messages'))}
+              onOpenNotifications={() => setCurrentSocialView('notifications')}
+              onOpenUserProfile={handleOpenUserProfile}
+              onBack={onBack}
+            />
+          </motion.div>
         )}
+
         {currentSocialView === 'profile' && userProfile && (
-          <SocialProfile 
-            key="profile" 
-            profileData={userProfile}
-            onBack={() => setCurrentSocialView('feed')} 
-            startInEditMode={openEditMode} 
-            onProfileUpdate={handleProfileUpdated} 
-          />
+          <motion.div key="profile" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }} className="h-full">
+            <SocialProfile 
+              profileData={viewingTarget ? (targetProfileData || userProfile) : userProfile}
+              onBack={() => { setViewingTarget(null); setCurrentSocialView('feed'); }} 
+              startInEditMode={viewingTarget ? false : openEditMode} 
+              onProfileUpdate={handleProfileUpdated} 
+              isOwnProfile={!viewingTarget}
+              // @ts-ignore - Bypass necessário para a prop de privacidade
+              onPrivacyToggle={handlePrivacyToggle}
+            />
+          </motion.div>
+        )}
+
+        {currentSocialView === 'messages' && userProfile && (
+          <motion.div key="messages" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+            <SocialMessages 
+              currentUser={userProfile} 
+              onBack={() => setCurrentSocialView('feed')} 
+            />
+          </motion.div>
+        )}
+
+        {currentSocialView === 'notifications' && (
+          <motion.div key="notifications" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full">
+            <SocialNotifications 
+              data={notificacoes}
+              onBack={() => setCurrentSocialView('feed')}
+              onMarkAsRead={handleClearNotifications}
+            />
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

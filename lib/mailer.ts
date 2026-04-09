@@ -1,15 +1,15 @@
 import nodemailer from "nodemailer";
 
 export const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST as string,
-  port: Number(process.env.SMTP_PORT) || 465,
-  secure: true, // true para porta 465, false para 587
+  host: "smtp.hostinger.com", // Force o host direto para evitar erros de DNS
+  port: 465,
+  secure: true, // Porta 465 exige secure: true
   auth: {
-    user: process.env.SMTP_USER as string,
-    pass: process.env.SMTP_PASS as string,
+    user: process.env.SMTP_USER, // Ex: suporte@ativorafit.online
+    pass: process.env.SMTP_PASS,
   },
-  // Adicione isso se o erro persistir (ajuda com certificados SSL)
   tls: {
+    // Isso evita que o build quebre por certificados SSL não verificados no servidor
     rejectUnauthorized: false 
   }
 });

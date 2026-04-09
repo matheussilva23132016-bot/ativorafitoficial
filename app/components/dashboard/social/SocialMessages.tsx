@@ -1,57 +1,104 @@
 "use client";
 
-import React from "react";
-import { motion } from "framer-motion";
-import { ArrowLeft, Send, ShieldAlert, Lock } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { ArrowLeft, Send, ShieldCheck, User } from "lucide-react";
+import { UserProfileData } from "./AtivoraSocial";
 
-export const SocialMessages = ({ onBack }: { onBack: () => void }) => {
+interface Message {
+  id: number;
+  remetente_nickname: string;
+  conteudo: string;
+  created_at: string;
+}
+
+export const SocialMessages = ({ currentUser, onBack }: { currentUser: UserProfileData, onBack: () => void }) => {
+  const [activeChat, setActiveChat] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputText, setInputText] = useState("");
+  const [contacts, setContacts] = useState<{ contato: string }[]>([]);
+
+  // Carrega a lista de conversas (Inbox)
+  useEffect(() => {
+    const fetchInbox = async () => {
+      const res = await fetch(`/api/social/mensagens?user=${currentUser.username}`);
+      if (res.ok) setContacts(await res.json());
+    };
+    fetchInbox();
+  }, [currentUser.username]);
+
+  // Carrega mensagens do chat ativo
+  useEffect(() => {
+    if (activeChat) {
+      const fetchChat = async () => {
+        const res = await fetch(`/api/social/mensagens?user=${currentUser.username}&target=${activeChat}`);
+        if (res.ok) setMessages(await res.json());
+      };
+      fetchChat();
+      const interval = setInterval(fetchChat, 3000); // Polling básico de 3s
+      return () => clearInterval(interval);
+    }
+  }, [activeChat, currentUser.username]);
+
+  const sendMessage = async () => {
+    if (!inputText.trim() || !activeChat) return;
+    const res = await fetch('/api/social/mensagens', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ remetente: currentUser.username, destinatario: activeChat, conteudo: inputText })
+    });
+    if (res.ok) {
+      setInputText("");
+      // Atualiza localmente para feedback instantâneo
+      setMessages([...messages, { id: Date.now(), remetente_nickname: currentUser.username, conteudo: inputText, created_at: new Date().toISOString() }]);
+    }
+  };
+
   return (
-    <motion.div initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="max-w-5xl mx-auto h-[700px] flex flex-col bg-white/5 border border-white/10 rounded-5xl overflow-hidden backdrop-blur-3xl shadow-2xl">
-      {/* Header do Chat */}
-      <div className="p-6 border-b border-white/5 flex items-center justify-between bg-black/20">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-white/5 rounded-xl transition-colors text-white/40 hover:text-white">
-            <ArrowLeft size={20} />
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-500/20" />
-            <div>
-              <p className="text-xs font-black text-white uppercase italic">Suporte Elite</p>
-              <div className="flex items-center gap-1">
-                <div className="w-1 h-1 rounded-full bg-green-500" />
-                <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest">Canal Ativo</span>
+    <div className="flex flex-col h-full bg-[#010307] text-white">
+      {/* Header do Direct */}
+      <div className="p-4 border-b border-white/10 flex items-center gap-4">
+        <button onClick={activeChat ? () => setActiveChat(null) : onBack} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+          <ArrowLeft size={24} />
+        </button>
+        <h2 className="font-black italic uppercase tracking-widest text-sky-500">
+          {activeChat ? `@${activeChat}` : "Canais de Direct"}
+        </h2>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {!activeChat ? (
+          /* LISTA DE CONTATOS */
+          contacts.length > 0 ? contacts.map(c => (
+            <div key={c.contato} onClick={() => setActiveChat(c.contato)} className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/5 cursor-pointer hover:border-sky-500/50 transition-all">
+              <div className="w-12 h-12 rounded-full bg-sky-500/10 flex items-center justify-center text-sky-500">
+                <User size={24} />
+              </div>
+              <span className="font-bold">@{c.contato}</span>
+            </div>
+          )) : <div className="text-center py-20 text-white/20 font-black uppercase italic">Nenhuma transmissão ativa</div>
+        ) : (
+          /* CHAT ATIVO */
+          messages.map(m => (
+            <div key={m.id} className={`flex ${m.remetente_nickname === currentUser.username ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${m.remetente_nickname === currentUser.username ? 'bg-sky-600 text-white rounded-tr-none' : 'bg-white/10 text-white rounded-tl-none border border-white/5'}`}>
+                {m.conteudo}
               </div>
             </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-500/5 border border-orange-500/20">
-           <Lock size={12} className="text-orange-500" />
-           <span className="text-[8px] font-black text-orange-500 uppercase italic">Criptografia Ativora</span>
-        </div>
+          ))
+        )}
       </div>
 
-      {/* Área de Mensagens (Vazia/Simulada) */}
-      <div className="flex-1 p-8 flex flex-col justify-center items-center text-center space-y-4 opacity-20">
-        <ShieldAlert size={48} />
-        <div>
-          <p className="font-black italic uppercase text-lg">Inicie uma conversa segura</p>
-          <p className="text-[10px] font-bold uppercase tracking-widest">Suas mensagens são protegidas pelo protocolo de performance.</p>
-        </div>
-      </div>
-
-      {/* Input de Mensagem */}
-      <div className="p-6 bg-black/40 border-t border-white/5">
-        <div className="relative">
+      {activeChat && (
+        <div className="p-4 bg-white/5 border-t border-white/10 flex gap-2">
           <input 
-            type="text" 
-            placeholder="Digite uma mensagem segura..." 
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 pl-6 pr-16 text-sm font-bold outline-none focus:border-sky-500/50 transition-all"
+            type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+            placeholder="Enviar protocolo..." className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-sky-500"
           />
-          <button className="absolute right-3 top-1/2 -translate-y-1/2 p-3 bg-sky-500 text-black rounded-xl hover:scale-105 transition-transform shadow-lg shadow-sky-500/20">
-            <Send size={18} />
+          <button onClick={sendMessage} className="p-3 bg-sky-500 text-black rounded-xl hover:scale-105 active:scale-95 transition-all">
+            <Send size={20} />
           </button>
         </div>
-      </div>
-    </motion.div>
+      )}
+    </div>
   );
 };
