@@ -1,12 +1,5 @@
 import { NextResponse } from "next/server";
-import mysql from "mysql2/promise";
-
-const dbConfig = {
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-};
+import db from "../../../../lib/db"; 
 
 export async function GET(request: Request) {
   try {
@@ -17,23 +10,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "PostId não fornecido" }, { status: 400 });
     }
 
-    const connection = await mysql.createConnection(dbConfig);
+    // AJUSTE CRÍTICO: u.foto_url as avatar_url
+    const query = `
+      SELECT 
+        c.*, 
+        u.foto_url as avatar_url 
+      FROM posts_comentarios c
+      LEFT JOIN usuarios u ON c.nickname = u.nickname
+      WHERE c.post_id = ?
+      ORDER BY c.created_at ASC
+    `;
 
-    // Buscamos o comentário e o avatar de quem comentou
-    const [rows]: any = await connection.execute(
-      `SELECT c.*, u.avatar_url 
-       FROM posts_comentarios c
-       LEFT JOIN usuarios u ON c.nickname = u.nickname
-       WHERE c.post_id = ?
-       ORDER BY c.created_at ASC`,
-      [postId]
-    );
-
-    await connection.end();
+    const [rows]: any = await db.execute(query, [postId]);
 
     return NextResponse.json(rows);
   } catch (error: any) {
-    console.error("Erro ao listar comentários:", error);
+    console.error("❌ ERRO AO LISTAR COMENTÁRIOS:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

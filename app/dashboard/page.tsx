@@ -1,16 +1,16 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-// Importes relativos blindados
 import { WelcomeSlide } from "../components/dashboard/WelcomeSlide";
 import { FitaoOnboarding } from "../components/dashboard/FitaoOnboarding";
-import { MainDashboard } from "../components/dashboard/MainDashboard";
+
+// IMPORTAÇÃO PADRÃO (SEM CHAVES)
+import MainDashboard from "../components/dashboard/MainDashboard"; 
 
 export default function DashboardPage() {
   const [stage, setStage] = useState<'welcome' | 'onboarding' | 'main'>('welcome');
 
   useEffect(() => {
-    // Se o usuário já passou pelo onboarding antes, podemos pular direto (Opcional)
     const hasSeenOnboarding = localStorage.getItem('@ativora_onboarding_done');
     
     const timer = setTimeout(() => {
@@ -19,7 +19,7 @@ export default function DashboardPage() {
       } else {
         setStage('onboarding');
       }
-    }, 3500); // Tempo do Welcome Slide
+    }, 3500);
 
     return () => clearTimeout(timer);
   }, []);

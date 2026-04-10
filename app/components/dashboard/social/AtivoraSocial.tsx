@@ -1,225 +1,142 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { SocialOnboarding } from "./SocialOnboarding";
-import { AtivoraFeed } from "./AtivoraFeed";
+import React, { useState, useEffect } from "react";
+import { AnimatePresence } from "framer-motion";
+// AQUI ESTAVA O ERRO: Adicionadas as chaves { } para importar corretamente
+import { AtivoraFeed } from "./AtivoraFeed"; 
 import { SocialProfile } from "./SocialProfile";
-import { SocialMessages } from "./SocialMessages";
-import { SocialNotifications } from "./SocialNotifications";
 
-// --- INTERFACE ATUALIZADA ---
-export interface UserProfileData {
+interface UserProfile {
   username: string;
-  bio: string;
-  description: string;
-  avatar: string | null;
-  role: 'aluno' | 'personal' | 'nutri' | 'estagiario' | 'influencer'; 
-  is_verified: boolean;
-  is_private?: boolean; 
+  avatar?: string | null;
+  avatar_url?: string | null;
+  foto_url?: string | null;
+  role?: string;
   xp?: number;
   nivel?: number;
+  streak?: number;
+  is_verified?: boolean;
 }
-
-type SocialView = 'onboarding' | 'feed' | 'profile' | 'messages' | 'notifications';
 
 interface AtivoraSocialProps {
   onBack: () => void;
-  initialRoute?: 'feed' | 'profile';
-  openEditMode?: boolean;
+  initialRoute?: "feed" | "profile" | "messages" | "notifications" | "onboarding";
   isGuest?: boolean;
 }
 
-export const AtivoraSocial = ({ onBack, initialRoute, openEditMode, isGuest }: AtivoraSocialProps) => {
-  const [currentSocialView, setCurrentSocialView] = useState<SocialView>('onboarding');
-  const [userProfile, setUserProfile] = useState<UserProfileData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [notificacoes, setNotificacoes] = useState<any[]>([]);
+type SocialView = "feed" | "profile" | "messages" | "notifications" | "onboarding";
 
-  const [viewingTarget, setViewingTarget] = useState<string | null>(null);
-  const [targetProfileData, setTargetProfileData] = useState<UserProfileData | null>(null);
-
-  const fetchNotificacoes = useCallback(async () => {
-    if (!userProfile || isGuest) return;
-    try {
-      const res = await fetch(`/api/social/notificacoes?username=${userProfile.username}`);
-      if (res.ok) setNotificacoes(await res.json());
-    } catch { console.error("Falha ao sincronizar alertas."); }
-  }, [userProfile, isGuest]);
-
-  // --- PROTOCOLO DE PRIVACIDADE: ALTERAR STATUS DA CONTA ---
-  const handlePrivacyToggle = async (isPrivate: boolean) => {
-    if (!userProfile) return;
-    try {
-      const res = await fetch('/api/perfil/privacidade', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nickname: userProfile.username, isPrivate })
-      });
-
-      if (res.ok) {
-        const updated = { ...userProfile, is_private: isPrivate };
-        setUserProfile(updated);
-        localStorage.setItem('@ativora_profile', JSON.stringify(updated));
-      }
-    } catch {
-      alert("⚠️ ERRO NA MATRIZ: Falha ao alterar status de privacidade.");
-    }
-  };
-
-  const handleClearNotifications = async () => {
-    if (!userProfile) return;
-    try {
-      const res = await fetch('/api/social/notificacoes', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: userProfile.username })
-      });
-      if (res.ok) fetchNotificacoes();
-    } catch { alert("Erro ao limpar central."); }
-  };
-
-  const handleOpenUserProfile = async (nickname: string) => {
-    if (nickname === userProfile?.username) {
-      setViewingTarget(null);
-      setCurrentSocialView('profile');
-      return;
-    }
-    try {
-      const res = await fetch(`/api/perfil/publico?nickname=${nickname}&viewer=${userProfile?.username}`);
-      if (res.ok) {
-        const data = await res.json();
-        setTargetProfileData(data);
-        setViewingTarget(nickname);
-        setCurrentSocialView('profile');
-      }
-    } catch {
-      alert("⚠️ ERRO DE SINCRONIZAÇÃO: Não foi possível localizar o atleta.");
-    }
-  };
+export const AtivoraSocial = ({
+  onBack,
+  initialRoute = "feed",
+  isGuest = false,
+}: AtivoraSocialProps) => {
+  const [currentView, setCurrentView] = useState<SocialView>("feed");
+  const [user, setUser] = useState<UserProfile | null>(null);
 
   useEffect(() => {
-    const syncMatrix = async () => {
-      if (isGuest) {
-        setUserProfile({ 
-          username: "Visitante", bio: "Modo visualização ativa", 
-          description: "Acesso limitado aos dados públicos.", 
-          avatar: null, role: 'aluno', is_verified: false, is_private: false 
-        });
-        setCurrentSocialView('feed');
-        setIsLoading(false);
-        return;
-      }
+    try {
+      const saved = localStorage.getItem("@ativora_profile");
 
-      const savedProfile = localStorage.getItem('@ativora_profile');
-      if (savedProfile) {
-        const localData = JSON.parse(savedProfile);
-        setUserProfile(localData);
-        setCurrentSocialView(initialRoute === 'profile' ? 'profile' : 'feed');
-        setIsLoading(false);
-
-        try {
-          const response = await fetch(`/api/perfil/buscar?username=${localData.username}`);
-          if (response.ok) {
-            const serverData = await response.json();
-            setUserProfile(serverData);
-            localStorage.setItem('@ativora_profile', JSON.stringify(serverData));
-          }
-        } catch (err) { console.warn("Operando em modo cache."); }
+      if (saved) {
+        const parsedUser = JSON.parse(saved) as UserProfile;
+        setUser(parsedUser);
+        setCurrentView(initialRoute);
+      } else if (isGuest) {
+        setCurrentView("feed");
       } else {
-        setCurrentSocialView('onboarding');
-        setIsLoading(false);
+        setCurrentView("onboarding");
       }
-    };
-    syncMatrix();
+    } catch (error) {
+      console.error("Erro ao carregar perfil local:", error);
+      setUser(null);
+      setCurrentView(isGuest ? "feed" : "onboarding");
+    }
   }, [initialRoute, isGuest]);
 
-  useEffect(() => {
-    if (currentSocialView === 'notifications') fetchNotificacoes();
-  }, [currentSocialView, fetchNotificacoes]);
-
-  const handleProfileCreated = (data: UserProfileData) => {
-    localStorage.setItem('@ativora_profile', JSON.stringify(data));
-    setUserProfile(data);
-    setCurrentSocialView('feed');
+  const safeUser: UserProfile = user ?? {
+    username: "Guest",
+    avatar: null,
+    avatar_url: null,
+    foto_url: null,
+    xp: 0,
+    nivel: 1,
+    streak: 0,
+    is_verified: false,
   };
 
-  const handleProfileUpdated = (data: UserProfileData) => {
-    setUserProfile(data);
-    localStorage.setItem('@ativora_profile', JSON.stringify(data));
-  };
-
-  const handleGuestAction = (actionLabel: string, callback: () => void) => {
-    if (isGuest) {
-      alert(`ACESSO NEGADO: Crie uma conta real para ${actionLabel}.`);
-      return;
-    }
-    callback();
-  };
-
-  if (isLoading) return (
-    <div className="flex flex-col items-center justify-center h-full bg-[#010307]">
-      <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mb-4" />
-      <div className="text-sky-500 font-black italic uppercase tracking-[0.3em] animate-pulse">Iniciando Protocolo...</div>
-    </div>
-  );
+  const profileImage =
+    safeUser.avatar ||
+    safeUser.avatar_url ||
+    safeUser.foto_url ||
+    "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=100";
 
   return (
-    <div className="w-full min-h-full bg-[#010307] text-[#F8FAFC]">
-      <AnimatePresence mode="wait">
-        {currentSocialView === 'onboarding' && (
-          <motion.div key="onboarding" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
-            <SocialOnboarding onFinish={handleProfileCreated} onBack={onBack} />
-          </motion.div>
-        )}
+    <div className="flex flex-col h-full bg-[#010307] text-white font-sans">
+      <header className="w-full max-w-4xl mx-auto px-6 py-8 flex items-center justify-between border-b border-white/5">
+        <div className="flex flex-col text-left cursor-pointer" onClick={onBack}>
+          <h1 className="text-3xl font-black italic uppercase tracking-tighter text-sky-500 leading-none">
+            ATIVORA
+          </h1>
+          <span className="text-[9px] font-black uppercase tracking-[0.4em] text-white/20 mt-1.5">
+            PROTOCOLO CENTRAL
+          </span>
+        </div>
 
-        {currentSocialView === 'feed' && userProfile && (
-          <motion.div key="feed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
-            <AtivoraFeed 
-              currentUser={userProfile}
+        <div
+          className="relative cursor-pointer"
+          onClick={() => setCurrentView("profile")}
+        >
+          <div className="w-13 h-13 rounded-2xl bg-linear-to-br from-sky-500 to-purple-600 p-0.5 shadow-[0_0_15px_rgba(14,165,233,0.3)] transition-transform hover:scale-105">
+            <div className="w-full h-full rounded-[14px] bg-[#010307] overflow-hidden">
+              <img
+                src={profileImage}
+                alt="Perfil"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+
+          <div className="absolute -bottom-1 -right-1 bg-sky-500 text-black text-[8px] font-[1000] px-2 py-0.5 rounded-full border-2 border-[#010307]">
+            LVL {safeUser.nivel || 1}
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto custom-scrollbar">
+        <AnimatePresence mode="wait">
+          {currentView === "feed" && (
+            <AtivoraFeed
+              currentUser={safeUser}
               isGuest={isGuest}
-              onViewProfile={() => { setViewingTarget(null); setCurrentSocialView('profile'); }}
-              onOpenMessages={() => handleGuestAction("enviar mensagens", () => setCurrentSocialView('messages'))}
-              onOpenNotifications={() => setCurrentSocialView('notifications')}
-              onOpenUserProfile={handleOpenUserProfile}
+              onViewProfile={() => setCurrentView("profile")}
               onBack={onBack}
+              onOpenMessages={() => setCurrentView("messages")}
+              onOpenNotifications={() => setCurrentView("notifications")}
+              onOpenUserProfile={(nickname: string) =>
+                console.log("Ver perfil:", nickname)
+              }
             />
-          </motion.div>
-        )}
+          )}
 
-        {currentSocialView === 'profile' && userProfile && (
-          <motion.div key="profile" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }} className="h-full">
-            <SocialProfile 
-              profileData={viewingTarget ? (targetProfileData || userProfile) : userProfile}
-              onBack={() => { setViewingTarget(null); setCurrentSocialView('feed'); }} 
-              startInEditMode={viewingTarget ? false : openEditMode} 
-              onProfileUpdate={handleProfileUpdated} 
-              isOwnProfile={!viewingTarget}
-              // @ts-ignore - Bypass necessário para a prop de privacidade
-              onPrivacyToggle={handlePrivacyToggle}
+          {currentView === "profile" && (
+            <SocialProfile
+              profileData={safeUser}
+              isOwnProfile={true}
+              onBack={() => setCurrentView("feed")}
+              onProfileUpdate={(updatedData: UserProfile) => {
+                setUser(updatedData);
+                localStorage.setItem(
+                  "@ativora_profile",
+                  JSON.stringify(updatedData)
+                );
+              }}
             />
-          </motion.div>
-        )}
-
-        {currentSocialView === 'messages' && userProfile && (
-          <motion.div key="messages" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
-            <SocialMessages 
-              currentUser={userProfile} 
-              onBack={() => setCurrentSocialView('feed')} 
-            />
-          </motion.div>
-        )}
-
-        {currentSocialView === 'notifications' && (
-          <motion.div key="notifications" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full">
-            <SocialNotifications 
-              data={notificacoes}
-              onBack={() => setCurrentSocialView('feed')}
-              onMarkAsRead={handleClearNotifications}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </main>
     </div>
   );
 };
+
+export default AtivoraSocial;
