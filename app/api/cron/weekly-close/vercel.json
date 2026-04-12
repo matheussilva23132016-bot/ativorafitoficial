@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/weekly-close?secret=SEU_CRON_SECRET",
+      "schedule": "59 23 * * 0"
+    }
+  ]
+}

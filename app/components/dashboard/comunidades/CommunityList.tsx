@@ -1,150 +1,383 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Search, Plus, Filter, ArrowLeft, X, UploadCloud, ShieldAlert } from "lucide-react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Plus, X, Globe, Lock, Users,
+  Target, ImageIcon, Palette, RefreshCw, Zap, AlignLeft,
+} from "lucide-react";
 import { CommunityCard } from "./CommunityCard";
 import { motion, AnimatePresence } from "framer-motion";
-import { CommunityHub } from "./CommunityHub"; 
+import { CommunityHub } from "./CommunityHub";
 
 interface CommunityListProps {
   currentUser: any;
-  initialDeepLink?: { communityId: string, tab: string } | null;
+  initialDeepLink?: { communityId: string; tab: string } | null;
   onClearDeepLink?: () => void;
+  onNotify?: (notif: any) => void;
+  triggerXP?: (amount: number) => void;
 }
 
-export function CommunityList({ currentUser, initialDeepLink, onClearDeepLink }: CommunityListProps) {
-  const [activeCommunityId, setActiveCommunityId] = useState<string | null>(null);
-  const [initialTab, setInitialTab] = useState<string | null>(null);
-  
-  // Controle dos Modais
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [joinModalData, setJoinModalData] = useState<{ id: string, name: string } | null>(null);
+const ELITE_THEMES = [
+  { id: "sky",     label: "Céu Neon",     bg: "bg-sky-500",     text: "text-sky-500"     },
+  { id: "rose",    label: "Sangue Alpha",  bg: "bg-rose-500",    text: "text-rose-500"    },
+  { id: "emerald", label: "Bio Digital",   bg: "bg-emerald-500", text: "text-emerald-500" },
+  { id: "purple",  label: "Cyber Roxo",    bg: "bg-purple-500",  text: "text-purple-500"  },
+  { id: "amber",   label: "Ouro Puro",     bg: "bg-amber-500",   text: "text-amber-500"   },
+];
 
-  const comunidades = [
-    { id: '1', name: "Método Shape Saiyajin", description: "Foco em hipertrofia extrema com treinos de alta intensidade.", members: 1240, isMember: true, cover_url: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1000" },
-    { id: '2', name: "Protocolo 21 Dias", description: "Queima de gordura rápida e reeducação metabólica.", members: 850, isMember: false, cover_url: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=1000" }
-  ];
+const CATEGORIAS = [
+  "Emagrecimento", "Hipertrofia", "Definição", "Força",
+  "Resistência", "Condicionamento", "Mobilidade",
+  "Performance", "Saúde geral", "Recomposição corporal", "Todas",
+];
 
-  // ==========================================
-  // 🔗 LÓGICA DE DEEP LINKING
-  // ==========================================
-  useEffect(() => {
-    if (initialDeepLink) {
-      // 1. Define a comunidade ativa
-      setActiveCommunityId(initialDeepLink.communityId);
-      
-      // 2. Define a aba que deve abrir (passado para o Hub)
-      setInitialTab(initialDeepLink.tab);
-      
-      // 3. Limpa o link no Hub pai para evitar re-navegação acidental
-      if (onClearDeepLink) onClearDeepLink();
+const FORM_INITIAL = {
+  name: "", description: "", focus: "Todas",
+  privacy: "public" as "public" | "private",
+  cover_url: "", theme: "sky",
+};
+
+export function CommunityList({
+  currentUser, initialDeepLink, onClearDeepLink, onNotify, triggerXP,
+}: CommunityListProps) {
+  const [activeCommunityId, setActiveCommunityId] = useState<string | null>(
+    initialDeepLink?.communityId ?? null
+  );
+  const [comunidades, setComunidades] = useState<any[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [isCreating, setIsCreating]   = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newGroup, setNewGroup]       = useState(FORM_INITIAL);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const activeTheme  = ELITE_THEMES.find(t => t.id === newGroup.theme) ?? ELITE_THEMES[0];
+
+  const getUserId = useCallback((): string | null => {
+    try {
+      const stored = typeof window !== "undefined"
+        ? localStorage.getItem("@ativora_user") : null;
+      if (stored) return JSON.parse(stored).id;
+      return currentUser?.id ?? null;
+    } catch { return null; }
+  }, [currentUser]);
+
+  const loadCommunities = useCallback(async () => {
+    const uid = getUserId();
+    if (!uid) { setLoading(false); return; }
+    try {
+      const res  = await fetch(`/api/communities?userId=${uid}`);
+      const data = res.ok ? await res.json() : {};
+      setComunidades(data.communities ?? []);
+    } catch {
+      setComunidades([]);
+    } finally {
+      setLoading(false);
     }
-  }, [initialDeepLink, onClearDeepLink]);
+  }, [getUserId]);
 
-  // Renderiza o Hub se uma comunidade foi selecionada
+  useEffect(() => { loadCommunities(); }, [loadCommunities]);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () =>
+      setNewGroup(prev => ({ ...prev, cover_url: reader.result as string }));
+    reader.readAsDataURL(file);
+  };
+
+  const handleCreateGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const uid = getUserId();
+    if (!uid) { alert("⚠️ Usuário não autenticado."); return; }
+    setIsSubmitting(true);
+
+    const groupData = {
+      id: `group-${Date.now()}`,
+      ...newGroup,
+      name: newGroup.name.toUpperCase(),
+      owner_id: uid,
+    };
+
+    try {
+      const res    = await fetch("/api/communities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(groupData),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error ?? "Falha na criação");
+
+      setComunidades(prev => [
+        { ...groupData, total_membros: 1, role: "Dono", isMember: true },
+        ...prev,
+      ]);
+      setIsCreating(false);
+      setNewGroup(FORM_INITIAL);
+      onNotify?.({ title: "Base Operacional", message: "Esquadrão forjado com sucesso.", type: "social" });
+      triggerXP?.(250);
+    } catch (err: any) {
+      alert("❌ Erro: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (activeCommunityId) {
+    const activeData = comunidades.find(c => c.id === activeCommunityId) ?? null;
     return (
-      <AnimatePresence mode="wait">
-        <motion.div key="hub" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="w-full">
-          <div className="w-full max-w-6xl mx-auto p-4 mb-4 text-left">
-            <button 
-              onClick={() => { setActiveCommunityId(null); setInitialTab(null); }} 
-              className="flex items-center gap-2 text-white/40 hover:text-sky-500 transition-colors text-xs font-black uppercase tracking-widest"
-            >
-              <ArrowLeft size={16} /> Voltar para o Radar
-            </button>
-          </div>
-          {/* Repassamos o initialTab para o Hub saber onde focar */}
-          <CommunityHub 
-            communityId={activeCommunityId} 
-            currentUser={currentUser} 
-            defaultTab={initialTab || 'feed'} 
-          />
-        </motion.div>
-      </AnimatePresence>
+      <CommunityHub
+        communityId={activeCommunityId}
+        communityData={activeData}
+        currentUser={currentUser}
+        triggerXP={triggerXP ?? (() => {})}
+        onNotify={onNotify}
+        onBack={() => { setActiveCommunityId(null); onClearDeepLink?.(); }}
+      />
     );
   }
 
   return (
-    <motion.div key="list" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-6xl mx-auto p-4 sm:p-8 pb-32">
-      
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10 text-left">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="w-full max-w-6xl mx-auto p-4 sm:p-8 pb-32 text-left selection:bg-sky-500/30"
+    >
+      {/* Header */}
+      <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-12 border-b border-white/5 pb-8">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-black italic uppercase tracking-tighter text-white">Comunidades <span className="text-sky-500">Elite</span></h1>
-          <p className="text-sm text-white/30 font-medium uppercase tracking-[0.2em] mt-1">Selecione seu protocolo de atuação</p>
+          <h1 className="text-4xl sm:text-6xl font-black italic uppercase tracking-tighter text-white leading-none">
+            COMUNIDADES <span className="text-sky-500">ELITE</span>
+          </h1>
+          <p className="text-white/20 text-[10px] font-black uppercase tracking-widest mt-2 italic">
+            Grupos de performance e acompanhamento profissional
+          </p>
         </div>
-        <button 
-          onClick={() => setIsCreateOpen(true)}
-          className="flex items-center justify-center gap-3 bg-white text-black px-8 py-4 rounded-2xl font-black uppercase text-xs hover:bg-sky-500 transition-all active:scale-95 shadow-neon-soft"
+        <button
+          onClick={() => setIsCreating(true)}
+          className="flex items-center gap-3 bg-white text-black px-8 py-4 rounded-2xl font-black uppercase text-xs hover:bg-sky-500 transition-all active:scale-95 shadow-lg shrink-0"
         >
-          <Plus size={18} /> Criar Clã
+          <Plus size={16} /> CRIAR GRUPO
         </button>
-      </div>
+      </header>
 
-      {/* BUSCA */}
-      <div className="flex gap-3 mb-8">
-        <div className="flex-1 relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={18} />
-          <input type="text" placeholder="Buscar clã ou método..." className="w-full bg-[#050B14] border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-sky-500/50 transition-all" />
+      {/* Lista */}
+      {loading ? (
+        <div className="py-20 flex justify-center opacity-20">
+          <RefreshCw className="animate-spin" size={28} />
         </div>
-        <button className="p-4 bg-[#050B14] border border-white/5 rounded-2xl text-white/40 hover:text-white transition-all"><Filter size={20} /></button>
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+          {comunidades.length > 0 ? (
+            comunidades.map(com => (
+              <CommunityCard
+                key={com.id}
+                com={com}
+                onClick={() => setActiveCommunityId(com.id)}
+              />
+            ))
+          ) : (
+            <div className="col-span-full py-24 text-center opacity-20">
+              <Users size={40} className="mx-auto mb-4" />
+              <p className="text-[10px] font-black uppercase tracking-[0.3em]">
+                Nenhuma base operacional encontrada
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {comunidades.map((com) => (
-          <CommunityCard 
-            key={com.id} 
-            com={com} 
-            onClick={() => { 
-              if(com.isMember) { 
-                setActiveCommunityId(com.id); 
-              } else { 
-                setJoinModalData({ id: com.id, name: com.name }); 
-              } 
-            }} 
-          />
-        ))}
-      </div>
-
-      {/* MODAL 1: CRIAR NOVA COMUNIDADE (Omitido para brevidade, mantenha o seu original) */}
+      {/* Modal Criar Grupo */}
       <AnimatePresence>
-         {/* ... Seu código de Modal original aqui ... */}
-      </AnimatePresence>
-
-      {/* MODAL 2: SOLICITAR ACESSO (JOIN) */}
-      <AnimatePresence>
-        {joinModalData && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setJoinModalData(null)} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-100" />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-[#050B14] border border-white/10 rounded-4xl shadow-2xl z-110 overflow-hidden text-left">
-              <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#010307]">
-                <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">Solicitar <span className="text-sky-500">Acesso</span></h3>
-                <button onClick={() => setJoinModalData(null)} className="p-2 text-white/40 hover:text-white transition-colors"><X size={20} /></button>
-              </div>
-              <div className="p-6 space-y-6">
-                <div className="flex items-start gap-3 bg-sky-500/10 border border-sky-500/20 p-4 rounded-2xl">
-                  <ShieldAlert size={20} className="text-sky-500 shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-sky-100/80 font-medium leading-relaxed">
-                    Você está pedindo acesso à comunidade <strong className="text-sky-400 font-black italic uppercase">{joinModalData.name}</strong>. Esta é uma área restrita gerenciada por profissionais.
+        {isCreating && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#010307]/98 backdrop-blur-xl">
+            <motion.div
+              initial={{ scale: 0.95, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-5xl max-h-[90vh] overflow-y-auto scrollbar-none bg-[#0a0c10] border border-white/10 rounded-[2.5rem] shadow-2xl p-6 sm:p-10 relative"
+            >
+              {/* Header do modal */}
+              <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-6">
+                <div>
+                  <h3 className="text-2xl sm:text-3xl font-black italic uppercase text-white tracking-tighter leading-none">
+                    CONFIGURAR{" "}
+                    <span className={activeTheme.text}>MEU GRUPO</span>
+                  </h3>
+                  <p className="text-[10px] font-black uppercase text-white/20 tracking-widest mt-2 italic">
+                    Defina a alma do seu esquadrão
                   </p>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-white/40">Sua mensagem para o Administrador</label>
-                  <textarea placeholder="Ex: Sou aluno da consultoria, me aceita aí!" rows={3} className="w-full bg-[#010307] border border-white/10 rounded-xl py-3 px-4 text-sm text-white outline-none focus:border-sky-500/50 transition-all resize-none" />
-                </div>
-              </div>
-              <div className="p-6 border-t border-white/5 bg-[#010307]">
-                <button onClick={() => { alert('Pedido de entrada enviado ao ADM!'); setJoinModalData(null); }} className="w-full py-4 bg-sky-500 text-black font-black uppercase tracking-widest text-xs rounded-xl shadow-neon active:scale-95 transition-all">
-                  Enviar Solicitação
+                <button
+                  onClick={() => setIsCreating(false)}
+                  className="p-3 bg-white/5 rounded-xl text-white/40 hover:text-rose-500 hover:bg-rose-500/10 transition-all"
+                >
+                  <X size={22} />
                 </button>
               </div>
+
+              <form onSubmit={handleCreateGroup} className="grid grid-cols-1 lg:grid-cols-2 gap-10 text-left">
+                {/* Coluna esquerda */}
+                <div className="space-y-7">
+                  {/* Foto de capa */}
+                  <div className="space-y-3">
+                    <label className={`text-[10px] font-black uppercase tracking-widest ${activeTheme.text} flex items-center gap-2`}>
+                      <ImageIcon size={13} /> Foto de Capa
+                    </label>
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full h-44 rounded-3xl border-2 border-dashed border-white/10 bg-black/40 cursor-pointer overflow-hidden flex flex-col items-center justify-center group transition-all hover:border-sky-500/40 relative"
+                    >
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                      />
+                      {newGroup.cover_url ? (
+                        <img
+                          src={newGroup.cover_url}
+                          className="w-full h-full object-cover opacity-70 group-hover:opacity-50 transition-all"
+                          alt="Preview"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 text-white/10 group-hover:text-sky-500 transition-colors">
+                          <Plus size={28} />
+                          <span className="text-[9px] font-black uppercase tracking-widest">
+                            Clique para adicionar
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Nome */}
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black uppercase text-white/30 tracking-widest">
+                      Nome do Esquadrão
+                    </label>
+                    <input
+                      required
+                      value={newGroup.name}
+                      onChange={e => setNewGroup(prev => ({ ...prev, name: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-black italic uppercase outline-none focus:border-sky-500/50 transition-all text-base placeholder:text-white/10 placeholder:not-italic placeholder:normal-case"
+                      placeholder="Ex: TEAM SAIYAJIN"
+                    />
+                  </div>
+
+                  {/* Descrição */}
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black uppercase text-white/30 tracking-widest flex items-center gap-2">
+                      <AlignLeft size={13} /> Manifesto / Descrição
+                    </label>
+                    <textarea
+                      required
+                      value={newGroup.description}
+                      onChange={e => setNewGroup(prev => ({ ...prev, description: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white font-medium outline-none focus:border-sky-500/50 h-28 resize-none text-sm placeholder:text-white/10"
+                      placeholder="Qual o propósito deste grupo? Descreva as regras ou o foco..."
+                    />
+                  </div>
+                </div>
+
+                {/* Coluna direita */}
+                <div className="space-y-7">
+                  {/* Objetivo */}
+                  <div className="space-y-3">
+                    <label className={`text-[10px] font-black uppercase tracking-widest ${activeTheme.text} flex items-center gap-2`}>
+                      <Target size={13} /> Objetivo Principal
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {CATEGORIAS.map(cat => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setNewGroup(prev => ({ ...prev, focus: cat }))}
+                          className={`p-2.5 rounded-xl border text-[9px] font-black uppercase tracking-wide transition-all
+                            ${newGroup.focus === cat
+                              ? `${activeTheme.bg} text-black border-transparent shadow-lg scale-[1.02]`
+                              : "bg-white/5 border-white/10 text-white/30 hover:text-white hover:border-white/20"}`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    {/* Tema */}
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase text-white/30 tracking-widest flex items-center gap-2">
+                        <Palette size={13} /> Tema Neon
+                      </label>
+                      <div className="flex flex-wrap gap-3">
+                        {ELITE_THEMES.map(t => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => setNewGroup(prev => ({ ...prev, theme: t.id }))}
+                            className={`w-8 h-8 rounded-full ${t.bg} border-2 transition-all
+                              ${newGroup.theme === t.id
+                                ? "border-white scale-110"
+                                : "border-transparent opacity-40 hover:opacity-80"}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Privacidade */}
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase text-white/30 tracking-widest">
+                        Privacidade
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setNewGroup(prev => ({ ...prev, privacy: "public" }))}
+                          className={`flex-1 p-3 rounded-2xl border flex flex-col items-center gap-1.5 transition-all
+                            ${newGroup.privacy === "public"
+                              ? "bg-sky-500/10 border-sky-500 text-sky-500"
+                              : "bg-white/5 border-white/5 text-white/20 hover:border-white/20"}`}
+                        >
+                          <Globe size={15} />
+                          <span className="text-[8px] font-black uppercase tracking-widest">Aberto</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewGroup(prev => ({ ...prev, privacy: "private" }))}
+                          className={`flex-1 p-3 rounded-2xl border flex flex-col items-center gap-1.5 transition-all
+                            ${newGroup.privacy === "private"
+                              ? "bg-sky-500/10 border-sky-500 text-sky-500"
+                              : "bg-white/5 border-white/5 text-white/20 hover:border-white/20"}`}
+                        >
+                          <Lock size={15} />
+                          <span className="text-[8px] font-black uppercase tracking-widest">Privado</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Botão submit */}
+                  <div className="pt-4 border-t border-white/5">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className={`w-full py-6 ${activeTheme.bg} text-black font-black uppercase italic rounded-3xl shadow-2xl hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-4 text-base disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {isSubmitting ? (
+                        <RefreshCw size={20} className="animate-spin" />
+                      ) : (
+                        <><Zap size={20} fill="black" /> FORJAR GRUPO AGORA</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </form>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
-
     </motion.div>
   );
 }

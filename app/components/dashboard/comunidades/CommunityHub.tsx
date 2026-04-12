@@ -1,199 +1,268 @@
+// app/components/dashboard/comunidades/CommunityHub.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, Dumbbell, UtensilsCrossed, Target, Trophy, Settings, Flame } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  ArrowLeft, Users, ShieldCheck, Loader2,
+  LayoutDashboard, Dumbbell, UtensilsCrossed,
+  Target, Trophy, Settings2,
+} from "lucide-react";
 import Image from "next/image";
-
-// IMPORTAÇÕES DOS MÓDULOS INTERNOS
-import { CommunityTreinos } from "./CommunityTreinos";
-import { CommunityNutricao } from "./CommunityNutricao";
+import { VisaoGeralAtivora } from "./VisaoGeralAtivora";
+import CommunityTreinos from "./treinos/CommunityTreinos";
+import { CommunityNutricao } from "./nutricao/CommunityNutricao";
 import { CommunityDesafios } from "./CommunityDesafios";
 import { CommunityRanking } from "./CommunityRanking";
+import { canDo, getHighestTag } from "@/lib/communities/permissions";
+import type { CommunityTreinosProps } from "./treinos/types";
 
-// Definição estrita das abas para segurança de tipos
-type HubTab = 'geral' | 'treinos' | 'nutricao' | 'desafios' | 'ranking';
+type HubTab = "geral" | "treinos" | "nutricao" | "desafios" | "ranking" | "gestao";
 
 interface CommunityHubProps {
   communityId: string;
+  communityData: {
+    id: string;
+    name: string;
+    description?: string;
+    cover_url?: string | null;
+    role?: string;
+    userTags?: string[];
+  } | null;
   currentUser: any;
-  defaultTab?: string; // Prop necessária para o Deep Linking
+  triggerXP: (amount: number) => void;
+  onNotify?: (notif: any) => void;
+  onBack: () => void;
 }
 
-export function CommunityHub({ communityId, currentUser, defaultTab = 'geral' }: CommunityHubProps) {
-  // Inicializa a aba com o valor vindo do Deep Link ou 'geral' por padrão
-  const [activeTab, setActiveTab] = useState<HubTab>(defaultTab as HubTab);
+const TABS: { id: HubTab; label: string; icon: React.ReactNode; minTag?: string }[] = [
+  { id: "geral",    label: "Geral",    icon: <LayoutDashboard size={18} /> },
+  { id: "treinos",  label: "Treinos",  icon: <Dumbbell size={18} />        },
+  { id: "nutricao", label: "Nutrição", icon: <UtensilsCrossed size={18} /> },
+  { id: "desafios", label: "Desafios", icon: <Target size={18} />          },
+  { id: "ranking",  label: "Ranking",  icon: <Trophy size={18} />          },
+  { id: "gestao",   label: "Gestão",   icon: <Settings2 size={18} />, minTag: "ADM" },
+];
 
-  // Efeito para forçar a troca de aba caso o defaultTab mude (vindo de uma nova notificação)
+export function CommunityHub({
+  communityId, communityData, currentUser, triggerXP, onNotify, onBack,
+}: CommunityHubProps) {
+  const [activeTab, setActiveTab] = useState<HubTab>("geral");
+  const [members, setMembers]     = useState<any[]>([]);
+  const [loading, setLoading]     = useState(false);
+
+  const userTags: string[] = communityData?.userTags ?? [communityData?.role ?? "Participante"];
+  const highestTag = getHighestTag(userTags);
+  const canManage  = canDo(userTags, "member:approve");
+
+  // ── Mapeia tag da comunidade → role do CommunityTreinos ────
+  const treinoRole = ((): CommunityTreinosProps["userRole"] => {
+    if (userTags.includes("Dono"))      return "owner";
+    if (userTags.includes("ADM"))       return "admin";
+    if (userTags.includes("Instrutor")) return "instructor";
+    return "member";
+  })();
+
   useEffect(() => {
-    if (defaultTab) {
-      setActiveTab(defaultTab as HubTab);
-    }
-  }, [defaultTab]);
+    if (activeTab !== "gestao" || !canManage) return;
+    setLoading(true);
+    fetch(`/api/communities/${communityId}/members`)
+      .then(r => r.json())
+      .then(d => setMembers(d.members ?? []))
+      .catch(() => setMembers([]))
+      .finally(() => setLoading(false));
+  }, [activeTab, communityId, canManage]);
 
-  // Mock de dados da Comunidade
-  const community = {
-    name: "Método Shape Saiyajin",
-    cover: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1000",
-    userTags: ["Participante", "Instrutor"], 
-    xpSemanal: 120,
-    posicaoRanking: 4
-  };
-
-  const tabs = [
-    { id: 'geral', label: 'Visão Geral', icon: <LayoutDashboard size={16} /> },
-    { id: 'treinos', label: 'Treinos', icon: <Dumbbell size={16} /> },
-    { id: 'nutricao', label: 'Nutrição', icon: <UtensilsCrossed size={16} /> },
-    { id: 'desafios', label: 'Desafios', icon: <Target size={16} /> },
-    { id: 'ranking', label: 'Classificação', icon: <Trophy size={16} /> },
-  ];
+  const visibleTabs = TABS.filter(t => {
+    if (!t.minTag) return true;
+    return canDo(userTags, "member:approve");
+  });
 
   return (
-    <div className="w-full max-w-6xl mx-auto pb-32 px-4 sm:px-6">
-      
-      {/* HEADER DA COMUNIDADE */}
-      <div className="relative w-full h-48 sm:h-64 rounded-4xl sm:rounded-5xl overflow-hidden mb-6 shadow-2xl ring-1 ring-white/5">
-        <Image src={community.cover} alt="Capa" fill className="object-cover opacity-50" unoptimized />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#010307] via-[#010307]/80 to-transparent" />
-        
-        <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between">
-          <div className="text-left">
-            <div className="flex gap-2 mb-2">
-              {community.userTags.map(tag => (
-                <span key={tag} className={`px-2 py-1 text-[8px] font-black uppercase rounded-md tracking-widest ${tag === 'Nutri' || tag === 'Instrutor' ? 'bg-sky-500 text-black shadow-neon' : 'bg-white/10 text-white border border-white/20'}`}>
-                  {tag}
-                </span>
-              ))}
-            </div>
-            <h1 className="text-2xl sm:text-4xl font-black italic uppercase tracking-tighter text-white leading-none">{community.name}</h1>
-          </div>
-          
-          {community.userTags.includes("ADM") && (
-            <button className="p-3 bg-white/5 backdrop-blur-md rounded-xl hover:bg-white/10 transition-colors border border-white/10">
-              <Settings size={20} className="text-white/60" />
-            </button>
+    <div className="w-full max-w-6xl mx-auto pb-32 px-3 sm:px-4 text-left">
+
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between pt-4">
+        <button
+          onClick={onBack}
+          className="text-[10px] font-black uppercase text-white/40 flex items-center
+            gap-2 hover:text-white transition-all bg-white/5 px-3 py-2 rounded-xl"
+        >
+          <ArrowLeft size={14} /> Voltar
+        </button>
+        <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full
+          border border-white/10">
+          <ShieldCheck size={12} className="text-sky-500" />
+          <span className="text-[9px] font-black text-white/60 uppercase tracking-widest">
+            {highestTag}
+          </span>
+        </div>
+      </div>
+
+      {/* Cover */}
+      <div className="relative w-full h-40 sm:h-56 rounded-4xl overflow-hidden mb-8
+        ring-1 ring-white/10">
+        <Image
+          src={communityData?.cover_url || "/placeholder.jpg"}
+          alt="Cover"
+          fill
+          className="object-cover opacity-50"
+          unoptimized
+        />
+        <div className="absolute inset-0 bg-linear-to-t from-[#010307] to-transparent" />
+        <div className="absolute bottom-6 left-6 sm:bottom-8 sm:left-8">
+          <h1 className="text-3xl sm:text-5xl font-black italic uppercase text-white
+            tracking-tighter drop-shadow-2xl leading-none">
+            {communityData?.name}
+          </h1>
+          {communityData?.description && (
+            <p className="text-white/40 text-xs font-medium mt-1 max-w-md line-clamp-1">
+              {communityData.description}
+            </p>
           )}
         </div>
       </div>
 
-      {/* NAVEGAÇÃO INTERNA (TABS) */}
-      <div className="sticky top-0 z-40 bg-[#010307]/90 backdrop-blur-xl border-b border-white/5 mb-8">
-        <div className="flex items-center overflow-x-auto no-scrollbar gap-2 py-4">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as HubTab)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl whitespace-nowrap transition-all duration-300 ${
-                activeTab === tab.id 
-                  ? 'bg-sky-500/10 text-sky-400 ring-1 ring-sky-500/30 shadow-neon-soft' 
-                  : 'text-white/40 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              {tab.icon}
-              <span className="text-[10px] font-black uppercase tracking-widest">{tab.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ÁREA DE CONTEÚDO DINÂMICO */}
+      {/* Conteúdo */}
       <AnimatePresence mode="wait">
         <motion.div
           key={activeTab}
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
+          exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.2 }}
         >
-          
-          {/* TAB: VISÃO GERAL */}
-          {activeTab === 'geral' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left">
-              <div className="lg:col-span-2 space-y-6">
-                <div className="bg-linear-to-br from-[#050B14] to-[#0A1222] ring-1 ring-white/5 rounded-4xl p-8 shadow-xl relative overflow-hidden">
-                   <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/10 blur-[60px] rounded-full" />
-                   <h3 className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-8 italic">Seu Status na Matriz</h3>
-                   
-                   <div className="grid grid-cols-2 gap-6 text-center">
-                     <div className="bg-white/3 border border-white/5 rounded-3xl p-6 transition-all hover:bg-white/5">
-                       <Flame size={28} className="text-rose-500 mx-auto mb-3" />
-                       <span className="block text-3xl font-black text-white leading-none">{community.xpSemanal} <span className="text-xs text-white/20">XP</span></span>
-                       <span className="text-[8px] font-black text-white/30 uppercase mt-2 tracking-widest">Acúmulo Semanal</span>
-                     </div>
-                     <div className="bg-sky-500/5 border border-sky-500/20 rounded-3xl p-6 transition-all hover:bg-sky-500/10">
-                       <Trophy size={28} className="text-sky-400 mx-auto mb-3" />
-                       <span className="block text-3xl font-black text-sky-400 leading-none">{community.posicaoRanking}º</span>
-                       <span className="text-[8px] font-black text-sky-400/40 uppercase mt-2 tracking-widest">No Rank Elite</span>
-                     </div>
-                   </div>
-                </div>
 
-                <div 
-                  onClick={() => setActiveTab('treinos')}
-                  className="bg-[#050B14] border border-white/5 rounded-4xl p-8 shadow-xl flex items-center justify-between group cursor-pointer hover:border-sky-500/30 transition-all"
-                >
-                  <div className="text-left">
-                    <span className="text-[9px] font-black text-sky-500 uppercase tracking-[0.3em] mb-2 block italic">Ação Imediata</span>
-                    <h4 className="text-2xl font-black text-white uppercase italic tracking-tighter">Sessão Alpha Programada</h4>
-                    <p className="text-xs text-white/30 font-bold uppercase mt-1 tracking-widest">Foco em Cadeia Posterior • 50m</p>
-                  </div>
-                  <div className="w-14 h-14 bg-sky-500 text-black rounded-2xl flex items-center justify-center shadow-neon group-hover:scale-110 transition-transform">
-                    <Dumbbell size={24} />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div className="bg-[#050B14] border border-white/5 rounded-4xl p-8 shadow-xl">
-                  <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-6 flex items-center gap-2 italic"><Target size={14}/> Missões Diárias</h3>
-                  <div className="space-y-4">
-                    <div className="bg-white/3 border border-white/5 rounded-2xl p-5 flex items-start justify-between group hover:bg-white/5 transition-all">
-                      <div className="text-left">
-                        <h5 className="text-sm font-black text-white uppercase italic">Hidratação Máxima</h5>
-                        <span className="text-[10px] text-amber-500 font-black uppercase tracking-widest">+10 XP</span>
-                      </div>
-                      <button className="px-4 py-2 bg-white text-black text-[9px] font-black uppercase rounded-xl hover:bg-sky-500 transition-all active:scale-90">Validar</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB: TREINOS */}
-          {activeTab === 'treinos' && (
-            <CommunityTreinos 
-              currentUser={currentUser} 
-              userTags={community.userTags} 
+          {/* ── GERAL ─────────────────────────────────────────── */}
+          {activeTab === "geral" && (
+            <VisaoGeralAtivora
+              currentUser={currentUser}
               communityId={communityId}
+              powerLevel={
+                userTags.includes("Dono") ? 5
+                : userTags.includes("ADM") ? 4
+                : 1
+              }
+              workouts={[]}
+              requests={[]}
+              onNotify={onNotify}
+              onNavigate={(tab: string) => setActiveTab(tab as HubTab)}
             />
           )}
 
-          {/* TAB: NUTRIÇÃO */}
-          {activeTab === 'nutricao' && (
-            <CommunityNutricao 
-              currentUser={currentUser} 
-              userTags={community.userTags} 
+          {/* ── TREINOS ───────────────────────────────────────── */}
+          {activeTab === "treinos" && (
+            <CommunityTreinos
+              communityId={communityId}
+              userId={currentUser?.id ?? ""}
+              userRole={treinoRole}
+              userName={
+                currentUser?.nickname
+                ?? currentUser?.full_name
+                ?? "Usuário"
+              }
             />
           )}
 
-          {/* TAB: DESAFIOS */}
-          {activeTab === 'desafios' && (
-            <CommunityDesafios 
-              currentUser={currentUser} 
-              userTags={community.userTags} 
+          {/* ── NUTRIÇÃO ──────────────────────────────────────── */}
+          {activeTab === "nutricao" && (
+            <CommunityNutricao
+              currentUser={currentUser}
+              userTags={userTags}
             />
           )}
 
-          {/* TAB: RANKING */}
-          {activeTab === 'ranking' && (
-            <CommunityRanking 
-              currentUser={currentUser} 
+          {/* ── DESAFIOS ──────────────────────────────────────── */}
+          {activeTab === "desafios" && (
+            <CommunityDesafios
+              communityId={communityId}
+              currentUser={currentUser}
+              userTags={userTags}
             />
+          )}
+
+          {/* ── RANKING ───────────────────────────────────────── */}
+          {activeTab === "ranking" && (
+            <CommunityRanking currentUser={currentUser} />
+          )}
+
+          {/* ── GESTÃO ────────────────────────────────────────── */}
+          {activeTab === "gestao" && canManage && (
+            <div className="space-y-6">
+              <h3 className="text-xl font-black uppercase text-white
+                flex items-center gap-3">
+                <Users className="text-sky-500" size={20} />
+                Efetivo da Comunidade
+              </h3>
+
+              {loading ? (
+                <div className="py-16 flex justify-center">
+                  <Loader2 className="animate-spin text-sky-500" size={28} />
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {members.map(m => (
+                    <div
+                      key={m.user_id}
+                      className="flex items-center justify-between p-4
+                        bg-white/5 rounded-2xl border border-white/5"
+                    >
+                      <div>
+                        <p className="text-xs font-black text-white uppercase">
+                          {m.nickname || m.full_name}
+                        </p>
+                        <p className="text-[9px] text-white/20 uppercase font-black
+                          tracking-widest mt-0.5">
+                          {m.role}
+                        </p>
+                      </div>
+                      {userTags.includes("Dono") && m.role !== "Dono" && (
+                        <select className="bg-black/40 border border-white/10 rounded-lg
+                          text-[9px] font-black p-2 text-white outline-none
+                          hover:border-sky-500/40 transition-all">
+                          <option value="Participante">Participante</option>
+                          <option value="Instrutor">Instrutor</option>
+                          <option value="Nutri">Nutri</option>
+                          <option value="ADM">ADM</option>
+                        </select>
+                      )}
+                    </div>
+                  ))}
+
+                  {members.length === 0 && (
+                    <p className="text-white/20 text-[10px] font-black uppercase
+                      tracking-widest text-center py-8">
+                      Nenhum membro encontrado
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
         </motion.div>
       </AnimatePresence>
+
+      {/* Nav inferior */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50
+        bg-[#0A1222]/90 backdrop-blur-2xl border border-white/10 p-1.5
+        rounded-2xl shadow-2xl flex items-center gap-1">
+        {visibleTabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex flex-col items-center gap-1 px-3 sm:px-5 py-2.5
+              rounded-xl text-[8px] font-black uppercase tracking-widest transition-all
+              ${activeTab === tab.id
+                ? "bg-sky-500 text-black shadow-lg"
+                : "text-white/30 hover:text-white/60"}`}
+          >
+            {tab.icon}
+            <span className="hidden sm:block">{tab.label}</span>
+          </button>
+        ))}
+      </div>
+
     </div>
   );
 }

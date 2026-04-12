@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { AtivoraSocial } from "./social/AtivoraSocial";
 import { HubComunidadesCard } from "./comunidades/HubComunidadesCard";
 import { CommunityList } from "./comunidades/CommunityList";
 
 import { 
   LayoutDashboard, Users, Target, TrendingUp, Settings, LogOut,
-  Bell, Shield, ChevronRight, Activity, Utensils, Award, Flame, Beaker
+  Bell, Shield, ChevronRight, Activity, Utensils, Award
 } from "lucide-react";
 import { motion, Variants, AnimatePresence } from "framer-motion";
 import Image from "next/image";
@@ -23,7 +23,7 @@ interface UserData {
   streak?: number;
 }
 
-interface INotification {
+export interface INotification {
   id: string;
   title: string;
   message: string;
@@ -65,7 +65,27 @@ export default function MainDashboard() {
     }
   ]);
 
-  // --- SINCRONIZAÇÃO DE PERFIL ---
+  const addNotification = useCallback((notif: Omit<INotification, 'id' | 'isRead'>) => {
+    const newNotif: INotification = {
+      ...notif,
+      id: Math.random().toString(36).substr(2, 9),
+      isRead: false
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+
+    if (Notification.permission === "granted") {
+      new Notification(notif.title, { body: notif.message });
+    }
+  }, []);
+
+  useEffect(() => {
+    if ("Notification" in window) {
+      if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+        Notification.requestPermission();
+      }
+    }
+  }, []);
+
   useEffect(() => {
     const savedProfile = localStorage.getItem('@ativora_profile');
     if (savedProfile) {
@@ -83,12 +103,13 @@ export default function MainDashboard() {
     }
   }, [currentView]);
 
-  // --- LOGICA DE NOTIFICAÇÃO (DEEP LINKING) ---
   const handleNotificationClick = (notif: INotification) => {
     setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
-    if (notif.type === 'treino' && notif.targetId) {
-      setDeepLink({ communityId: notif.targetId, tab: notif.targetTab || 'treinos' });
+    if ((notif.type === 'treino' || notif.type === 'comunidade') && notif.targetId) {
+      setDeepLink({ communityId: notif.targetId, tab: notif.targetTab || 'home' });
       setCurrentView('comunidades');
+    } else if (notif.type === 'social') {
+      setCurrentView('social');
     }
     setShowNotifPanel(false);
   };
@@ -108,16 +129,16 @@ export default function MainDashboard() {
   return (
     <div className="flex flex-col lg:flex-row h-dvh bg-[#010307] text-[#F8FAFC] overflow-hidden font-sans text-left">
       
-      {/* --- SIDEBAR DESKTOP --- */}
-      <aside className="hidden lg:flex w-24 xl:w-80 border-r border-white/5 bg-[#030508] flex-col p-8 z-50 shadow-2xl">
+      {/* SIDEBAR DESKTOP */}
+      <aside className="hidden lg:flex w-24 xl:w-80 border-r border-white/5 bg-[#030508] flex-col p-8 z-50 shadow-2xl text-left">
         <div className="mb-16 xl:px-4 cursor-pointer" onClick={() => setCurrentView('home')}>
           <span className="font-black italic text-3xl tracking-tighter block leading-none text-white">
             Ativora<span className="text-sky-500 shadow-neon">Fit</span>
           </span>
-          <span className="text-[8px] font-black text-white/20 uppercase tracking-widest mt-2.5 block italic leading-tight uppercase">Protocolo Matriz Ativora</span>
+          <span className="text-[8px] font-black text-white/20 uppercase tracking-widest mt-2.5 block italic leading-tight">Protocolo Matriz Ativora</span>
         </div>
         
-        <nav className="flex-1 space-y-3.5">
+        <nav className="flex-1 space-y-3.5 text-left">
           <SidebarItem icon={<LayoutDashboard size={20}/>} label="Painel" code="01" active={currentView === 'home'} onClick={() => { setCurrentView('home'); setDeepLink(null); }} />
           <SidebarItem icon={<Users size={20}/>} label="Social" code="02" active={currentView === 'social'} onClick={() => setCurrentView('social')} />
           <SidebarItem icon={<Shield size={20}/>} label="Comunidades" code="03" active={currentView === 'comunidades'} onClick={() => { setCurrentView('comunidades'); setDeepLink(null); }} />
@@ -125,7 +146,7 @@ export default function MainDashboard() {
           <SidebarItem icon={<TrendingUp size={20}/>} label="Evolução" code="05" active={currentView === 'metricas'} onClick={() => setCurrentView('metricas')} />
         </nav>
 
-        <div className="pt-8 border-t border-white/5 space-y-3.5 flex flex-col">
+        <div className="pt-8 border-t border-white/5 space-y-3.5 flex flex-col text-left">
           <SidebarItem icon={<Settings size={20}/>} label="Ajustes" code="SET" active={currentView === 'config'} onClick={() => setCurrentView('config')} />
           <SidebarItem icon={<LogOut size={20}/>} label="Sair" code="EXIT" onClick={handleLogout} danger />
         </div>
@@ -133,26 +154,25 @@ export default function MainDashboard() {
 
       <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-[#010307]">
         
-        {/* --- HEADER --- */}
+        {/* HEADER */}
         <header className="h-20 lg:h-24 border-b border-white/5 flex items-center justify-between px-6 lg:px-10 backdrop-blur-2xl z-40 bg-black/20">
           <div className="flex items-center gap-4">
-             <div className="lg:hidden" onClick={() => setCurrentView('home')}>
+              <div className="lg:hidden" onClick={() => setCurrentView('home')}>
                 <span className="font-black italic text-xl text-white">Ativora<span className="text-sky-500">Fit</span></span>
-             </div>
-             <div className="hidden sm:flex items-center gap-3 bg-white/5 px-4 py-2.5 rounded-xl border border-white/5 italic text-[10px] font-black uppercase text-white/40">
+              </div>
+              <div className="hidden sm:flex items-center gap-3 bg-white/5 px-4 py-2.5 rounded-xl border border-white/5 italic text-[10px] font-black uppercase text-white/40">
                 <Shield size={14} className="text-sky-500 animate-pulse" /> Núcleo de Elite
-             </div>
+              </div>
           </div>
 
           <div className="flex items-center gap-4">
-            {/* NOTIFICAÇÕES */}
             <div className="relative">
               <button 
                 onClick={() => setShowNotifPanel(!showNotifPanel)}
                 className={`relative p-3 rounded-2xl border transition-all shadow-inner ${unreadCount > 0 ? 'bg-sky-500/10 border-sky-500/30 text-sky-500' : 'bg-white/5 border-white/10 text-white/40'}`}
               >
                 <Bell size={20} />
-                {unreadCount > 0 && <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-sky-500 rounded-full shadow-neon animate-bounce" />}
+                {unreadCount > 0 && <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-sky-500 rounded-full shadow-neon" />}
               </button>
 
               <AnimatePresence>
@@ -162,14 +182,19 @@ export default function MainDashboard() {
                       <span className="text-[10px] font-black uppercase tracking-widest text-white">Central de Alertas</span>
                       {unreadCount > 0 && <span className="text-[8px] bg-sky-500 text-black px-2 py-0.5 rounded-full font-black uppercase">{unreadCount} NOVOS</span>}
                     </div>
-                    <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                      {notifications.map(notif => (
-                        <div key={notif.id} onClick={() => handleNotificationClick(notif)} className={`p-5 border-b border-white/5 cursor-pointer hover:bg-white/5 transition-all relative ${!notif.isRead ? 'bg-sky-500/5' : ''}`}>
-                          {!notif.isRead && <div className="absolute left-2 top-1/2 -translate-y-1/2 w-1 h-8 bg-sky-500 rounded-full" />}
-                          <h4 className="text-xs font-black text-white uppercase italic">{notif.title}</h4>
-                          <p className="text-[10px] text-white/40 mt-1">{notif.message}</p>
-                        </div>
-                      ))}
+                    {/* CORREÇÃO TAILWIND: max-h-100 conforme sugerido pelo build */}
+                    <div className="max-h-100 overflow-y-auto custom-scrollbar">
+                      {notifications.length === 0 ? (
+                        <div className="p-10 text-center text-[10px] font-black uppercase text-white/10 tracking-widest">Sem Sinais no Radar</div>
+                      ) : (
+                        notifications.map(notif => (
+                          <div key={notif.id} onClick={() => handleNotificationClick(notif)} className={`p-5 border-b border-white/5 cursor-pointer hover:bg-white/5 transition-all relative ${!notif.isRead ? 'bg-sky-500/5' : ''}`}>
+                            {!notif.isRead && <div className="absolute left-2 top-1/2 -translate-y-1/2 w-1 h-8 bg-sky-500 rounded-full" />}
+                            <h4 className="text-xs font-black text-white uppercase italic">{notif.title}</h4>
+                            <p className="text-[10px] text-white/40 mt-1">{notif.message}</p>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </motion.div>
                 )}
@@ -182,23 +207,20 @@ export default function MainDashboard() {
           </div>
         </header>
 
-        {/* --- CONTEÚDO PRINCIPAL --- */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-14 pb-36 z-10 relative">
+        <main className="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-14 pb-36 z-10 relative text-left">
           <AnimatePresence mode="wait">
             {currentView === 'home' && (
-              <motion.div key="home" initial="hidden" animate="visible" exit={{ opacity: 0, y: -20 }} variants={containerVariants} className="max-w-6xl mx-auto space-y-12">
+              <motion.div key="home" initial="hidden" animate="visible" exit={{ opacity: 0, y: -20 }} variants={containerVariants} className="max-w-6xl mx-auto space-y-12 text-left">
                 
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 auto-rows-fr">
-                  
-                  {/* CARD SOCIAL COM LÓGICA DE CONTA */}
-                  <motion.section variants={itemVariants} className="relative group rounded-5xl overflow-hidden border border-white/10 shadow-2xl flex flex-col h-full min-h-87.5">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 auto-rows-fr text-left">
+                  <motion.section variants={itemVariants} className="relative group rounded-5xl overflow-hidden border border-white/10 shadow-2xl flex flex-col h-full min-h-87.5 text-left">
                     <div className="absolute inset-0 z-0">
                       <Image src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200" alt="Social" fill className="object-cover grayscale brightness-50 group-hover:scale-105 group-hover:brightness-75 transition-all duration-1000" unoptimized />
                       <div className="absolute inset-0 bg-linear-to-r from-black via-black/60 to-transparent z-10" />
                     </div>
 
                     <div className="relative z-20 p-8 lg:p-12 flex flex-col justify-center h-full text-left">
-                      <div className="space-y-6 max-w-2xl">
+                      <div className="space-y-6 max-w-2xl text-left">
                         <div className="inline-flex items-center gap-2 bg-sky-500 text-black px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest italic">
                           <Users size={12} fill="currentColor" /> Portal da Elite
                         </div>
@@ -207,15 +229,15 @@ export default function MainDashboard() {
                         </h2>
                         <p className="text-white/80 font-bold text-lg italic leading-tight">Acompanhe treinos reais e a evolução da elite em tempo real.</p>
                         
-                        <div className="flex flex-wrap gap-4 pt-4">
+                        <div className="flex flex-wrap gap-4 pt-4 text-left">
                           {hasProfile ? (
                             <>
-                              <button onClick={() => { setIsGuestMode(false); setCurrentView('social'); }} className="px-10 py-5 bg-sky-500 text-black font-black uppercase italic tracking-widest text-[11px] rounded-2xl shadow-xl hover:scale-105 transition-all">Entrar</button>
-                              <button onClick={() => { setIsGuestMode(false); setSocialRoute('profile'); setCurrentView('social'); }} className="px-10 py-5 bg-white/5 backdrop-blur-xl border border-white/10 text-white font-black uppercase italic tracking-widest text-[11px] rounded-2xl hover:bg-white/10 transition-all">Editar Perfil</button>
+                              <button onClick={() => setCurrentView('social')} className="px-10 py-5 bg-sky-500 text-black font-black uppercase italic tracking-widest text-[11px] rounded-2xl shadow-xl hover:scale-105 transition-all">Entrar</button>
+                              <button onClick={() => { setSocialRoute('profile'); setCurrentView('social'); }} className="px-10 py-5 bg-white/5 backdrop-blur-xl border border-white/10 text-white font-black uppercase italic tracking-widest text-[11px] rounded-2xl hover:bg-white/10 transition-all">Editar Perfil</button>
                             </>
                           ) : (
                             <>
-                              <button onClick={() => { setIsGuestMode(false); setCurrentView('social'); }} className="px-10 py-5 bg-sky-500 text-black font-black uppercase italic tracking-widest text-[11px] rounded-2xl shadow-xl hover:scale-105 transition-all">Criar Conta</button>
+                              <button onClick={() => setCurrentView('social')} className="px-10 py-5 bg-sky-500 text-black font-black uppercase italic tracking-widest text-[11px] rounded-2xl shadow-xl hover:scale-105 transition-all">Criar Conta</button>
                               <button onClick={() => { setIsGuestMode(true); setCurrentView('social'); }} className="px-10 py-5 bg-white/5 backdrop-blur-xl border border-white/10 text-white font-black uppercase italic tracking-widest text-[11px] rounded-2xl hover:bg-white/10 transition-all">Entrar sem conta</button>
                             </>
                           )}
@@ -224,14 +246,12 @@ export default function MainDashboard() {
                     </div>
                   </motion.section>
 
-                  {/* CARD COMUNIDADES */}
-                  <motion.div variants={itemVariants} className="h-full min-h-87.5">
+                  <motion.div variants={itemVariants} className="h-full min-h-87.5 text-left">
                     <HubComunidadesCard onClick={() => setCurrentView('comunidades')} />
                   </motion.div>
                 </div>
 
-                {/* GRID DE FUNÇÕES */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
                   <FunctionCard icon={<Target className="text-sky-500" />} title="Protocolos" desc="Treinos" code="03" bgImage="https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400" onClick={() => setCurrentView('treinos')} />
                   <FunctionCard icon={<Utensils className="text-orange-500" />} title="Nutrição" desc="Dieta" code="NUT" bgImage="https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400" onClick={() => {}} />
                   <FunctionCard icon={<Activity className="text-green-500" />} title="Evolução" desc="Métricas" code="04" bgImage="https://images.unsplash.com/photo-1518481612222-68bbe828ecd1?w=400" onClick={() => setCurrentView('metricas')} />
@@ -245,21 +265,26 @@ export default function MainDashboard() {
                 onBack={() => { setCurrentView('home'); setSocialRoute('feed'); }} 
                 isGuest={isGuestMode} 
                 initialRoute={socialRoute} 
+                {...({ onNotify: addNotification } as any)} 
               />
             )}
 
             {currentView === 'comunidades' && (
-              <motion.div key="comunidades" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="w-full">
+              <motion.div key="comunidades" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="w-full text-left">
                 <div className="max-w-6xl mx-auto px-4 mb-4">
                   <button onClick={() => { setCurrentView('home'); setDeepLink(null); }} className="text-white/40 hover:text-sky-500 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2">← Voltar</button>
                 </div>
-                <CommunityList currentUser={displayUser} initialDeepLink={deepLink} onClearDeepLink={() => setDeepLink(null)} />
+                <CommunityList 
+                   currentUser={displayUser as any} 
+                   initialDeepLink={deepLink} 
+                   onClearDeepLink={() => setDeepLink(null)} 
+                   {...({ onNotify: addNotification } as any)} 
+                />
               </motion.div>
             )}
           </AnimatePresence>
         </main>
 
-        {/* --- MOBILE NAV --- */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-20 bg-[#030508]/90 backdrop-blur-3xl border-t border-white/5 flex items-center justify-around px-4 z-50">
           <MobileNavItem icon={<LayoutDashboard size={22} />} label="Início" active={currentView === 'home'} onClick={() => setCurrentView('home')} />
           <MobileNavItem icon={<Users size={22} />} label="Social" active={currentView === 'social'} onClick={() => setCurrentView('social')} />
@@ -270,6 +295,7 @@ export default function MainDashboard() {
           <MobileNavItem icon={<Settings size={22} />} label="Ajustes" active={currentView === 'config'} onClick={() => setCurrentView('config')} />
         </nav>
       </div>
+
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(14, 165, 233, 0.2); border-radius: 10px; }
@@ -277,12 +303,12 @@ export default function MainDashboard() {
       `}</style>
     </div>
   );
-};
+}
 
 // --- COMPONENTES AUXILIARES ---
 
 const FunctionCard = ({ icon, title, desc, code, bgImage, onClick }: any) => (
-  <motion.div variants={itemVariants} whileHover={{ y: -8, scale: 1.02 }} onClick={onClick} className="group relative h-64 rounded-4xl overflow-hidden border border-white/5 cursor-pointer shadow-xl transition-all duration-500">
+  <motion.div variants={itemVariants} whileHover={{ y: -8, scale: 1.02 }} onClick={onClick} className="group relative h-64 rounded-4xl overflow-hidden border border-white/5 cursor-pointer shadow-xl transition-all duration-500 text-left">
     <Image src={bgImage} alt={title} fill className="object-cover grayscale brightness-[0.2] group-hover:brightness-[0.4] group-hover:grayscale-0 transition-all duration-700" unoptimized />
     <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent z-10" />
     <div className="relative z-20 p-8 h-full flex flex-col justify-between text-left">
@@ -290,7 +316,7 @@ const FunctionCard = ({ icon, title, desc, code, bgImage, onClick }: any) => (
         <div className="p-3 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 group-hover:bg-sky-500 group-hover:text-black transition-all">{icon}</div>
         <span className="text-[8px] font-black text-white/10 italic">{" // "}{code}</span>
       </div>
-      <div>
+      <div className="text-left">
         <h4 className="text-xl font-black uppercase italic tracking-tighter text-white mb-1 leading-none">{title}</h4>
         <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest italic">{desc}</p>
         <div className="mt-4 flex items-center gap-2 text-sky-500 text-[9px] font-black uppercase italic opacity-0 group-hover:opacity-100 transform -translate-x-2 group-hover:translate-x-0 transition-all">Acessar <ChevronRight size={12} /></div>
@@ -301,7 +327,7 @@ const FunctionCard = ({ icon, title, desc, code, bgImage, onClick }: any) => (
 
 const SidebarItem = ({ icon, label, active, code, onClick }: any) => (
   <button onClick={onClick} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all border ${active ? 'bg-sky-500 text-black font-black border-sky-500 shadow-neon' : 'border-transparent text-white/30 hover:bg-white/3 hover:text-white'}`}>
-    <div className="flex items-center gap-4 relative z-10">
+    <div className="flex items-center gap-4 relative z-10 text-left">
       {icon}
       <span className="hidden xl:block uppercase italic text-xs tracking-widest font-black leading-none">{label}</span>
     </div>

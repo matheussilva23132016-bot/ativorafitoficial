@@ -13,23 +13,20 @@ const poolConfig = {
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   
-  // Controle de Tráfego (Evita que o banco caia em picos de acesso)
   waitForConnections: true,
-  connectionLimit: 20, // Quantidade de conexões simultâneas permitidas
-  queueLimit: 0,       // Sem limite de fila de espera
+  connectionLimit: 20, 
+  queueLimit: 0,       
   
-  // Resiliência de Conexão (Essencial para Hostinger)
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000,
 };
 
-// Padrão Singleton: Usa o Pool existente ou cria um novo se não existir
+// Padrão Singleton: Usa o Pool existente ou cria um novo
 const pool = globalThis.mysqlPool || mysql.createPool(poolConfig);
 
-// No modo de desenvolvimento, salvamos o Pool na variável global
-// para que o Next.js não crie centenas de conexões ao salvar arquivos.
 if (process.env.NODE_ENV !== "production") {
   globalThis.mysqlPool = pool;
 }
 
-export default pool;
+// ✅ EXPORTAÇÃO NOMEADA (Resolve o erro 1192)
+export const db = pool;

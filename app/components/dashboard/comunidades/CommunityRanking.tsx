@@ -1,111 +1,173 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { motion } from "framer-motion";
-import { Trophy, Medal, Crown } from "lucide-react";
+import { Trophy, Crown, Info } from "lucide-react";
 import Image from "next/image";
+
+interface RankingUser {
+  posicao:    number;
+  nome:       string;
+  xp:         number;
+  avatar:     string | null;
+  isMe:       boolean;
+  desafios?:  number;
+}
 
 interface CommunityRankingProps {
   currentUser: any;
 }
 
-export function CommunityRanking({ currentUser }: CommunityRankingProps) {
-  // Mock do Ranking (Backend vai ordenar por XP)
-  const ranking = [
-    { posicao: 1, nome: "Lucas Silva", xp: 1250, avatar: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100", isMe: false },
-    { posicao: 2, nome: "Ana Paula", xp: 1100, avatar: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=100", isMe: false },
-    { posicao: 3, nome: "Marcos V.", xp: 950, avatar: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=100", isMe: false },
-    { posicao: 4, nome: currentUser.nickname, xp: 820, avatar: currentUser.avatar, isMe: true }, // Simulando o usuário logado
-    { posicao: 5, nome: "Juliana F.", xp: 700, avatar: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=100", isMe: false },
-  ];
+const isValidUrl = (url: unknown): url is string =>
+  typeof url === "string" && url.length > 4 && url.startsWith("http");
 
-  const top3 = ranking.slice(0, 3);
+export function CommunityRanking({ currentUser }: CommunityRankingProps) {
+  const ranking: RankingUser[] = useMemo(() => [
+    { posicao: 1, nome: "Lucas Silva",                   xp: 1250, avatar: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100", isMe: false, desafios: 8 },
+    { posicao: 2, nome: "Ana Paula",                     xp: 1100, avatar: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=100", isMe: false, desafios: 7 },
+    { posicao: 3, nome: "Marcos V.",                     xp: 950,  avatar: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=100", isMe: false, desafios: 6 },
+    { posicao: 4, nome: currentUser?.nickname ?? "Você", xp: 820,  avatar: currentUser?.avatar ?? null, isMe: true,  desafios: 5 },
+    { posicao: 5, nome: "Juliana F.",                    xp: 700,  avatar: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=100", isMe: false, desafios: 4 },
+  ], [currentUser]);
+
+  const top3  = ranking.slice(0, 3);
   const outros = ranking.slice(3);
+
+  const podiumOrder = [top3[1], top3[0], top3[2]];
+  const podiumStyles = [
+    { border: "border-gray-400",  glow: "shadow-[0_0_20px_rgba(156,163,175,0.4)]", height: "h-24 sm:h-32", textColor: "text-gray-300",  pos: "2º", size: "w-14 h-14 sm:w-18 sm:h-18" },
+    { border: "border-amber-400", glow: "shadow-[0_0_30px_rgba(251,191,36,0.6)]",  height: "h-32 sm:h-40", textColor: "text-amber-400", pos: "1º", size: "w-18 h-18 sm:w-24 sm:h-24" },
+    { border: "border-orange-700",glow: "shadow-[0_0_20px_rgba(194,65,12,0.4)]",   height: "h-20 sm:h-24", textColor: "text-orange-500",pos: "3º", size: "w-14 h-14 sm:w-18 sm:h-18" },
+  ];
 
   return (
     <div className="space-y-10 text-left">
+      {/* Header */}
       <div className="text-center max-w-2xl mx-auto">
         <div className="inline-flex items-center gap-2 bg-amber-500/10 text-amber-500 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest italic mb-4 border border-amber-500/20">
-          <Trophy size={14} fill="currentColor" /> Ranking Semanal
+          <Trophy size={13} fill="currentColor" /> Ranking Semanal
         </div>
         <h2 className="text-3xl sm:text-5xl font-black italic uppercase tracking-tighter text-white">
           A Elite da <span className="text-sky-500">Semana</span>
         </h2>
-        <p className="text-xs text-white/40 font-medium mt-3">O ranking reseta todo domingo às 23:59. Os melhores recebem selos permanentes de glória.</p>
+        <p className="text-xs text-white/30 font-medium mt-3 leading-relaxed">
+          O ranking reseta todo domingo às 23:59. Os melhores recebem selos permanentes de glória.
+        </p>
       </div>
 
-      {/* PÓDIO TOP 3 */}
-      <div className="flex justify-center items-end gap-2 sm:gap-6 pt-10">
-        {/* Segundo Lugar (Esquerda) */}
-        <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="flex flex-col items-center">
-          <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-4 border-gray-400 overflow-hidden z-10 shadow-[0_0_20px_rgba(156,163,175,0.4)]">
-            <Image src={top3[1].avatar} alt="" fill className="object-cover" unoptimized />
-          </div>
-          <div className="w-20 sm:w-28 h-24 sm:h-32 bg-linear-to-t from-gray-400/10 to-gray-400/30 rounded-t-2xl border border-b-0 border-gray-400/30 mt-2 flex flex-col items-center justify-start pt-4 backdrop-blur-md">
-            <span className="text-2xl font-black text-gray-300">2º</span>
-            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1 text-center truncate w-full px-1">{top3[1].nome}</span>
-            <span className="text-[10px] font-black text-white mt-1">{top3[1].xp} XP</span>
-          </div>
-        </motion.div>
-
-        {/* Primeiro Lugar (Centro) */}
-        <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex flex-col items-center relative z-20">
-          <Crown size={32} className="text-amber-400 absolute -top-10 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]" />
-          <div className="relative w-20 h-20 sm:w-28 sm:h-28 rounded-2xl border-4 border-amber-400 overflow-hidden z-10 shadow-[0_0_30px_rgba(251,191,36,0.6)]">
-            <Image src={top3[0].avatar} alt="" fill className="object-cover" unoptimized />
-          </div>
-          <div className="w-24 sm:w-32 h-32 sm:h-40 bg-linear-to-t from-amber-400/10 to-amber-400/30 rounded-t-2xl border border-b-0 border-amber-400/30 mt-2 flex flex-col items-center justify-start pt-4 backdrop-blur-md">
-            <span className="text-3xl font-black text-amber-400">1º</span>
-            <span className="text-[10px] font-bold text-amber-300 uppercase tracking-widest mt-1 text-center truncate w-full px-1">{top3[0].nome}</span>
-            <span className="text-xs font-black text-white mt-1">{top3[0].xp} XP</span>
-          </div>
-        </motion.div>
-
-        {/* Terceiro Lugar (Direita) */}
-        <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="flex flex-col items-center">
-          <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-4 border-orange-700 overflow-hidden z-10 shadow-[0_0_20px_rgba(194,65,12,0.4)]">
-            <Image src={top3[2].avatar} alt="" fill className="object-cover" unoptimized />
-          </div>
-          <div className="w-20 sm:w-28 h-20 sm:h-24 bg-linear-to-t from-orange-700/10 to-orange-700/30 rounded-t-2xl border border-b-0 border-orange-700/30 mt-2 flex flex-col items-center justify-start pt-4 backdrop-blur-md">
-            <span className="text-2xl font-black text-orange-500">3º</span>
-            <span className="text-[9px] font-bold text-orange-400 uppercase tracking-widest mt-1 text-center truncate w-full px-1">{top3[2].nome}</span>
-            <span className="text-[10px] font-black text-white mt-1">{top3[2].xp} XP</span>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* LISTA GERAL */}
-      <div className="max-w-3xl mx-auto bg-[#050B14] border border-white/5 rounded-4xl p-4 sm:p-8 shadow-2xl">
-        <h3 className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-6 px-2">Restante da Tropa</h3>
-        <div className="space-y-3">
-          {outros.map((user) => (
-            <div 
-              key={user.posicao} 
-              className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
-                user.isMe ? 'bg-sky-500/10 border-sky-500/30 shadow-neon-soft' : 'bg-white/5 border-white/5'
-              }`}
+      {/* Pódio */}
+      <div className="flex justify-center items-end gap-3 sm:gap-6 pt-10">
+        {podiumOrder.map((user, idx) => {
+          if (!user) return null;
+          const style = podiumStyles[idx];
+          return (
+            <motion.div
+              key={user.posicao}
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: idx * 0.15 }}
+              className="flex flex-col items-center"
             >
-              <div className="flex items-center gap-4">
-                <span className={`text-lg font-black italic w-6 text-center ${user.isMe ? 'text-sky-500' : 'text-white/40'}`}>
+              {user.posicao === 1 && (
+                <Crown
+                  size={28}
+                  className="text-amber-400 mb-1 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]"
+                />
+              )}
+              <div
+                className={`relative rounded-2xl border-4 ${style.border} ${style.glow} overflow-hidden shrink-0`}
+                style={{ width: user.posicao === 1 ? 80 : 60, height: user.posicao === 1 ? 80 : 60 }}
+              >
+                {isValidUrl(user.avatar) ? (
+                  <Image src={user.avatar} alt={user.nome} fill className="object-cover" unoptimized />
+                ) : (
+                  <div className="w-full h-full bg-white/5 flex items-center justify-center">
+                    <span className="font-black text-white/40 text-lg">{user.nome[0]}</span>
+                  </div>
+                )}
+              </div>
+              <div
+                className={`w-20 sm:w-28 ${style.height} bg-gradient-to-t from-white/5 to-white/10 rounded-t-2xl border border-b-0 border-white/10 mt-2 flex flex-col items-center justify-start pt-3 backdrop-blur-md`}
+              >
+                <span className={`text-xl sm:text-2xl font-black ${style.textColor}`}>
+                  {style.pos}
+                </span>
+                <span className="text-[8px] font-bold text-white/30 uppercase tracking-widest mt-1 text-center truncate w-full px-1">
+                  {user.nome.split(" ")[0]}
+                </span>
+                <span className="text-[10px] font-black text-white mt-1">{user.xp} XP</span>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Lista */}
+      <div className="max-w-3xl mx-auto bg-[#050B14] border border-white/5 rounded-[28px] p-4 sm:p-8 shadow-2xl">
+        <div className="flex items-center justify-between mb-5 px-2">
+          <h3 className="text-[10px] font-black text-white/30 uppercase tracking-widest">
+            Classificação Geral
+          </h3>
+          <div className="flex items-center gap-1 text-white/15 text-[9px] font-bold">
+            <Info size={11} /> Reseta domingo
+          </div>
+        </div>
+        <div className="space-y-2.5">
+          {ranking.map(user => (
+            <motion.div
+              key={user.posicao}
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: user.posicao * 0.05 }}
+              className={`flex items-center justify-between p-4 rounded-2xl border transition-all
+                ${user.isMe
+                  ? "bg-sky-500/10 border-sky-500/30"
+                  : "bg-white/5 border-white/5 hover:border-white/10"}`}
+            >
+              <div className="flex items-center gap-3 sm:gap-4">
+                <span className={`text-base font-black italic w-6 text-center tabular-nums
+                  ${user.posicao === 1 ? "text-amber-400" :
+                    user.posicao === 2 ? "text-gray-400"  :
+                    user.posicao === 3 ? "text-orange-600":
+                    user.isMe          ? "text-sky-500"   : "text-white/25"}`}>
                   {user.posicao}º
                 </span>
-                <div className="relative w-10 h-10 rounded-xl overflow-hidden ring-1 ring-white/10">
-                  <Image src={user.avatar} alt={user.nome} fill className="object-cover" unoptimized />
+                <div className="relative w-9 h-9 rounded-xl overflow-hidden ring-1 ring-white/10 shrink-0">
+                  {isValidUrl(user.avatar) ? (
+                    <Image src={user.avatar} alt={user.nome} fill className="object-cover" unoptimized />
+                  ) : (
+                    <div className="w-full h-full bg-white/5 flex items-center justify-center">
+                      <span className="text-xs font-black text-white/30">{user.nome[0]}</span>
+                    </div>
+                  )}
                 </div>
                 <div>
-                  <h4 className={`text-sm font-black uppercase italic ${user.isMe ? 'text-sky-400' : 'text-white'}`}>
-                    {user.nome} {user.isMe && <span className="text-[8px] ml-2 px-2 py-0.5 bg-sky-500 text-black rounded-md not-italic">VOCÊ</span>}
+                  <h4 className={`text-sm font-black uppercase italic leading-none
+                    ${user.isMe ? "text-sky-400" : "text-white"}`}>
+                    {user.nome}
+                    {user.isMe && (
+                      <span className="text-[7px] ml-2 px-1.5 py-0.5 bg-sky-500 text-black rounded not-italic normal-case font-black">
+                        VOCÊ
+                      </span>
+                    )}
                   </h4>
+                  {user.desafios != null && (
+                    <span className="text-[9px] text-white/20 font-bold">
+                      {user.desafios} desafios
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="text-right">
-                <span className={`text-sm font-black ${user.isMe ? 'text-sky-400' : 'text-white'}`}>{user.xp} <span className="text-[10px] text-white/40">XP</span></span>
+                <span className={`text-sm font-black ${user.isMe ? "text-sky-400" : "text-white"}`}>
+                  {user.xp}
+                </span>
+                <span className="text-[9px] text-white/25 font-bold ml-1">XP</span>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
-
     </div>
   );
 }
