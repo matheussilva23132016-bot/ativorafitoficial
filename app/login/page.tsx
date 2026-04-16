@@ -73,7 +73,10 @@ export default function LoginPage() {
       router.push("/dashboard");
       router.refresh();
     } catch (err: any) {
-      const message = err?.message || "Não foi possível entrar agora.";
+      const rawMessage = err?.message || "";
+      const message = rawMessage.includes("Unexpected token")
+        ? "O servidor retornou uma página de erro em vez da resposta de login. Verifique as variáveis do banco e reinicie a aplicação."
+        : rawMessage || "Não foi possível entrar agora.";
       setErrors({ general: message });
       toast.error(message);
     } finally {

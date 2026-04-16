@@ -1,10 +1,11 @@
 import NextAuth from "next-auth/next";
 import CredentialsProvider from "next-auth/providers/credentials";
-import prisma from "@/lib/prisma";
+import db from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { AuthOptions } from "next-auth";
+import type { RowDataPacket } from "mysql2";
 
-type AuthUserRow = {
+type AuthUserRow = RowDataPacket & {
   id: string;
   email: string;
   password_hash: string;
@@ -39,12 +40,13 @@ export const authOptions: AuthOptions = {
         }
 
         const identificador = credentials.identificador.trim().toLowerCase();
-        const users = await prisma.$queryRaw<AuthUserRow[]>`
-          SELECT id, email, password_hash, full_name, avatar_url, role, nickname, account_status
-          FROM ativora_users
-          WHERE email = ${identificador} OR nickname = ${identificador}
-          LIMIT 1
-        `;
+        const [users] = await db.execute<AuthUserRow[]>(
+          `SELECT id, email, password_hash, full_name, avatar_url, role, nickname, account_status
+           FROM ativora_users
+           WHERE email = ? OR nickname = ?
+           LIMIT 1`,
+          [identificador, identificador],
+        );
         const user = users[0];
 
         if (!user) {
@@ -59,25 +61,28 @@ export const authOptions: AuthOptions = {
         const isValid = await bcrypt.compare(credentials.senha, user.password_hash);
 
         if (!isValid) {
-          await tryAuthUpdate(prisma.$executeRaw`
-            UPDATE ativora_users
-            SET failed_login_attempts = COALESCE(failed_login_attempts, 0) + 1
-            WHERE id = ${user.id}
-          `);
+          await tryAuthUpdate(db.execute(
+            `UPDATE ativora_users
+             SET failed_login_attempts = COALESCE(failed_login_attempts, 0) + 1
+             WHERE id = ?`,
+            [user.id],
+          ));
           throw new Error("Senha incorreta. Tente novamente ou use recuperação de senha.");
         }
 
-        await tryAuthUpdate(prisma.$executeRaw`
-          UPDATE ativora_users
-          SET failed_login_attempts = 0
-          WHERE id = ${user.id}
-        `);
+        await tryAuthUpdate(db.execute(
+          `UPDATE ativora_users
+           SET failed_login_attempts = 0
+           WHERE id = ?`,
+          [user.id],
+        ));
 
-        await tryAuthUpdate(prisma.$executeRaw`
-          UPDATE ativora_users
-          SET last_login_at = NOW()
-          WHERE id = ${user.id}
-        `);
+        await tryAuthUpdate(db.execute(
+          `UPDATE ativora_users
+           SET last_login_at = NOW()
+           WHERE id = ?`,
+          [user.id],
+        ));
 
         return {
           id: user.id,
