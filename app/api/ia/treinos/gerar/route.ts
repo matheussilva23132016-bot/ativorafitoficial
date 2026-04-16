@@ -1,15 +1,24 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY não configurada no servidor.");
+  }
+
+  return new OpenAI({ apiKey });
+}
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { foco, nivel, alunoNome, obs, dias, sessoesPorDia } = body;
 
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
