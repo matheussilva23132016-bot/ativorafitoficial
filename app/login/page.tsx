@@ -25,6 +25,36 @@ type LoginErrors = {
   general?: string;
 };
 
+function mapAuthError(error?: string | null) {
+  const value = String(error || "").trim();
+
+  if (!value || value === "undefined" || value === "null") {
+    return "O servidor não conseguiu validar seu login agora. Revise banco, NextAuth e variáveis do ambiente.";
+  }
+
+  if (value === "CredentialsSignin") {
+    return "E-mail, nickname ou senha inválidos.";
+  }
+
+  if (value === "AUTH_ACCOUNT_INACTIVE") {
+    return "Sua conta está sem acesso liberado no momento.";
+  }
+
+  if (value === "Configuration") {
+    return "A autenticação ainda não está configurada corretamente no servidor.";
+  }
+
+  if (value === "AccessDenied") {
+    return "Seu acesso foi negado neste momento. Revise sua conta e tente novamente.";
+  }
+
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({ identificador: "", senha: "" });
@@ -63,9 +93,22 @@ export default function LoginPage() {
         redirect: false,
       });
 
-      if (res?.error) {
-        setErrors({ general: res.error });
-        toast.error(res.error);
+      if (!res) {
+        const message = "O servidor não respondeu ao login. Verifique se a autenticação está ativa e tente novamente.";
+        setErrors({ general: message });
+        toast.error(message);
+        return;
+      }
+
+      if (!res.ok || res.error) {
+        const message =
+          res.status === 401
+            ? "E-mail, nickname ou senha inválidos."
+            : res.status === 403
+              ? "Sua conta está sem acesso liberado no momento."
+              : mapAuthError(res.error);
+        setErrors({ general: message });
+        toast.error(message);
         return;
       }
 

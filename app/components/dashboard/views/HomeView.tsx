@@ -1,24 +1,17 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import Image from "next/image";
 import {
   Activity,
-  Award,
+  ArrowRight,
   Bell,
   CalendarCheck,
-  Crown,
+  ClipboardList,
   HelpCircle,
   MessageSquarePlus,
-  ShieldCheck,
-  Target,
   UserRound,
-  Users,
-  Utensils,
 } from "lucide-react";
-import { FunctionCard } from "../../ui/FunctionCard";
-import { HubComunidadesCard } from "../comunidades/HubComunidadesCard";
 
 interface HomeViewProps {
   hasProfile: boolean;
@@ -30,14 +23,26 @@ interface HomeViewProps {
   canBossPanel?: boolean;
 }
 
+type ContextAction = {
+  id: string;
+  score: number;
+  label: string;
+  title: string;
+  desc: string;
+  cta: string;
+  icon: React.ElementType;
+  onClick: () => void;
+  accent: string;
+};
+
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
+  visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
 };
 
 const itemVariants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 100, damping: 15 } },
+  hidden: { y: 10, opacity: 0 },
+  visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 125, damping: 18 } },
 };
 
 const roleLabels: Record<string, string> = {
@@ -56,14 +61,18 @@ const getFirstName = (user: any) => {
   return value.split(/\s+/)[0] || "Atleta";
 };
 
+const getPeriodLabel = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Manhã";
+  if (hour < 18) return "Tarde";
+  return "Noite";
+};
+
 export const HomeView = ({
-  hasProfile,
   currentUser,
   onStartWorkout,
   setCurrentView,
   setSocialRoute,
-  setIsGuestMode,
-  canBossPanel = false,
 }: HomeViewProps) => {
   const [stats, setStats] = useState<any>(null);
   const [profileProgress, setProfileProgress] = useState(0);
@@ -91,7 +100,7 @@ export const HomeView = ({
     if (!currentUser?.id) return;
 
     fetch("/api/perfil/complementar", { cache: "no-store" })
-      .then(res => res.ok ? res.json() : null)
+      .then(res => (res.ok ? res.json() : null))
       .then(data => {
         if (alive && data?.profile) setProfileProgress(Number(data.profile.progresso || 0));
       })
@@ -106,289 +115,651 @@ export const HomeView = ({
 
   const firstName = getFirstName(currentUser);
   const roleLabel = roleLabels[String(currentUser?.role || "").toLowerCase()] || "Perfil ativo";
+  const periodLabel = getPeriodLabel();
   const todayWorkout = stats?.hoje;
-  const weekStats = stats?.stats;
-  const pendingNotifs = stats?.notificacoes?.length ?? 0;
+  const weekStats = stats?.stats ?? { concluidosSemana: 0, metaSemanal: 5, porcentagem: 0 };
+  const unreadNotifications = Array.isArray(stats?.notificacoes) ? stats.notificacoes : [];
+  const pendingNotifs = unreadNotifications.length;
+  const lastNotificationTitle = unreadNotifications[0]?.title;
+  const hasWorkoutToday = Boolean(todayWorkout?.id);
+  const workoutPending = hasWorkoutToday && todayWorkout?.status !== "concluido";
+  const workoutDone = hasWorkoutToday && todayWorkout?.status === "concluido";
+  const profileNeedsAttention = profileProgress < 80;
+  const remainingForGoal = Math.max((weekStats.metaSemanal || 0) - (weekStats.concluidosSemana || 0), 0);
+
+  const workoutSummary = useMemo(
+    () =>
+      [
+        todayWorkout?.titulo,
+        todayWorkout?.foco,
+        todayWorkout?.totalExercicios ? `${todayWorkout.totalExercicios} exercícios` : null,
+      ]
+        .filter(Boolean)
+        .join(" • "),
+    [todayWorkout?.foco, todayWorkout?.titulo, todayWorkout?.totalExercicios],
+  );
+
+  const contextualActions = useMemo<ContextAction[]>(() => {
+    const items: ContextAction[] = [];
+    const hour = new Date().getHours();
+
+    if (workoutPending) {
+      items.push({
+        id: "treino-hoje",
+        score: 100 + (hour >= 18 ? 8 : 0),
+        label: "Treino do dia",
+        title: todayWorkout?.titulo || "Treino pronto",
+        desc: workoutSummary || "Seu treino de hoje já está liberado.",
+        cta: "Começar treino",
+        icon: CalendarCheck,
+        onClick: () => onStartWorkout(todayWorkout.id),
+        accent: "text-sky-300",
+      });
+    }
+
+    if (pendingNotifs > 0) {
+      items.push({
+        id: "avisos",
+        score: 92 + Math.min(pendingNotifs, 5),
+        label: "Avisos",
+        title: pendingNotifs === 1 ? "1 aviso aguardando leitura" : `${pendingNotifs} avisos aguardando leitura`,
+        desc: lastNotificationTitle ? `Último aviso: ${lastNotificationTitle}` : "Abra a comunidade para revisar recados.",
+        cta: "Abrir comunidades",
+        icon: Bell,
+        onClick: () => setCurrentView("comunidades"),
+        accent: "text-amber-300",
+      });
+    }
+
+    if (profileNeedsAttention) {
+      items.push({
+        id: "perfil",
+        score: profileProgress < 40 ? 88 : 74,
+        label: "Perfil",
+        title: profileProgress < 40 ? "Complete seu perfil" : "Ainda faltam ajustes no perfil",
+        desc: `${profileProgress}% preenchido. Isso impacta treino e nutrição.`,
+        cta: "Abrir perfil",
+        icon: UserRound,
+        onClick: () => setCurrentView("perfil"),
+        accent: "text-emerald-300",
+      });
+    }
+
+    if (remainingForGoal > 0) {
+      items.push({
+        id: "meta",
+        score: workoutPending ? 58 : 72,
+        label: "Semana",
+        title: weekStats.concluidosSemana > 0 ? `Faltam ${remainingForGoal} treinos para a meta` : "Sua semana ainda não começou",
+        desc: weekStats.concluidosSemana > 0 ? `${weekStats.concluidosSemana}/${weekStats.metaSemanal} concluídos nesta semana.` : `Meta atual: ${weekStats.metaSemanal} treinos.`,
+        cta: "Abrir treinos",
+        icon: Activity,
+        onClick: () => setCurrentView("treinos"),
+        accent: "text-emerald-300",
+      });
+    } else {
+      items.push({
+        id: "meta-feita",
+        score: 64,
+        label: "Semana",
+        title: "Meta semanal concluída",
+        desc: `${weekStats.concluidosSemana}/${weekStats.metaSemanal} treinos fechados nesta semana.`,
+        cta: "Ver evolução",
+        icon: Activity,
+        onClick: () => setCurrentView("metricas"),
+        accent: "text-emerald-300",
+      });
+    }
+
+    if (!workoutPending && pendingNotifs === 0) {
+      items.push({
+        id: "comunidade",
+        score: 46,
+        label: "Comunidade",
+        title: "Passe na comunidade",
+        desc: "Confira ranking, avisos e o que mudou no seu grupo.",
+        cta: "Abrir comunidades",
+        icon: ClipboardList,
+        onClick: () => setCurrentView("comunidades"),
+        accent: "text-sky-300",
+      });
+    }
+
+    if (!profileNeedsAttention && !workoutPending && !workoutDone) {
+      items.push({
+        id: "social",
+        score: 34,
+        label: "Social",
+        title: "Veja o que rolou no Ativora Social",
+        desc: "Feed, mensagens e stories continuam disponíveis.",
+        cta: "Abrir social",
+        icon: MessageSquarePlus,
+        onClick: () => {
+          setSocialRoute("feed");
+          setCurrentView("social");
+        },
+        accent: "text-sky-300",
+      });
+    }
+
+    return items.sort((a, b) => b.score - a.score);
+  }, [
+    lastNotificationTitle,
+    onStartWorkout,
+    pendingNotifs,
+    profileNeedsAttention,
+    profileProgress,
+    remainingForGoal,
+    setCurrentView,
+    setSocialRoute,
+    todayWorkout?.id,
+    todayWorkout?.titulo,
+    workoutDone,
+    workoutPending,
+    workoutSummary,
+    weekStats.concluidosSemana,
+    weekStats.metaSemanal,
+  ]);
+
+  const primaryAction = contextualActions[0];
+  const secondaryAction = contextualActions[1];
+  const queueActions = contextualActions.slice(secondaryAction ? 2 : 1, 5);
+
+  const supportActions = [
+    {
+      id: "evolucao",
+      label: "Acompanhamento",
+      title: "Evolução",
+      desc: "Medidas e constância.",
+      cta: "Abrir evolução",
+      icon: Activity,
+      onClick: () => setCurrentView("metricas"),
+      accent: "text-emerald-300",
+    },
+    {
+      id: "ajuda",
+      label: "Suporte",
+      title: "Ajuda",
+      desc: "Dúvidas rápidas e orientação.",
+      cta: "Abrir ajuda",
+      icon: HelpCircle,
+      onClick: () => setCurrentView("ajuda"),
+      accent: "text-sky-300",
+    },
+    {
+      id: "sugestoes",
+      label: "Beta",
+      title: "Sugestões",
+      desc: "Ideias para melhorar o app.",
+      cta: "Enviar sugestão",
+      icon: MessageSquarePlus,
+      onClick: () => setCurrentView("sugestoes"),
+      accent: "text-emerald-300",
+    },
+  ] as ContextAction[];
+
+  const metrics = [
+    {
+      id: "today",
+      label: "Hoje",
+      value: loading ? "..." : workoutPending ? "Treino pronto" : workoutDone ? "Concluído" : "Sem treino",
+      detail: workoutSummary || "Sem treino publicado para hoje.",
+      accent: "text-sky-300",
+    },
+    {
+      id: "week",
+      label: "Semana",
+      value: `${weekStats.concluidosSemana}/${weekStats.metaSemanal}`,
+      detail: remainingForGoal > 0 ? `Faltam ${remainingForGoal} treinos para a meta.` : "Meta semanal concluída.",
+      accent: "text-emerald-300",
+    },
+    {
+      id: "profile",
+      label: "Perfil",
+      value: `${profileProgress}%`,
+      detail: profileNeedsAttention ? "Ainda faltam ajustes importantes." : "Dados principais em dia.",
+      accent: "text-emerald-300",
+    },
+    {
+      id: "alerts",
+      label: "Avisos",
+      value: String(pendingNotifs),
+      detail: pendingNotifs > 0 ? lastNotificationTitle || "Há avisos aguardando leitura." : "Nenhum aviso pendente.",
+      accent: "text-amber-300",
+    },
+  ];
+
+  const stateCards = [
+    {
+      id: "treinos",
+      title: "Treinos",
+      value: workoutPending ? "Treino de hoje pronto" : workoutDone ? "Treino concluído hoje" : "Sem treino hoje",
+      detail: workoutSummary || "Abra a área de treinos para revisar sua rotina.",
+      onClick: () => setCurrentView("treinos"),
+    },
+    {
+      id: "comunidades",
+      title: "Comunidades",
+      value: pendingNotifs > 0 ? `${pendingNotifs} aviso${pendingNotifs === 1 ? "" : "s"}` : "Sem novos avisos",
+      detail: lastNotificationTitle || "Confira ranking, atualizações e recados.",
+      onClick: () => setCurrentView("comunidades"),
+    },
+    {
+      id: "perfil",
+      title: "Meu Perfil",
+      value: `${profileProgress}% preenchido`,
+      detail: profileNeedsAttention ? "Faltam dados que refinam sua rotina." : "Seus dados principais já estão salvos.",
+      onClick: () => setCurrentView("perfil"),
+    },
+    {
+      id: "evolucao",
+      title: "Evolução",
+      value: weekStats.concluidosSemana > 0 ? `${weekStats.concluidosSemana} treino${weekStats.concluidosSemana === 1 ? "" : "s"} na semana` : "Semana em aberto",
+      detail: remainingForGoal > 0 ? `Meta atual: ${weekStats.metaSemanal}.` : "Meta semanal já foi concluída.",
+      onClick: () => setCurrentView("metricas"),
+    },
+  ];
+
+  const activityFeed = [
+    workoutPending
+      ? {
+          id: "feed-workout",
+          label: "Agora",
+          title: "Treino liberado",
+          desc: workoutSummary || "Seu treino do dia está disponível.",
+          onClick: () => onStartWorkout(todayWorkout.id),
+        }
+      : null,
+    pendingNotifs > 0
+      ? {
+          id: "feed-alerts",
+          label: "Avisos",
+          title: pendingNotifs === 1 ? "1 atualização importante" : `${pendingNotifs} atualizações importantes`,
+          desc: lastNotificationTitle || "Abra a comunidade para revisar os avisos.",
+          onClick: () => setCurrentView("comunidades"),
+        }
+      : null,
+    profileNeedsAttention
+      ? {
+          id: "feed-profile",
+          label: "Perfil",
+          title: "Seu perfil ainda precisa de atenção",
+          desc: `${profileProgress}% preenchido. Complete os campos que faltam.`,
+          onClick: () => setCurrentView("perfil"),
+        }
+      : null,
+    {
+      id: "feed-week",
+      label: "Semana",
+      title: remainingForGoal > 0 ? "Meta semanal em andamento" : "Meta semanal concluída",
+      desc:
+        remainingForGoal > 0
+          ? `${weekStats.concluidosSemana}/${weekStats.metaSemanal} treinos concluídos até aqui.`
+          : `${weekStats.concluidosSemana}/${weekStats.metaSemanal} treinos concluídos nesta semana.`,
+      onClick: () => setCurrentView("metricas"),
+    },
+  ].filter(Boolean) as { id: string; label: string; title: string; desc: string; onClick: () => void }[];
+
+  const renderSupportCard = (item: ContextAction) => {
+    const Icon = item.icon;
+    return (
+      <button
+        key={item.id}
+        type="button"
+        onClick={item.onClick}
+        className="group flex items-start gap-3 rounded-lg border border-white/10 bg-black/20 px-3 py-3 text-left transition hover:border-white/20 hover:bg-black/30"
+      >
+        <div className="rounded-lg border border-white/10 bg-white/5 p-2.5">
+          <Icon size={16} className={item.accent} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[8px] font-black uppercase tracking-widest text-white/30">
+                {item.label}
+              </p>
+              <h3 className="mt-1 text-sm font-black leading-tight text-white">
+                {item.title}
+              </h3>
+            </div>
+            <ArrowRight size={15} className="mt-0.5 shrink-0 text-white/20 transition group-hover:translate-x-1 group-hover:text-sky-300" />
+          </div>
+          <p className="mt-1 text-xs leading-snug text-white/45">
+            {item.desc}
+          </p>
+        </div>
+      </button>
+    );
+  };
 
   return (
     <motion.div
       key="home"
       initial="hidden"
       animate="visible"
-      exit={{ opacity: 0, y: -20 }}
+      exit={{ opacity: 0, y: -16 }}
       variants={containerVariants}
-      className="mx-auto max-w-7xl space-y-7 text-left lg:space-y-9"
+      className="mx-auto max-w-6xl space-y-3 pb-2 text-left lg:space-y-4"
     >
-      <motion.section
-        variants={itemVariants}
-        className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[#06101D] p-5 shadow-2xl sm:p-7 lg:p-8"
-      >
-        <div className="absolute right-[-60px] top-[-80px] hidden h-56 w-56 rounded-full border border-sky-500/15 lg:block" />
-        <div className="relative grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-sky-500 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-black">
+      {/* mobile */}
+      <motion.section variants={itemVariants} className="rounded-lg border border-white/10 bg-[#06101D] p-3 sm:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-black">
               <Activity size={12} />
               {roleLabel}
             </div>
-            <h1 className="mt-5 text-4xl font-black italic leading-none tracking-tighter text-white sm:text-5xl lg:text-6xl">
-              Olá, {firstName}. <span className="text-sky-400">Escolha seu próximo passo.</span>
-            </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/55">
-              Entre no Social, abra suas comunidades, consulte treinos e cardápios ou registre uma dúvida sem procurar função escondida.
+            <p className="text-[10px] font-black uppercase tracking-widest text-white/42">
+              {periodLabel}, {firstName}
             </p>
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-              {todayWorkout?.id && todayWorkout.status !== "concluido" ? (
-                <button
-                  type="button"
-                  onClick={() => onStartWorkout(todayWorkout.id)}
-                  className="w-full rounded-lg bg-sky-500 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-black transition hover:bg-sky-400 active:scale-[0.98] sm:w-auto"
-                >
-                  Começar treino de hoje
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setCurrentView("treinos")}
-                  className="w-full rounded-lg bg-sky-500 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-black transition hover:bg-sky-400 active:scale-[0.98] sm:w-auto"
-                >
-                  Abrir treinos
-                </button>
-              )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">
+              <p className="text-[8px] font-black uppercase tracking-widest text-white/30">Hoje</p>
+              <p className="mt-0.5 text-xs font-black text-white">
+                {loading ? "..." : workoutPending ? "Treino pronto" : workoutDone ? "Concluído" : "Sem treino"}
+              </p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">
+              <p className="text-[8px] font-black uppercase tracking-widest text-white/30">
+                {profileNeedsAttention ? "Perfil" : "Avisos"}
+              </p>
+              <p className="mt-0.5 text-xs font-black text-white">
+                {profileNeedsAttention ? `${profileProgress}%` : pendingNotifs}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 space-y-3">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-widest text-sky-300">
+              {primaryAction?.label || "Agora"}
+            </p>
+            <h1 className="mt-1 text-base font-black tracking-tight text-white">
+              {primaryAction?.title || "Seu dia está organizado"}
+            </h1>
+            <p className="mt-1 text-[12px] leading-relaxed text-white/60">
+              {primaryAction?.desc || "Continue pelo treino, pela comunidade ou pelo social."}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={primaryAction?.onClick}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 text-[10px] font-black uppercase tracking-widest text-black transition hover:bg-sky-400 active:scale-[0.98]"
+            >
+              {primaryAction?.cta || "Abrir comunidades"}
+              <ArrowRight size={13} />
+            </button>
+
+            {secondaryAction && (
               <button
                 type="button"
-                onClick={() => setCurrentView("comunidades")}
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white/75 transition hover:bg-white/10 hover:text-white active:scale-[0.98] sm:w-auto"
+                onClick={secondaryAction.onClick}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-1 text-[10px] font-black uppercase tracking-widest text-white/72 transition hover:text-white active:scale-[0.98]"
               >
-                Ver comunidades
+                {secondaryAction.cta}
+                <ArrowRight size={12} />
               </button>
+            )}
+          </div>
+        </div>
+      </motion.section>
+
+      <motion.section variants={itemVariants} className="space-y-2 sm:hidden">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">
+            Sua fila
+          </p>
+          <h2 className="mt-1 text-base font-black tracking-tight text-white">
+            O que vem depois
+          </h2>
+        </div>
+
+        <div className="space-y-2">
+          {queueActions.map(item => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={item.onClick}
+                className="group flex w-full items-start gap-3 rounded-lg border border-white/10 bg-black/20 px-3 py-3 text-left transition hover:border-white/20 hover:bg-black/30"
+              >
+                <div className="rounded-lg border border-white/10 bg-white/5 p-2.5">
+                  <Icon size={16} className={item.accent} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-white/30">
+                        {item.label}
+                      </p>
+                      <h3 className="mt-1 text-sm font-black leading-tight text-white">
+                        {item.title}
+                      </h3>
+                    </div>
+                    <ArrowRight size={15} className="mt-0.5 shrink-0 text-white/20 transition group-hover:translate-x-1 group-hover:text-sky-300" />
+                  </div>
+                  <p className="mt-1 text-xs leading-snug text-white/50">
+                    {item.desc}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </motion.section>
+
+      <motion.section variants={itemVariants} className="rounded-lg border border-white/10 bg-white/5 p-3 sm:p-4 lg:hidden">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">
+            Apoio rápido
+          </p>
+          <h2 className="mt-1 text-base font-black tracking-tight text-white">
+            Acompanhar e ajustar
+          </h2>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {supportActions.map(renderSupportCard)}
+        </div>
+      </motion.section>
+
+      {/* desktop */}
+      <motion.section variants={itemVariants} className="hidden rounded-xl border border-white/10 bg-[#06101D] p-5 lg:block">
+        <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">
+              {periodLabel}, {firstName}
+            </p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
+              {primaryAction?.title || "Seu dia está organizado"}
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/58">
+              {primaryAction?.desc || "Continue pela próxima ação importante do seu painel."}
+            </p>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={primaryAction?.onClick}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-sky-500 px-5 text-[10px] font-black uppercase tracking-widest text-black transition hover:bg-sky-400 active:scale-[0.98]"
+              >
+                {primaryAction?.cta || "Abrir comunidades"}
+                <ArrowRight size={14} />
+              </button>
+              {secondaryAction && (
+                <button
+                  type="button"
+                  onClick={secondaryAction.onClick}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 text-[10px] font-black uppercase tracking-widest text-white/78 transition hover:bg-white/10 hover:text-white"
+                >
+                  {secondaryAction.cta}
+                  <ArrowRight size={13} />
+                </button>
+              )}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border border-white/10 bg-black/25 p-4">
-              <CalendarCheck className="text-sky-300" size={18} />
-              <p className="mt-3 text-[9px] font-black uppercase tracking-widest text-white/30">
-                Hoje
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <div className="rounded-xl border border-white/10 bg-black/25 p-4">
+              <p className="text-[9px] font-black uppercase tracking-widest text-white/30">
+                Treino de hoje
               </p>
-              <p className="mt-1 text-sm font-black text-white">
-                {loading ? "Carregando" : todayWorkout?.titulo || "Sem treino"}
+              <p className="mt-2 text-lg font-black text-white">
+                {loading ? "Carregando" : workoutPending ? "Pronto" : workoutDone ? "Concluído" : "Sem treino"}
               </p>
-            </div>
-
-            <div className="rounded-lg border border-white/10 bg-black/25 p-4">
-              <Target className="text-sky-300" size={18} />
-              <p className="mt-3 text-[9px] font-black uppercase tracking-widest text-white/30">
-                Semana
-              </p>
-              <p className="mt-1 text-sm font-black text-white">
-                {weekStats ? `${weekStats.concluidosSemana}/${weekStats.metaSemanal} treinos` : "Pronta"}
+              <p className="mt-2 text-sm leading-relaxed text-white/48">
+                {workoutSummary || "Assim que um treino for publicado, ele aparece aqui."}
               </p>
             </div>
 
-            <div className="rounded-lg border border-white/10 bg-black/25 p-4">
-              <Bell className="text-sky-300" size={18} />
-              <p className="mt-3 text-[9px] font-black uppercase tracking-widest text-white/30">
-                Avisos
+            <div className="rounded-xl border border-white/10 bg-black/25 p-4">
+              <p className="text-[9px] font-black uppercase tracking-widest text-white/30">
+                Perfil e rotina
               </p>
-              <p className="mt-1 text-sm font-black text-white">
-                {pendingNotifs > 0 ? `${pendingNotifs} pendente${pendingNotifs === 1 ? "" : "s"}` : "Tudo em dia"}
+              <p className="mt-2 text-lg font-black text-white">
+                {profileNeedsAttention ? `${profileProgress}% preenchido` : "Perfil em dia"}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-white/48">
+                {profileNeedsAttention ? "Ainda faltam dados que refinam treino e nutrição." : `Meta semanal: ${weekStats.metaSemanal} treinos.`}
               </p>
             </div>
           </div>
         </div>
       </motion.section>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
-        <motion.section
-          variants={itemVariants}
-          className="relative group flex min-h-[420px] flex-col overflow-hidden rounded-[28px] border border-white/10 text-left shadow-2xl sm:min-h-[460px] lg:min-h-[540px]"
-        >
-          <div className="absolute inset-0 z-0">
-            <Image
-              src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200"
-              alt="Ativora Social"
-              fill
-              className="object-cover grayscale brightness-50 transition-all duration-1000 group-hover:scale-105 group-hover:brightness-75"
-              priority
-              unoptimized
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent z-10" />
+      <motion.section variants={itemVariants} className="hidden lg:block">
+        <div className="grid gap-3 xl:grid-cols-4">
+          {metrics.map(item => (
+            <div key={item.id} className="rounded-xl border border-white/10 bg-white/5 px-4 py-4">
+              <p className="text-[9px] font-black uppercase tracking-widest text-white/30">
+                {item.label}
+              </p>
+              <p className={`mt-2 text-xl font-black ${item.accent}`}>
+                {item.value}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-white/45">
+                {item.detail}
+              </p>
+            </div>
+          ))}
+        </div>
+      </motion.section>
+
+      <div className="hidden gap-4 lg:grid lg:grid-cols-[1.08fr_0.92fr]">
+        <motion.section variants={itemVariants} className="rounded-xl border border-white/10 bg-white/5 p-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">
+              Atualizações
+            </p>
+            <h2 className="mt-1 text-lg font-black tracking-tight text-white">
+              O que mudou no seu painel
+            </h2>
           </div>
 
-          <div className="relative z-20 flex h-full flex-col justify-between p-7 text-left lg:p-10">
-            <div className="flex h-full max-w-xl flex-col justify-between">
-              <div className="space-y-3">
-                <div className="inline-flex items-center gap-2 rounded-full bg-sky-500 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-black shadow-neon">
-                  <Users size={12} fill="currentColor" />
-                  Resultados reais
-                </div>
-                <div>
-                  <h2 className="text-3xl lg:text-4xl xl:text-5xl font-black uppercase italic tracking-tighter leading-none text-white">
-                    Ativora <span className="text-sky-500 drop-shadow-[0_0_15px_rgba(14,165,233,0.5)]">Social</span>
-                  </h2>
-                  <p className="mt-3 text-sm font-bold italic leading-snug text-white/65">
-                    Compartilhe os seus resultados
+          <div className="mt-4 space-y-3">
+            {activityFeed.map(item => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={item.onClick}
+                className="flex w-full items-start gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-4 text-left transition hover:border-white/20 hover:bg-black/30"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-sky-300">
+                    {item.label}
                   </p>
-                  <p className="mt-4 max-w-md text-sm leading-relaxed text-white/50">
-                    Publique evolução, responda directs, crie enquetes, veja stories e mantenha seus resultados registrados no mesmo lugar.
+                  <h3 className="mt-1 text-sm font-black text-white">
+                    {item.title}
+                  </h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-white/48">
+                    {item.desc}
                   </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {["Feed", "Stories", "Mensagens", "Enquetes"].map((item) => (
-                      <span
-                        key={item}
-                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-white/55"
-                      >
-                        {item}
-                      </span>
-                    ))}
-                  </div>
                 </div>
-              </div>
+                <ArrowRight size={16} className="mt-1 shrink-0 text-white/20" />
+              </button>
+            ))}
+          </div>
 
-              <div className="mt-auto flex flex-col flex-wrap gap-3 pt-4 sm:flex-row">
-                {hasProfile ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setCurrentView("social")}
-                      className="w-full rounded-lg bg-sky-500 px-7 py-4 text-[11px] font-black uppercase tracking-widest text-black shadow-xl shadow-sky-500/20 transition-all hover:scale-105 active:scale-95 sm:w-auto"
-                    >
-                      Abrir feed
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setSocialRoute("profile"); setCurrentView("social"); }}
-                      className="w-full rounded-lg border border-white/10 bg-white/5 px-7 py-4 text-[11px] font-black uppercase tracking-widest text-white backdrop-blur-xl transition-all hover:bg-white/10 active:scale-95 sm:w-auto"
-                    >
-                      Meu perfil
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setCurrentView("social")}
-                      className="w-full rounded-lg bg-sky-500 px-7 py-4 text-[11px] font-black uppercase tracking-widest text-black shadow-xl shadow-sky-500/20 transition-all hover:scale-105 active:scale-95 sm:w-auto"
-                    >
-                      Criar perfil
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setIsGuestMode(true); setCurrentView("social"); }}
-                      className="w-full rounded-lg border border-white/10 bg-white/5 px-7 py-4 text-[11px] font-black uppercase tracking-widest text-white backdrop-blur-xl transition-all hover:bg-white/10 active:scale-95 sm:w-auto"
-                    >
-                      Ver como visitante
-                    </button>
-                  </>
-                )}
-              </div>
+          <div className="mt-5">
+            <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">
+              Estados do app
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {stateCards.map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={item.onClick}
+                  className="rounded-xl border border-white/10 bg-black/20 px-4 py-4 text-left transition hover:border-white/20 hover:bg-black/30"
+                >
+                  <p className="text-[8px] font-black uppercase tracking-widest text-white/30">
+                    {item.title}
+                  </p>
+                  <h3 className="mt-2 text-sm font-black text-white">
+                    {item.value}
+                  </h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-white/45">
+                    {item.detail}
+                  </p>
+                </button>
+              ))}
             </div>
           </div>
         </motion.section>
 
-        <motion.div variants={itemVariants} className="min-h-[420px] sm:min-h-[460px] lg:min-h-[540px]">
-          <HubComunidadesCard onClick={() => setCurrentView("comunidades")} />
-        </motion.div>
-      </div>
-
-      <motion.section
-        variants={itemVariants}
-        className="grid gap-4 rounded-lg border border-white/10 bg-white/5 p-5 sm:grid-cols-[1fr_auto] sm:items-center"
-      >
-        <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-sky-500/20 bg-sky-500/10">
-            <UserRound size={20} className="text-sky-300" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-[9px] font-black uppercase tracking-widest text-sky-300">Meu Perfil</p>
-              <span className="rounded-lg border border-white/10 bg-black/20 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-white/35">
-                Privado
-              </span>
-            </div>
-            <h2 className="mt-2 text-xl font-black italic tracking-tighter text-white">
-              Complete seus dados para treinos e nutrição
-            </h2>
-            <p className="mt-1 text-sm leading-relaxed text-white/45">
-              Objetivo, rotina, restrições, dados do cargo e avaliações opcionais ficam privados e prontos para orientar os próximos recursos do app.
+        <div className="space-y-4">
+          <motion.section variants={itemVariants} className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">
+              Progresso semanal
             </p>
-            <div className="mt-4 flex items-center gap-3">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
-                <div className="h-full bg-sky-400" style={{ width: `${profileProgress}%` }} />
-              </div>
-              <span className="text-[10px] font-black text-white/50">{profileProgress}%</span>
-            </div>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => setCurrentView("perfil")}
-          className="flex min-h-12 items-center justify-center gap-2 rounded-lg bg-sky-500 px-5 text-[10px] font-black uppercase tracking-widest text-black transition hover:bg-sky-400"
-        >
-          <ShieldCheck size={14} />
-          Abrir Meu Perfil
-        </button>
-      </motion.section>
+            <h2 className="mt-1 text-lg font-black tracking-tight text-white">
+              {weekStats.concluidosSemana}/{weekStats.metaSemanal} treinos
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-white/48">
+              {remainingForGoal > 0 ? `Faltam ${remainingForGoal} treinos para fechar sua meta da semana.` : "Sua meta semanal já foi concluída."}
+            </p>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <FunctionCard
-          icon={<Target className="text-sky-500" />}
-          title="Treinos"
-          desc="Guia, vídeos e PDFs"
-          code="03"
-          bgImage="https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400"
-          onClick={() => setCurrentView("treinos")}
-        />
-        <FunctionCard
-          icon={<Utensils className="text-orange-500" />}
-          title="Nutrição"
-          desc="RFM e cardápios"
-          code="NUT"
-          bgImage="https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400"
-          onClick={() => setCurrentView("nutricao")}
-        />
-        <FunctionCard
-          icon={<Activity className="text-green-500" />}
-          title="Evolução"
-          desc="Medidas e constância"
-          code="04"
-          bgImage="https://images.unsplash.com/photo-1518481612222-68bbe828ecd1?w=400"
-          onClick={() => setCurrentView("metricas")}
-        />
-        <FunctionCard
-          icon={<Award className="text-yellow-500" />}
-          title="Ranking"
-          desc="Semana nas comunidades"
-          code="RNK"
-          bgImage="https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=400"
-          onClick={() => setCurrentView("comunidades")}
-        />
-        <FunctionCard
-          icon={<HelpCircle className="text-sky-500" />}
-          title="Ajuda"
-          desc="Rotas, voz e passos"
-          code="AI"
-          bgImage="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400"
-          onClick={() => setCurrentView("ajuda")}
-        />
-        <FunctionCard
-          icon={<MessageSquarePlus className="text-emerald-500" />}
-          title="Sugestões"
-          desc="Relatos do beta"
-          code="SUG"
-          bgImage="https://images.unsplash.com/photo-1552664730-d307ca884978?w=400"
-          onClick={() => setCurrentView("sugestoes")}
-        />
-        {canBossPanel && (
-          <FunctionCard
-            icon={<Crown className="text-sky-400" />}
-            title="Boss"
-            desc="Contas e acessos"
-            code="BOSS"
-            bgImage="https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=400"
-            onClick={() => setCurrentView("boss")}
-          />
-        )}
+            <div className="mt-4 h-2 rounded-full bg-white/5">
+              <div
+                className="h-2 rounded-full bg-sky-500 transition-all"
+                style={{ width: `${Math.max(8, weekStats.porcentagem || 0)}%` }}
+              />
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {queueActions.slice(0, 2).map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={item.onClick}
+                  className="flex w-full items-start justify-between gap-3 rounded-lg border border-white/10 bg-black/20 px-3 py-3 text-left transition hover:border-white/20 hover:bg-black/30"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-white/30">
+                      {item.label}
+                    </p>
+                    <p className="mt-1 text-sm font-black text-white">
+                      {item.title}
+                    </p>
+                  </div>
+                  <ArrowRight size={15} className="mt-1 shrink-0 text-white/20" />
+                </button>
+              ))}
+            </div>
+          </motion.section>
+
+          <motion.section variants={itemVariants} className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">
+              Apoio rápido
+            </p>
+            <div className="mt-3 space-y-2">
+              {supportActions.map(renderSupportCard)}
+            </div>
+          </motion.section>
+        </div>
       </div>
     </motion.div>
   );

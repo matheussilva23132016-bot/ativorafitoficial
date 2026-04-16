@@ -14,11 +14,10 @@ export const metadata: Metadata = {
   description: 'A Evolução na Palma da sua mão! Treinos, nutrição, comunidades e resultados em um só app.',
   icons: {
     icon: [
-      { url: '/favicon.ico?v=ativora-logo-2', sizes: 'any' },
-      { url: '/logo.png?v=ativora-logo-2', type: 'image/png' },
+      { url: '/logo.png?v=ativora-logo-3', type: 'image/png' },
     ],
-    shortcut: '/favicon.ico?v=ativora-logo-2',
-    apple: '/logo.png?v=ativora-logo-2',
+    shortcut: '/logo.png?v=ativora-logo-3',
+    apple: '/logo.png?v=ativora-logo-3',
   },
   openGraph: {
     title: 'AtivoraFit',
