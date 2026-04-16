@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
 // GET — Histórico de medidas do usuário
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
+  const resolvedParams = await params;
+  const paramsId = resolvedParams.id;
   const userId = req.nextUrl.searchParams.get("userId");
   if (!userId) return NextResponse.json({ error: "userId obrigatório" }, { status: 400 });
 
@@ -12,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       WHERE user_id = ? AND comunidade_id = ?
       ORDER BY created_at DESC
       LIMIT 20
-    `, [userId, params.id]);
+    `, [userId, paramsId]);
 
     return NextResponse.json({ medidas: rows });
   } catch (err: any) {
@@ -21,7 +23,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // POST — Novo registro
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
+  const resolvedParams = await params;
+  const paramsId = resolvedParams.id;
   try {
     const body = await req.json();
     const {
@@ -39,7 +43,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
          quadril_cm, biceps_cm, bf_estimado, sexo, objetivo, obs)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      id, userId, params.id,
+      id, userId, paramsId,
       peso_kg    ?? null,
       altura_cm  ?? null,
       cintura_cm ?? null,

@@ -1,42 +1,52 @@
 /**
  * Verifica se uma tag de permissão está presente nas tags do usuário.
  *
- * Tags esperadas: "Dono", "Admin", "Moderador", "Personal", "Nutricionista", "Membro", "Participante"
+ * Tags reais do banco: "Dono", "ADM", "Nutri", "Nutricionista", "Instrutor", "Personal", "Participante"
  *
  * Mapeamento de permissões:
- *  - desafio:create   → Dono, Admin
- *  - desafio:evaluate → Dono, Admin, Moderador
- *  - nutri:create     → Dono, Admin, Nutricionista
- *  - treino:create    → Dono, Admin, Personal
- *  - post:pin         → Dono, Admin, Moderador
- *  - post:delete      → Dono, Admin, Moderador
- *  - member:kick      → Dono, Admin
+ *  - desafio:create   → Dono, ADM
+ *  - desafio:evaluate → Dono, ADM
+ *  - nutri:create     → Dono, ADM, Nutri, Nutricionista, Personal, Instrutor
+ *  - treino:create    → Dono, ADM, Instrutor, Personal
+ *  - aviso:create     → Dono, ADM, Nutri, Nutricionista, Instrutor, Personal
+ *  - post:pin         → Dono, ADM
+ *  - post:delete      → Dono, ADM
+ *  - member:remove    → Dono, ADM
  *  - member:promote   → Dono
- *  - member:approve   → Dono, Admin, Moderador
+ *  - member:approve   → Dono, ADM
+ *  - tag:assign       → Dono, ADM
  *  - community:edit   → Dono
+ *  - community:delete → Dono
  */
 
 const PERMISSION_MAP: Record<string, string[]> = {
-  "desafio:create":   ["Dono", "Admin"],
-  "desafio:evaluate": ["Dono", "Admin", "Moderador"],
-  "nutri:create":     ["Dono", "Admin", "Nutricionista"],
-  "treino:create":    ["Dono", "Admin", "Personal"],
-  "post:pin":         ["Dono", "Admin", "Moderador"],
-  "post:delete":      ["Dono", "Admin", "Moderador"],
-  "member:kick":      ["Dono", "Admin"],
+  "desafio:create":   ["Dono", "ADM"],
+  "desafio:evaluate": ["Dono", "ADM"],
+  "desafio:submit":   ["Dono", "ADM", "Nutri", "Nutricionista", "Instrutor", "Personal", "Participante"],
+  "nutri:create":     ["Dono", "ADM", "Nutri", "Nutricionista", "Personal", "Instrutor"],
+  "nutri:manage":     ["Dono", "ADM", "Nutri", "Nutricionista"],
+  "treino:create":    ["Dono", "ADM", "Instrutor", "Personal"],
+  "treino:manage":    ["Dono", "ADM", "Instrutor", "Personal"],
+  "aviso:create":     ["Dono", "ADM", "Nutri", "Nutricionista", "Instrutor", "Personal"],
+  "document:import":  ["Dono", "ADM", "Nutri", "Nutricionista", "Instrutor", "Personal"],
+  "post:pin":         ["Dono", "ADM"],
+  "post:delete":      ["Dono", "ADM"],
+  "member:remove":    ["Dono", "ADM"],
   "member:promote":   ["Dono"],
-  "member:approve":   ["Dono", "Admin", "Moderador"],
+  "member:approve":   ["Dono", "ADM"],
+  "tag:assign":       ["Dono", "ADM"],
   "community:edit":   ["Dono"],
+  "community:delete": ["Dono"],
 };
 
 // Hierarquia de tags — quanto menor o índice, maior a autoridade
 const TAG_HIERARCHY = [
   "Dono",
-  "Admin",
-  "Moderador",
+  "ADM",
   "Personal",
+  "Nutri",
   "Nutricionista",
-  "Membro",
+  "Instrutor",
   "Participante",
 ];
 
@@ -48,7 +58,7 @@ export function canDo(userTags: string[], permission: string): boolean {
 
 /**
  * Retorna a tag de maior autoridade do usuário.
- * Ex: ["Membro", "Moderador"] → "Moderador"
+ * Ex: ["Participante", "ADM"] → "ADM"
  */
 export function getHighestTag(userTags: string[]): string {
   for (const tag of TAG_HIERARCHY) {

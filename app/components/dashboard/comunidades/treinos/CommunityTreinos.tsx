@@ -1,17 +1,18 @@
 // app/components/dashboard/comunidades/treinos/CommunityTreinos.tsx
 "use client";
 
-import { useState, useMemo } from "react";
+import { useRef, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutGrid, Settings2, BrainCircuit, RefreshCw,
   Plus, Search, Filter, Database, History,
+  UploadCloud, Loader2, AlertTriangle, Download,
 } from "lucide-react";
 
 import type { Treino, FocoTreino, SolicitacaoTreino } from "./types";
 import type { CommunityTreinosProps } from "./types";
-import { FOCOS_LIST, ROLES_GESTAO } from "./constants";
-import { novoTreino } from "./utils";
+import { DIAS, FOCOS_LIST, ROLES_GESTAO } from "./constants";
+import { novoTreino, uid, now } from "./utils";
 import { useTreinos } from "./hooks/useTreinos";
 
 import { FocoBadge }          from "./components/FocoBadge";
@@ -63,10 +64,14 @@ export default function CommunityTreinos({
   const [view, setView]                         = useState<View>(isGestao ? "gestao" : "dashboard");
   const [treinoAtivo, setTreinoAtivo]           = useState<Treino | null>(null);
   const [solAtiva, setSolAtiva]                 = useState<SolicitacaoTreino | null>(null);
+  const [importandoDoc, setImportandoDoc]       = useState(false);
+  const [erroImportacao, setErroImportacao]     = useState<string | null>(null);
+  const importInputRef                          = useRef<HTMLInputElement | null>(null);
 
   // ── Filtros (gestão) ──────────────────────────────────────────
   const [busca, setBusca]         = useState("");
   const [filtroFoco, setFiltroFoco] = useState<FocoTreino | "todos">("todos");
+  const treinoPdfUrl = `/api/communities/${communityId}/offline-pdf?type=treino&userId=${encodeURIComponent(userId)}`;
 
   // ── Solicitação (aluno) ───────────────────────────────────────
   const [focosSelecionados, setFocosSelecionados] = useState<FocoTreino[]>([]);
@@ -85,6 +90,110 @@ export default function CommunityTreinos({
   const abrirEditor = (t?: Treino) => {
     setTreinoAtivo(t ? JSON.parse(JSON.stringify(t)) : novoTreino());
     setView("editor");
+  };
+
+  const normalizarTexto = (value: unknown) =>
+    String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
+  const resolverDia = (value: unknown): Treino["dia"] => {
+    const original = String(value || "").trim();
+    const texto = normalizarTexto(value);
+    const match = DIAS.find((dia) => texto.includes(normalizarTexto(dia).slice(0, 3)));
+    return match ?? (original || "Livre");
+  };
+
+  const resolverFoco = (value: unknown): FocoTreino => {
+    const texto = normalizarTexto(value);
+    const match = FOCOS_LIST.find((foco) =>
+      texto.includes(normalizarTexto(foco.id)) || texto.includes(normalizarTexto(foco.label))
+    );
+    return match?.id ?? "hipertrofia";
+  };
+
+  const montarTreinoImportado = (payload: any, warnings: string[] = []): Treino => {
+    const foco = resolverFoco(payload?.foco);
+    const grupos = (Array.isArray(payload?.grupos) ? payload.grupos : [])
+      .map((grupo: any) => ({
+        id: uid(),
+        nome: String(grupo?.nome || "Grupo"),
+        exercicios: (Array.isArray(grupo?.exercicios) ? grupo.exercicios : [])
+          .map((ex: any) => {
+            const obs = [
+              ex?.obs,
+              ex?.cadencia ? `Cadencia: ${ex.cadencia}` : "",
+              ex?.rpe ? `RPE: ${ex.rpe}` : "",
+            ].filter(Boolean).join(" | ");
+
+            return {
+              id: uid(),
+              nome: String(ex?.nome || "").trim(),
+              series: ex?.series === null || ex?.series === undefined || ex?.series === "" ? 0 : Number(ex.series),
+              repeticoes: String(ex?.repeticoes || ""),
+              descanso: String(ex?.descanso || ""),
+              obs,
+            };
+          })
+          .filter((ex: any) => ex.nome),
+      }))
+      .filter((grupo: any) => grupo.exercicios.length > 0);
+
+    const cardio = payload?.cardio
+      ? {
+          tipo: String(payload.cardio.tipo || "Cardio"),
+          duracao: String(payload.cardio.duracao || ""),
+          intensidade: String(payload.cardio.intensidade || ""),
+          obs: String(payload.cardio.obs || ""),
+        }
+      : undefined;
+
+    return {
+      id: uid(),
+      titulo: String(payload?.titulo || "Treino importado"),
+      dia: resolverDia(payload?.dia),
+      letra: payload?.letra ? String(payload.letra).slice(0, 2).toUpperCase() : undefined,
+      foco,
+      status: "draft",
+      grupos: grupos.length ? grupos : [],
+      cardio,
+      obs: [payload?.obs, ...warnings].filter(Boolean).join("\n"),
+      criadoEm: now(),
+      atualizadoEm: now(),
+      paraTodos: true,
+    };
+  };
+
+  const handleImportarDocumento = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || importandoDoc) return;
+
+    setImportandoDoc(true);
+    setErroImportacao(null);
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("target", "treino");
+      form.append("userId", userId);
+
+      const response = await fetch(`/api/communities/${communityId}/document-import`, {
+        method: "POST",
+        body: form,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Não foi possível ler o documento.");
+
+      const treino = montarTreinoImportado(data.result?.treino, data.result?.warnings);
+      setTreinoAtivo(treino);
+      setView("editor");
+    } catch (error: any) {
+      setErroImportacao(error?.message || "Não foi possível importar o documento.");
+    } finally {
+      setImportandoDoc(false);
+    }
   };
 
   const abrirVisualizador = (t: Treino) => {
@@ -111,9 +220,15 @@ export default function CommunityTreinos({
   };
 
   const handleGerarIA = async (foco: FocoTreino, solicitacaoId?: string) => {
+    const solicitacao = solicitacoes.find(s => s.id === solicitacaoId) ?? null;
     const treino = await gerarComIA(foco, solicitacaoId);
-    setTreinoAtivo(treino);
-    setSolAtiva(solicitacoes.find(s => s.id === solicitacaoId) ?? null);
+    setTreinoAtivo({
+      ...treino,
+      paraTodos: !solicitacao,
+      paraAluno: solicitacao?.alunoId,
+      solicitacaoId: solicitacao?.id,
+    });
+    setSolAtiva(solicitacao);
     setView("editor");
   };
 
@@ -216,6 +331,7 @@ export default function CommunityTreinos({
           onEdit={() => setView("editor")}
           onIniciar={() => abrirExecucao(treinoAtivo)}
           onToggleExercicio={!isGestao ? handleToggleExercicio : undefined}
+          pdfUrl={!isGestao ? treinoPdfUrl : undefined}
         />
       </div>
     );
@@ -259,7 +375,7 @@ export default function CommunityTreinos({
       <header className="flex flex-col sm:flex-row justify-between items-start
         sm:items-end gap-6 mb-10 px-1">
         <div>
-          <h1 className="text-5xl sm:text-7xl font-black italic uppercase
+          <h1 className="text-4xl sm:text-7xl font-black italic uppercase
             tracking-tighter leading-none text-white">
             TREI<span className="text-sky-500">NOS</span>
           </h1>
@@ -383,17 +499,32 @@ export default function CommunityTreinos({
                   )}
                 </div>
 
-                <button
-                  disabled={treinosPublicados.length === 0}
-                  onClick={() => treinosPublicados[0] && abrirExecucao(treinosPublicados[0])}
-                  className={`w-full lg:w-auto h-20 sm:h-28 px-10 sm:px-16 rounded-[28px]
-                    font-black uppercase italic text-lg sm:text-xl transition-all
-                    flex items-center justify-center gap-4 shrink-0
-                    ${treinosPublicados.length > 0
-                      ? "bg-sky-500 text-black hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(14,165,233,0.4)]"
-                      : "bg-white/5 text-white/10 border border-white/5 cursor-not-allowed"}`}>
-                  {treinosPublicados.length > 0 ? "INICIAR" : "OFFLINE"}
-                </button>
+                <div className="flex w-full flex-col gap-3 lg:w-auto">
+                  <button
+                    disabled={treinosPublicados.length === 0}
+                    onClick={() => treinosPublicados[0] && abrirExecucao(treinosPublicados[0])}
+                    className={`w-full h-16 sm:h-24 px-8 sm:px-14 rounded-[24px]
+                      font-black uppercase italic text-base sm:text-xl transition-all
+                      flex items-center justify-center gap-4 shrink-0
+                      ${treinosPublicados.length > 0
+                        ? "bg-sky-500 text-black hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(14,165,233,0.4)]"
+                        : "bg-white/5 text-white/10 border border-white/5 cursor-not-allowed"}`}>
+                    {treinosPublicados.length > 0 ? "INICIAR" : "OFFLINE"}
+                  </button>
+                  <a
+                    href={treinoPdfUrl}
+                    download
+                    aria-disabled={treinosPublicados.length === 0}
+                    className={`w-full rounded-2xl border px-5 py-3 text-center text-[10px]
+                      font-black uppercase tracking-widest transition-all flex items-center
+                      justify-center gap-2
+                      ${treinosPublicados.length > 0
+                        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                        : "pointer-events-none border-white/5 bg-white/3 text-white/10"}`}
+                  >
+                    <Download size={13} /> Baixar semana em PDF
+                  </a>
+                </div>
               </div>
             </div>
 
@@ -536,6 +667,9 @@ export default function CommunityTreinos({
                         setTreinoAtivo({
                           ...novoTreino(sol.foco),
                           titulo: `TREINO · ${sol.foco.toUpperCase()}`,
+                          paraTodos: false,
+                          paraAluno: sol.alunoId,
+                          solicitacaoId: sol.id,
                         });
                         setView("editor");
                       }}
@@ -547,7 +681,7 @@ export default function CommunityTreinos({
             )}
 
             {/* Ações rápidas */}
-            <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <button
                 onClick={() => abrirEditor()}
                 className="flex items-center gap-4 p-5 bg-[#0a0e18] border border-white/5
@@ -585,7 +719,47 @@ export default function CommunityTreinos({
                   </p>
                 </div>
               </button>
+
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="image/*,application/pdf"
+                className="hidden"
+                onChange={handleImportarDocumento}
+              />
+
+              <button
+                onClick={() => importInputRef.current?.click()}
+                disabled={importandoDoc}
+                className="flex items-center gap-4 p-5 bg-[#0a0e18] border border-emerald-500/20
+                  rounded-[22px] hover:border-emerald-500/40 transition-all group text-left
+                  disabled:opacity-50 disabled:cursor-not-allowed">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20
+                  flex items-center justify-center shrink-0 group-hover:bg-emerald-500/20
+                  transition-all">
+                  {importandoDoc ? (
+                    <Loader2 size={20} className="animate-spin text-emerald-400" />
+                  ) : (
+                    <UploadCloud size={20} className="text-emerald-400" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-black italic uppercase text-white">
+                    Importar Documento
+                  </p>
+                  <p className="text-[9px] text-white/25 font-bold uppercase tracking-widest mt-0.5">
+                    PDF ou imagem
+                  </p>
+                </div>
+              </button>
             </section>
+
+            {erroImportacao && (
+              <div className="flex items-center gap-3 rounded-[18px] border border-rose-500/20 bg-rose-500/8 p-4">
+                <AlertTriangle size={14} className="shrink-0 text-rose-400" />
+                <p className="text-xs italic text-rose-300/80">{erroImportacao}</p>
+              </div>
+            )}
 
             {/* Biblioteca */}
             <section className="space-y-5">

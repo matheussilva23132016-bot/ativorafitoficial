@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import db from "../../../lib/db"; 
+import { db } from "../../../lib/db"; 
+import { isGenericSocialPost } from "@/lib/socialFilters";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
     try {
@@ -11,20 +14,27 @@ export async function GET(req: Request) {
         const limit = 10; 
         const offset = (page - 1) * limit;
 
-        // AQUI ESTÁ A CORREÇÃO: u.foto_url as avatar
         let query = `
             SELECT 
                 p.*, 
-                u.foto_url as avatar, 
+                u.avatar_url as avatar, 
                 u.role, 
                 u.is_verified,
-                u.streak,
-                (SELECT COUNT(*) FROM posts_salvos WHERE post_id = p.id AND usuario_nickname = ?) as is_saved
+                u.current_streak as streak,
+                u.xp_score as xp,
+                COALESCE((SELECT COUNT(*) FROM curtidas c2 WHERE c2.post_id = p.id), p.likes, 0) as likes,
+                (SELECT COUNT(*) FROM posts_salvos WHERE post_id = p.id AND usuario_nickname = ?) as is_saved,
+                (SELECT COUNT(*) FROM curtidas c WHERE c.post_id = p.id AND c.usuario_nickname = ?) > 0 as hasLiked,
+                (SELECT ev.opcao FROM enquetes_votos ev WHERE ev.post_id = p.id AND ev.usuario_nickname = ? LIMIT 1) as enquete_voto_usuario,
+                (SELECT COUNT(*) FROM enquetes_votos ev1 WHERE ev1.post_id = p.id AND ev1.opcao = 1) as enquete_op1_votos,
+                (SELECT COUNT(*) FROM enquetes_votos ev2 WHERE ev2.post_id = p.id AND ev2.opcao = 2) as enquete_op2_votos,
+                TIMESTAMPDIFF(MINUTE, p.criado_em, NOW()) as minutes_ago,
+                COALESCE(p.comentarios_count, (SELECT COUNT(*) FROM posts_comentarios WHERE post_id = p.id)) as comentarios_count
             FROM posts p 
-            LEFT JOIN usuarios u ON p.nickname = u.nickname 
+            LEFT JOIN ativora_users u ON p.nickname = u.nickname 
         `;
 
-        const params: any[] = [currentUser];
+        const params: any[] = [currentUser, currentUser, currentUser];
 
         if (nicknameParam) {
             query += ` WHERE p.nickname = ? `;
@@ -35,8 +45,9 @@ export async function GET(req: Request) {
         params.push(limit, offset);
 
         const [rows]: any = await db.execute(query, params);
+        const cleanRows = (rows || []).filter((row: any) => !isGenericSocialPost(row));
         
-        return NextResponse.json(rows || []);
+        return NextResponse.json(cleanRows);
 
     } catch (error: any) {
         console.error("❌ ERRO NA LISTAGEM:", error.message);

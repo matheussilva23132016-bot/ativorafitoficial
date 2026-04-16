@@ -7,7 +7,7 @@ import {
   CheckCircle2, Circle, ChevronLeft, ChevronRight,
   Flame, Beef, Wheat, Droplets, Clock,
   MessageSquare, UtensilsCrossed, Trophy,
-  CalendarDays, Info,
+  CalendarDays, Info, Download,
 } from "lucide-react";
 import type { Cardapio, DiaCardapio, Refeicao, DiaSemana } from "../types";
 import { FOCOS_NUTRICAO, DIAS_SEMANA } from "../constants";
@@ -17,6 +17,7 @@ import { somarCalorias } from "../utils";
 interface Props {
   cardapio:               Cardapio;
   onToggleConcluida:      (dia: DiaSemana, refeicaoId: string) => void;
+  pdfUrl?:                string;
 }
 
 // ── Macros de uma refeição ────────────────────────────────────────
@@ -241,16 +242,22 @@ function RefeicaoCard({
 }
 
 // ── Componente principal ──────────────────────────────────────────
-export function CardapioViewer({ cardapio, onToggleConcluida }: Props) {
+export function CardapioViewer({ cardapio, onToggleConcluida, pdfUrl }: Props) {
   const hoje = new Date().toLocaleDateString("pt-BR", { weekday: "long" });
   const diaHoje = DIAS_SEMANA.find(d =>
     hoje.toLowerCase().startsWith(d.toLowerCase().slice(0, 3))
   ) ?? DIAS_SEMANA[0];
 
-  const [diaAtivo, setDiaAtivo] = useState<DiaSemana>(diaHoje);
+  const [diaAtivo, setDiaAtivo] = useState<DiaSemana>(
+    cardapio.dias.some(d => d.dia === diaHoje) ? diaHoje : cardapio.dias[0]?.dia ?? diaHoje
+  );
   const [abaAtiva, setAbaAtiva] = useState<"cardapio" | "obs">("cardapio");
 
   const foco = FOCOS_NUTRICAO.find(f => f.id === cardapio.foco);
+  const diasVisiveis = useMemo(
+    () => Array.from(new Set([...cardapio.dias.map(d => d.dia), ...DIAS_SEMANA])),
+    [cardapio.dias]
+  );
 
   // Dia atual
   const diaData = useMemo(
@@ -283,9 +290,9 @@ export function CardapioViewer({ cardapio, onToggleConcluida }: Props) {
   }, [cardapio.dias]);
 
   // Navegação entre dias
-  const idxAtivo = DIAS_SEMANA.indexOf(diaAtivo);
+  const idxAtivo = diasVisiveis.indexOf(diaAtivo);
   const irParaDia = (delta: number) => {
-    const next = DIAS_SEMANA[idxAtivo + delta];
+    const next = diasVisiveis[idxAtivo + delta];
     if (next) setDiaAtivo(next);
   };
 
@@ -306,7 +313,7 @@ export function CardapioViewer({ cardapio, onToggleConcluida }: Props) {
 
         <div className="relative z-10 space-y-4">
           {/* Título + foco */}
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1 min-w-0">
               <p className="text-[8px] font-black uppercase tracking-widest
                 text-white/20 flex items-center gap-2">
@@ -318,16 +325,29 @@ export function CardapioViewer({ cardapio, onToggleConcluida }: Props) {
                 {cardapio.titulo}
               </h2>
             </div>
-            {foco && (
-              <div className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5
-                rounded-xl border ${foco.bg} ${foco.border}`}>
-                <foco.icon size={12} className={foco.cor} />
-                <span className={`text-[8px] font-black uppercase
-                  tracking-widest ${foco.cor}`}>
-                  {foco.label}
-                </span>
-              </div>
-            )}
+            <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+              {pdfUrl && (
+                <a
+                  href={pdfUrl}
+                  download
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/20
+                    bg-emerald-500/10 px-3 py-2 text-[8px] font-black uppercase
+                    tracking-widest text-emerald-300 transition-all hover:bg-emerald-500/20"
+                >
+                  <Download size={11} /> Baixar cardápio em PDF
+                </a>
+              )}
+              {foco && (
+                <div className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5
+                  rounded-xl border ${foco.bg} ${foco.border}`}>
+                  <foco.icon size={12} className={foco.cor} />
+                  <span className={`text-[8px] font-black uppercase
+                    tracking-widest ${foco.cor}`}>
+                    {foco.label}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Metas diárias */}
@@ -380,12 +400,12 @@ export function CardapioViewer({ cardapio, onToggleConcluida }: Props) {
       </div>
 
       {/* ── Abas ────────────────────────────────────────────────── */}
-      <div className="flex gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:flex">
         {(["cardapio", "obs"] as const).map(aba => (
           <button
             key={aba}
             onClick={() => setAbaAtiva(aba)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl
+            className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
               text-[9px] font-black uppercase tracking-widest transition-all
               ${abaAtiva === aba
                 ? "bg-white/10 text-white border border-white/10"
@@ -415,7 +435,7 @@ export function CardapioViewer({ cardapio, onToggleConcluida }: Props) {
             <div className="relative">
               <div className="flex gap-2 overflow-x-auto pb-1
                 scrollbar-none snap-x snap-mandatory">
-                {DIAS_SEMANA.map(dia => {
+                {diasVisiveis.map(dia => {
                   const diaInfo  = cardapio.dias.find(d => d.dia === dia);
                   const concl    = diaInfo?.refeicoes.filter(r => r.concluida).length ?? 0;
                   const total    = diaInfo?.refeicoes.length ?? 0;
@@ -494,7 +514,7 @@ export function CardapioViewer({ cardapio, onToggleConcluida }: Props) {
 
                 <button
                   onClick={() => irParaDia(1)}
-                  disabled={idxAtivo === DIAS_SEMANA.length - 1}
+                  disabled={idxAtivo === diasVisiveis.length - 1}
                   className="p-1.5 rounded-lg bg-white/5 text-white/20
                     hover:text-white/50 disabled:opacity-20
                     disabled:cursor-not-allowed transition-all"

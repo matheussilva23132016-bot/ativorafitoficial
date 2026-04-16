@@ -1,14 +1,20 @@
 "use client";
 
 import React, { useState, ChangeEvent } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Mail, Lock, Key, ChevronRight, 
-  ArrowLeft, CheckCircle2 
-} from "lucide-react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  Key,
+  Lock,
+  Mail,
+} from "lucide-react";
 
-// --- FUNÇÕES DE API ---
 async function enviarCodigo(email: string) {
   const res = await fetch("/api/forgot-password", {
     method: "POST",
@@ -40,144 +46,160 @@ export default function ForgotPasswordPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  
+  const [showPass, setShowPass] = useState(false);
   const [data, setData] = useState({
     email: "",
     code: "",
-    password: ""
+    password: "",
   });
 
   const handleAction = async () => {
     setError("");
     setLoading(true);
-    
+
     try {
       if (step === 1) {
-        const res = await enviarCodigo(data.email);
+        const res = await enviarCodigo(data.email.trim().toLowerCase());
         if (res.success) setStep(2);
-        else setError(res.error || "E-mail não encontrado.");
-      } 
-      else if (step === 2) {
-        const res = await validarCodigo(data.email, data.code);
+        else setError(res.error || "Não foi possível enviar o código.");
+      } else if (step === 2) {
+        const res = await validarCodigo(data.email.trim().toLowerCase(), data.code.trim());
         if (res.success) setStep(3);
         else setError(res.error || "Código inválido ou expirado.");
-      }
-      else if (step === 3) {
-        const res = await redefinirSenha(data.email, data.code, data.password);
+      } else if (step === 3) {
+        const res = await redefinirSenha(data.email.trim().toLowerCase(), data.code.trim(), data.password);
         if (res.success) setStep(4);
-        else setError(res.error || "Erro ao atualizar senha.");
+        else setError(res.error || "Não foi possível atualizar a senha.");
       }
     } catch {
-      setError("Falha na conexão com o sistema.");
+      setError("Não foi possível concluir a solicitação agora.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="relative min-h-dvh w-full bg-[#010307] text-[#F8FAFC] flex flex-col items-center justify-center font-sans overflow-hidden p-6">
-      
-      <div className="fixed top-0 left-0 w-full z-50">
-        <div className="bg-sky-500/10 border-b border-sky-500/30 backdrop-blur-xl py-4 px-6 flex items-center justify-between">
-          <span className="text-[10px] font-black uppercase tracking-[0.4em] text-sky-400">Recuperação de Acesso</span>
-          <span className="text-[9px] font-black text-white/20 italic">ATIVORA OS v1.0</span>
-        </div>
+    <div className="min-h-dvh overflow-y-auto bg-[#010307] px-4 py-6 text-[#F8FAFC] md:px-8 md:py-10">
+      <div className="mx-auto w-full max-w-5xl">
+        <Link
+          href="/login"
+          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-white/60 transition hover:bg-white/10 hover:text-white"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Login
+        </Link>
       </div>
 
-      <main className="w-full max-w-md z-10 relative">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-white/5 border border-white/10 p-8 md:p-12 rounded-[3rem] backdrop-blur-xl shadow-2xl"
+      <main className="mx-auto flex min-h-[calc(100dvh-92px)] w-full max-w-md items-center py-8">
+        <motion.section
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-2xl backdrop-blur-2xl sm:p-8 md:rounded-[2rem]"
         >
           <AnimatePresence mode="wait">
             {step < 4 ? (
-              <motion.div key={step} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
-                <div className="text-center mb-10">
-                  <div className="w-16 h-16 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center mx-auto mb-6">
-                    {step === 1 && <Mail className="text-sky-500" />}
-                    {step === 2 && <Key className="text-sky-500" />}
-                    {step === 3 && <Lock className="text-sky-500" />}
+              <motion.div key={step} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
+                <div className="mb-8 text-center">
+                  <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-sky-500/30 bg-sky-500/10">
+                    {step === 1 && <Mail className="h-8 w-8 text-sky-400" />}
+                    {step === 2 && <Key className="h-8 w-8 text-sky-400" />}
+                    {step === 3 && <Lock className="h-8 w-8 text-sky-400" />}
                   </div>
-                  <h1 className="text-3xl font-black uppercase italic tracking-tighter">
-                    {step === 1 && "Esqueceu a "}
-                    {step === 2 && "Validar "}
-                    {step === 3 && "Nova "}
-                    <span className="text-sky-500">
-                      {step === 1 && "Senha?"}
-                      {step === 2 && "Código"}
-                      {step === 3 && "Senha"}
-                    </span>
+                  <p className="mb-3 text-[10px] font-black uppercase tracking-[0.4em] text-sky-400">
+                    Recuperação de acesso
+                  </p>
+                  <h1 className="text-4xl font-black uppercase italic leading-none tracking-[-0.05em]">
+                    {step === 1 && <>Enviar <span className="text-sky-500">código</span></>}
+                    {step === 2 && <>Validar <span className="text-sky-500">código</span></>}
+                    {step === 3 && <>Nova <span className="text-sky-500">senha</span></>}
                   </h1>
                 </div>
 
+                {error && (
+                  <div className="mb-5 flex items-start gap-3 rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 text-left">
+                    <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" />
+                    <p className="text-xs font-black uppercase leading-relaxed tracking-[0.14em] text-rose-300">{error}</p>
+                  </div>
+                )}
+
                 <div className="space-y-4">
                   {step === 1 && (
-                    <Input 
-                      icon={<Mail size={18}/>} 
-                      placeholder="SEU E-MAIL" 
-                      value={data.email} 
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => setData({...data, email: e.target.value})} 
+                    <Input
+                      icon={<Mail className="h-5 w-5" />}
+                      placeholder="E-mail cadastrado"
+                      value={data.email}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setData({ ...data, email: e.target.value })}
                     />
                   )}
-                  {step === 2 && (
-                    <Input 
-                      icon={<Key size={18}/>} 
-                      placeholder="CÓDIGO DE 6 DÍGITOS" 
-                      value={data.code} 
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => setData({...data, code: e.target.value})} 
-                    />
-                  )}
-                  {step === 3 && (
-                    <Input 
-                      icon={<Lock size={18}/>} 
-                      type="password" 
-                      placeholder="NOVA SENHA" 
-                      value={data.password} 
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => setData({...data, password: e.target.value})} 
-                    />
-                  )}
-                  
-                  {error && <p className="text-[10px] text-red-500 font-black uppercase text-center">{error}</p>}
 
-                  <button 
-                    onClick={handleAction} disabled={loading}
-                    className="w-full py-6 bg-sky-500 text-black font-black rounded-2xl shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50"
+                  {step === 2 && (
+                    <Input
+                      icon={<Key className="h-5 w-5" />}
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="Código de 6 dígitos"
+                      value={data.code}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setData({ ...data, code: e.target.value.replace(/\D/g, "") })}
+                    />
+                  )}
+
+                  {step === 3 && (
+                    <div className="relative">
+                      <Input
+                        icon={<Lock className="h-5 w-5" />}
+                        type={showPass ? "text" : "password"}
+                        placeholder="Nova senha forte"
+                        value={data.password}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setData({ ...data, password: e.target.value })}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPass((current) => !current)}
+                        className="absolute right-5 top-1/2 -translate-y-1/2 text-white/30 transition hover:text-white"
+                        aria-label={showPass ? "Ocultar senha" : "Mostrar senha"}
+                      >
+                        {showPass ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleAction}
+                    disabled={loading}
+                    className="flex w-full items-center justify-center gap-3 rounded-2xl bg-sky-500 py-6 text-base font-black uppercase tracking-[0.08em] text-black shadow-[0_18px_36px_rgba(14,165,233,0.28)] transition hover:bg-sky-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {loading ? "PROCESSANDO..." : step === 3 ? "ATUALIZAR SENHA" : "CONTINUAR"}
-                    <ChevronRight size={18} />
+                    {loading ? "Processando" : step === 3 ? "Atualizar senha" : "Continuar"}
+                    <ChevronRight className="h-5 w-5" />
                   </button>
                 </div>
               </motion.div>
             ) : (
-              <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="text-center py-6">
-                <CheckCircle2 size={60} className="text-sky-500 mx-auto mb-6 animate-bounce" />
-                <h2 className="text-2xl font-black uppercase italic text-white">Senha Alterada!</h2>
-                <Link href="/login" className="mt-8 inline-block w-full py-6 bg-white/5 border border-white/10 rounded-2xl text-white font-black uppercase text-xs tracking-widest hover:bg-white/10 transition-all text-center">
-                  Ir para o Login
+              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="py-6 text-center">
+                <CheckCircle2 className="mx-auto mb-6 h-16 w-16 text-sky-400" />
+                <h2 className="text-3xl font-black uppercase italic tracking-[-0.04em] text-white">Senha alterada</h2>
+                <p className="mx-auto mt-4 max-w-xs text-sm font-semibold text-white/45">Agora entre novamente usando sua nova senha.</p>
+                <Link href="/login" className="mt-8 inline-flex w-full items-center justify-center rounded-2xl bg-white/5 py-6 text-sm font-black uppercase tracking-[0.14em] text-white transition hover:bg-white/10">
+                  Ir para o login
                 </Link>
               </motion.div>
             )}
           </AnimatePresence>
-        </motion.div>
-
-        <div className="mt-8 text-center">
-          <Link href="/login" className="flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/30 hover:text-white transition-colors">
-            <ArrowLeft size={14} /> Voltar ao Login
-          </Link>
-        </div>
+        </motion.section>
       </main>
     </div>
   );
 }
 
-// --- COMPONENTE DE INPUT TIPADO ---
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   icon: React.ReactNode;
 }
 
 const Input = ({ icon, ...props }: InputProps) => (
-  <div className="relative group w-full text-left">
-    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-sky-500 transition-colors">{icon}</div>
-    <input {...props} className="w-full bg-[#010307] border border-white/10 rounded-2xl py-5 pl-14 pr-6 text-sm font-bold tracking-widest outline-none transition-all text-white focus:border-sky-500 placeholder:text-white/10" />
+  <div className="relative w-full text-left">
+    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20">{icon}</div>
+    <input
+      {...props}
+      className="w-full rounded-2xl border border-white/10 bg-white/5 py-5 pl-14 pr-14 text-sm font-bold text-white outline-none transition placeholder:text-white/20 focus:border-sky-500"
+    />
   </div>
 );

@@ -72,6 +72,7 @@ export const FOCOS_LIST = Object.entries(FOCOS).map(([id, v]) => ({
 
 // ── Dias da semana ────────────────────────────────────────────
 export const DIAS: DiaSemana[] = [
+  "Livre",
   "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo",
 ];
 

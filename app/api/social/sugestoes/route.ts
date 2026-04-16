@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import db from "../../../../lib/db";
+import { isGenericSocialUser } from "@/lib/socialFilters";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -20,7 +21,7 @@ export async function GET(req: Request) {
       [username, username]
     );
 
-    return NextResponse.json(rows);
+    return NextResponse.json((rows || []).filter((row: any) => !isGenericSocialUser(row)));
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

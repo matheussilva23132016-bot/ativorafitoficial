@@ -41,6 +41,7 @@ export function WorkoutEditor({ treino: inicial, membros = [], onSave, onPublish
 
   // ── Destinatário atual ─────────────────────────────────────
   const destinatario = t.paraTodos ? "todos" : t.paraAluno !== undefined ? "aluno" : "grupo";
+  const diasDisponiveis = DIAS.includes(t.dia) ? DIAS : [t.dia, ...DIAS];
 
   // ── Membros filtrados pela busca ───────────────────────────
   const membrosFiltrados = membros.filter(m =>
@@ -160,7 +161,7 @@ placeholder:text-white/15";
               value={t.dia}
               onChange={e => setField("dia", e.target.value as Treino["dia"])}
               className={inp}>
-              {DIAS.map(d => <option key={d} value={d}>{d}</option>)}
+              {diasDisponiveis.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
 

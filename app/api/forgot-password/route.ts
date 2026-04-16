@@ -1,60 +1,60 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import db from "../../lib/db"; 
-import { transporter } from "../../../lib/mailer"; 
+import { db } from "@/lib/db";
+import { transporter } from "@/lib/mailer";
+
+const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
 
 export async function POST(req: Request) {
   try {
     const { email } = await req.json();
+    const normalizedEmail = String(email || "").trim().toLowerCase();
 
-    if (!email) {
-      return NextResponse.json({ error: "Email obrigatório" }, { status: 400 });
+    if (!validateEmail(normalizedEmail)) {
+      return NextResponse.json({ error: "Informe um e-mail válido." }, { status: 400 });
     }
 
-    // Gerando o código de 6 dígitos
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    const codeHash = await bcrypt.hash(code, 10);
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // Expira em 15 min
-
-    // 1. EXECUÇÃO NO BANCO (Sincronização de Dados)
-    await db.execute(
-      "INSERT INTO password_resets (email, code_hash, expires_at, used) VALUES (?, ?, ?, 0)",
-      [email, codeHash, expiresAt]
+    const [users]: any = await db.execute(
+      "SELECT id, full_name FROM ativora_users WHERE email = ? LIMIT 1",
+      [normalizedEmail]
     );
 
-    // 2. ENVIO DO E-MAIL TÁTICO (Sincronização de Matriz)
-    // O 'from' usa o e-mail configurado nas variáveis de ambiente para evitar bloqueios SMTP
+    if (!users?.length) {
+      return NextResponse.json({
+        success: true,
+        message: "Se o e-mail estiver cadastrado, enviaremos um código de recuperação.",
+      });
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const codeHash = await bcrypt.hash(code, 10);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await db.execute(
+      "INSERT INTO password_resets (email, code_hash, expires_at, used) VALUES (?, ?, ?, 0)",
+      [normalizedEmail, codeHash, expiresAt]
+    );
+
     await transporter.sendMail({
-      from: `"AtivoraFit Support" <${process.env.SMTP_USER}>`, 
-      to: email,
-      subject: "Sincronização de Matriz - Código de Recuperação",
-      text: `Seu código de redefinição de senha é: ${code}. Ele expira em 15 minutos.`,
+      from: `"AtivoraFit" <${process.env.SMTP_USER}>`,
+      to: normalizedEmail,
+      subject: "Código de recuperação AtivoraFit",
+      text: `Seu código de recuperação é ${code}. Ele expira em 15 minutos.`,
       html: `
-        <div style="font-family: Arial, sans-serif; color: #F8FAFC; max-width: 500px; margin: 0 auto; background-color: #010307; border: 1px solid #1E293B; padding: 40px; border-radius: 24px; text-align: center;">
-          <h2 style="color: #0EA5E9; text-transform: uppercase; font-style: italic; letter-spacing: -0.05em; font-size: 32px; margin-bottom: 10px;">Ativora<span style="color: #F8FAFC;">Fit</span></h2>
-          <p style="color: #94A3B8; font-size: 14px; text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 30px;">Recuperação de Acesso</p>
-          
-          <p style="color: #F8FAFC; font-size: 16px; margin-bottom: 20px;">Você solicitou a recuperação de sua matriz. Use o código abaixo para validar sua identidade:</p>
-          
-          <div style="background: #0F172A; border: 1px solid #0EA5E9; padding: 30px; border-radius: 16px; margin: 20px 0; box-shadow: 0 0 20px rgba(14, 165, 233, 0.2);">
-            <h1 style="letter-spacing: 12px; color: #0EA5E9; margin: 0; font-size: 48px; font-weight: 900;">${code}</h1>
+        <div style="font-family: Arial, sans-serif; color: #F8FAFC; max-width: 520px; margin: 0 auto; background-color: #010307; border: 1px solid #1E293B; padding: 36px; border-radius: 24px;">
+          <h2 style="color: #0EA5E9; font-size: 28px; margin: 0 0 12px;">AtivoraFit</h2>
+          <p style="color: #CBD5E1; font-size: 15px; line-height: 1.6;">Use o código abaixo para criar uma nova senha. Ele expira em 15 minutos.</p>
+          <div style="background: #0F172A; border: 1px solid #0EA5E9; padding: 24px; border-radius: 16px; margin: 22px 0; text-align: center;">
+            <strong style="letter-spacing: 10px; color: #0EA5E9; font-size: 42px;">${code}</strong>
           </div>
-          
-          <p style="font-size: 11px; color: #475569; margin-top: 30px; line-height: 1.6;">
-            Este protocolo de segurança expira em 15 minutos.<br>
-            Se você não iniciou esta solicitação, apenas ignore este sinal.
-          </p>
+          <p style="font-size: 12px; color: #64748B; line-height: 1.6;">Se você não pediu recuperação de senha, ignore este e-mail.</p>
         </div>
       `,
     });
 
-    return NextResponse.json({ success: true, message: "Código enviado com sucesso!" });
-
+    return NextResponse.json({ success: true, message: "Código enviado para o e-mail cadastrado." });
   } catch (error: any) {
-    console.error("Erro detalhado na Matriz:", error);
-    return NextResponse.json(
-      { error: `Erro Técnico: ${error.message || "Falha na Matriz"}` },
-      { status: 500 }
-    );
+    console.error("Erro na recuperação de senha:", error);
+    return NextResponse.json({ error: "Não foi possível enviar o código agora." }, { status: 500 });
   }
 }

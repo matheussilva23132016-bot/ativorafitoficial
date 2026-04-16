@@ -8,7 +8,7 @@ import {
   ChevronUp, GripVertical, Pencil, Check,
   X, Flame, Beef, Wheat, Droplets, Clock,
   Sparkles, Loader2, AlertTriangle, UtensilsCrossed,
-  RotateCcw, Eye, EyeOff,
+  RotateCcw, Eye, EyeOff, BookOpen,
 } from "lucide-react";
 import type {
   Cardapio, DiaCardapio, Refeicao,
@@ -16,6 +16,9 @@ import type {
 } from "../types";
 import { FOCOS_NUTRICAO, DIAS_SEMANA, REFEICOES_PADRAO } from "../constants";
 import { uid, now, novaRefeicao, novoAlimento, somarCalorias } from "../utils";
+import { FOOD_DATABASE, AlimentoCatalogo } from "../foodDatabase";
+import { FoodManualView } from "./FoodManualView";
+import type { ManualFood } from "../foodManualData";
 
 // ══════════════════════════════════════════════════════════════════
 // TIPOS INTERNOS
@@ -27,6 +30,7 @@ interface Props {
   onPublish:       (id: string, solicitacaoId?: string) => Promise<void>;
   onGerarIA?:      () => void;
   onCancel?:       () => void;
+  manualDisponivel?: boolean;
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -69,20 +73,81 @@ function AlimentoRow({
   onRemove: () => void;
 }) {
   const [expandido, setExpandido] = useState(false);
+  const [focoNome,  setFocoNome]  = useState(false);
+
+  const sugestoes = useMemo(() => {
+    if (!alimento.nome || alimento.nome.length < 2) return [];
+    const t = alimento.nome.toLowerCase();
+    return FOOD_DATABASE.filter(f => f.nome.toLowerCase().includes(t)).slice(0, 15);
+  }, [alimento.nome]);
+
+  const aplicarSugestao = (s: AlimentoCatalogo) => {
+    onChange({
+      nome: s.nome,
+      quantidade: s.porcaoBase,
+      calorias: s.calorias,
+      proteinas: s.proteinas,
+      carbos: s.carbos,
+      gorduras: s.gorduras,
+    });
+    setFocoNome(false);
+    setExpandido(true);
+  };
 
   return (
-    <div className="bg-white/3 border border-white/5 rounded-xl overflow-hidden">
+    <div className="bg-white/3 border border-white/5 rounded-xl">
       {/* Linha principal */}
       <div className="flex items-center gap-2 px-3 py-2.5">
         <GripVertical size={12} className="text-white/10 shrink-0 cursor-grab" />
 
         {/* Nome + quantidade */}
         <div className="flex-1 grid grid-cols-2 gap-2 min-w-0">
-          <InlineInput
-            value={alimento.nome}
-            onChange={v => onChange({ nome: v })}
-            placeholder="Nome do alimento"
-          />
+          <div className="relative">
+            <input
+              value={alimento.nome}
+              onChange={e => onChange({ nome: e.target.value })}
+              onFocus={() => setFocoNome(true)}
+              onBlur={() => setTimeout(() => setFocoNome(false), 200)}
+              placeholder="Ex: Frango, Aveia..."
+              className="bg-white/5 border border-white/8 rounded-lg px-2.5 py-1.5
+                text-xs text-white/70 outline-none focus:border-sky-500/40
+                placeholder:text-white/15 transition-all w-full"
+            />
+            {/* Dropdown de Busca */}
+            <AnimatePresence>
+              {focoNome && sugestoes.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 5 }}
+                  className="absolute z-50 left-0 top-full mt-1 w-[280px] bg-[#0A1220]
+                    border border-white/10 rounded-xl overflow-hidden shadow-2xl shadow-black/80"
+                >
+                  <div className="max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
+                    {sugestoes.map(s => (
+                      <button
+                        key={s.nome}
+                        onMouseDown={(e) => { e.preventDefault(); aplicarSugestao(s); }}
+                        className="w-full text-left px-3 py-2 border-b border-white/5
+                          hover:bg-sky-500/10 transition-colors group flex flex-col gap-1"
+                      >
+                        <p className="text-[10px] font-black uppercase tracking-wide text-white/80 group-hover:text-sky-400">
+                          {s.nome}
+                        </p>
+                        <p className="text-[9px] text-white/40 flex items-center gap-2 mt-0.5">
+                          <span className="text-white/60 font-semibold">{s.porcaoBase}</span>
+                          <span className="flex items-center gap-1 text-white/50"><Flame size={9} className="text-orange-400"/> {s.calorias} kcal</span>
+                          <span className="flex items-center gap-1 text-white/50"><Beef size={9} className="text-rose-400"/> {s.proteinas}g <span className="text-[8px] uppercase tracking-widest opacity-60">Prot</span></span>
+                          <span className="flex items-center gap-1 text-white/50"><Wheat size={9} className="text-amber-400"/> {s.carbos}g <span className="text-[8px] uppercase tracking-widest opacity-60">Carb</span></span>
+                          <span className="flex items-center gap-1 text-white/50"><Droplets size={9} className="text-sky-400"/> {s.gorduras}g <span className="text-[8px] uppercase tracking-widest opacity-60">Gord</span></span>
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           <InlineInput
             value={alimento.quantidade}
             onChange={v => onChange({ quantidade: v })}
@@ -176,12 +241,13 @@ function AlimentoRow({
 // SUB — CARD DE REFEIÇÃO (editor)
 // ══════════════════════════════════════════════════════════════════
 function RefeicaoEditorCard({
-  refeicao, onUpdate, onRemove, onAddAlimento,
+  refeicao, onUpdate, onRemove, onAddAlimento, onOpenManual,
 }: {
   refeicao:     Refeicao;
   onUpdate:     (patch: Partial<Refeicao>) => void;
   onRemove:     () => void;
   onAddAlimento: () => void;
+  onOpenManual?: () => void;
 }) {
   const [aberta,      setAberta]      = useState(true);
   const [editandoNome, setEditandoNome] = useState(false);
@@ -189,7 +255,7 @@ function RefeicaoEditorCard({
 
   const totalCal = useMemo(
     () => refeicao.calorias
-      ?? refeicao.alimentos.reduce((a, al) => a + (al.calorias ?? 0), 0),
+      ?? (Array.isArray(refeicao.alimentos) ? refeicao.alimentos.reduce((a, al) => a + (al.calorias ?? 0), 0) : 0),
     [refeicao]
   );
 
@@ -200,14 +266,18 @@ function RefeicaoEditorCard({
 
   const updateAlimento = (id: string, patch: Partial<Alimento>) => {
     onUpdate({
-      alimentos: refeicao.alimentos.map(a =>
-        a.id === id ? { ...a, ...patch } : a
-      ),
+      alimentos: Array.isArray(refeicao.alimentos) 
+        ? refeicao.alimentos.map(a => a.id === id ? { ...a, ...patch } : a)
+        : [],
     });
   };
 
   const removeAlimento = (id: string) => {
-    onUpdate({ alimentos: refeicao.alimentos.filter(a => a.id !== id) });
+    onUpdate({ 
+      alimentos: Array.isArray(refeicao.alimentos) 
+        ? refeicao.alimentos.filter(a => a.id !== id) 
+        : [] 
+    });
   };
 
   return (
@@ -316,27 +386,46 @@ function RefeicaoEditorCard({
 
               {/* Alimentos */}
               <div className="space-y-2">
-                {refeicao.alimentos.map(alimento => (
+                {Array.isArray(refeicao.alimentos) ? refeicao.alimentos.map(alimento => (
                   <AlimentoRow
                     key={alimento.id}
                     alimento={alimento}
                     onChange={patch => updateAlimento(alimento.id, patch)}
                     onRemove={() => removeAlimento(alimento.id)}
                   />
-                ))}
+                )) : (
+                  <p className="text-[10px] text-white/40 mb-2 p-3 bg-white/5 rounded-xl">
+                    Registro antigo (formato texto): <br />
+                    <span className="italic">{(refeicao as any).alimentos}</span>
+                  </p>
+                )}
               </div>
 
               {/* Adicionar alimento */}
-              <button
-                onClick={onAddAlimento}
-                className="w-full flex items-center justify-center gap-2
-                  py-2.5 border border-dashed border-white/10 rounded-xl
-                  text-[9px] font-black uppercase tracking-widest
-                  text-white/20 hover:text-sky-400 hover:border-sky-500/30
-                  transition-all"
-              >
-                <Plus size={12} /> Adicionar alimento
-              </button>
+              <div className={`grid gap-2 ${onOpenManual ? "sm:grid-cols-2" : ""}`}>
+                {onOpenManual && (
+                  <button
+                    onClick={onOpenManual}
+                    className="w-full flex items-center justify-center gap-2
+                      py-2.5 border border-emerald-500/20 bg-emerald-500/8 rounded-xl
+                      text-[9px] font-black uppercase tracking-widest
+                      text-emerald-400 hover:bg-emerald-500/15
+                      transition-all"
+                  >
+                    <BookOpen size={12} /> Manual de alimentos
+                  </button>
+                )}
+                <button
+                  onClick={onAddAlimento}
+                  className="w-full flex items-center justify-center gap-2
+                    py-2.5 border border-dashed border-white/10 rounded-xl
+                    text-[9px] font-black uppercase tracking-widest
+                    text-white/20 hover:text-sky-400 hover:border-sky-500/30
+                    transition-all"
+                >
+                  <Plus size={12} /> Adicionar vazio
+                </button>
+              </div>
 
               {/* Obs da refeição */}
               <div className="space-y-1">
@@ -368,16 +457,18 @@ function RefeicaoEditorCard({
 // ══════════════════════════════════════════════════════════════════
 export function CardapioEditor({
   cardapio: cardapioInicial,
-  gerandoIA, onSave, onPublish, onGerarIA, onCancel,
+  gerandoIA, onSave, onPublish, onGerarIA, onCancel, manualDisponivel = false,
 }: Props) {
 
   const [draft,        setDraft]        = useState<Cardapio>(cardapioInicial);
-  const [diaAtivo,     setDiaAtivo]     = useState<DiaSemana>("Segunda");
+  const [diaAtivo,     setDiaAtivo]     = useState<DiaSemana>(cardapioInicial.dias[0]?.dia ?? "Segunda");
   const [salvando,     setSalvando]     = useState(false);
   const [publicando,   setPublicando]   = useState(false);
   const [preview,      setPreview]      = useState(false);
   const [alterado,     setAlterado]     = useState(false);
   const [confirmarPub, setConfirmarPub] = useState(false);
+  const [manualAberto, setManualAberto] = useState(false);
+  const [manualTargetRefeicaoId, setManualTargetRefeicaoId] = useState<string | null>(null);
 
   // ── Helpers de mutação ────────────────────────────────────────
   const mutar = useCallback((fn: (c: Cardapio) => Cardapio) => {
@@ -387,6 +478,11 @@ export function CardapioEditor({
 
   const updateField = <K extends keyof Cardapio>(k: K, v: Cardapio[K]) =>
     mutar(c => ({ ...c, [k]: v, atualizadoEm: now() }));
+
+  const diasVisiveis = useMemo(
+    () => Array.from(new Set([...draft.dias.map(d => d.dia), ...DIAS_SEMANA])),
+    [draft.dias]
+  );
 
   const diaData = useMemo(
     () => draft.dias.find(d => d.dia === diaAtivo),
@@ -443,6 +539,30 @@ export function CardapioEditor({
     });
   };
 
+  const abrirManualParaRefeicao = (refeicaoId: string) => {
+    setManualTargetRefeicaoId(refeicaoId);
+    setManualAberto(true);
+  };
+
+  const addAlimentoDoManual = (food: ManualFood) => {
+    if (!manualTargetRefeicaoId) return;
+    const atual = diaData?.refeicoes.find(r => r.id === manualTargetRefeicaoId)?.alimentos ?? [];
+    updateRefeicao(manualTargetRefeicaoId, {
+      alimentos: [
+        ...atual,
+        {
+          id: uid(),
+          nome: food.nome,
+          quantidade: food.porcaoBase,
+          calorias: food.calorias,
+          proteinas: food.proteinas,
+          carbos: food.carbos,
+          gorduras: food.gorduras,
+        },
+      ],
+    });
+  };
+
   // ── Copiar dia para todos ─────────────────────────────────────
   const copiarParaTodos = () => {
     if (!diaData) return;
@@ -457,7 +577,7 @@ export function CardapioEditor({
                 ...r,
                 id:        uid(),
                 concluida: false,
-                alimentos: r.alimentos.map(a => ({ ...a, id: uid() })),
+                alimentos: Array.isArray(r.alimentos) ? r.alimentos.map(a => ({ ...a, id: uid() })) : [],
               })),
             }
       ),
@@ -510,7 +630,8 @@ export function CardapioEditor({
     if (!diaData) return { cal: 0, prot: 0, carb: 0, gord: 0 };
     return diaData.refeicoes.reduce(
       (acc, r) => {
-        const m = r.alimentos.reduce(
+        const arr = Array.isArray(r.alimentos) ? r.alimentos : [];
+        const m = arr.reduce(
           (a, al) => ({
             cal:  a.cal  + (al.calorias  ?? 0),
             prot: a.prot + (al.proteinas ?? 0),
@@ -535,6 +656,40 @@ export function CardapioEditor({
   // ══════════════════════════════════════════════════════════════
   return (
     <div className="flex flex-col gap-5">
+      <AnimatePresence>
+        {manualAberto && manualDisponivel && (
+          <motion.div
+            key="manual-alimentos-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] bg-black/78 backdrop-blur-sm"
+          >
+            <button
+              type="button"
+              aria-label="Fechar manual"
+              onClick={() => setManualAberto(false)}
+              className="absolute inset-0 h-full w-full cursor-default"
+            />
+            <motion.div
+              initial={{ x: 28, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 28, opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="relative ml-auto h-full w-full max-w-6xl overflow-y-auto bg-[#010307] p-4 shadow-2xl shadow-black sm:p-6"
+            >
+              <FoodManualView
+                allowAccess
+                embedded
+                title="Manual para inserir no cardápio"
+                addLabel="Adicionar nesta refeição"
+                onBack={() => setManualAberto(false)}
+                onAddFood={addAlimentoDoManual}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Toolbar superior ──────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3
@@ -787,11 +942,11 @@ export function CardapioEditor({
       {/* ── Seletor de dia ────────────────────────────────────── */}
       <div className="flex gap-2 overflow-x-auto pb-1
         scrollbar-none snap-x snap-mandatory">
-        {DIAS_SEMANA.map(dia => {
+        {diasVisiveis.map(dia => {
           const d      = draft.dias.find(x => x.dia === dia);
           const nRef   = d?.refeicoes.length ?? 0;
           const nAlim  = d?.refeicoes.reduce(
-            (a, r) => a + r.alimentos.length, 0
+            (a, r) => a + (Array.isArray(r.alimentos) ? r.alimentos.length : 1), 0
           ) ?? 0;
 
           return (
@@ -919,6 +1074,7 @@ export function CardapioEditor({
                   onUpdate={patch => updateRefeicao(refeicao.id, patch)}
                   onRemove={() => removeRefeicao(refeicao.id)}
                   onAddAlimento={() => addAlimento(refeicao.id)}
+                  onOpenManual={manualDisponivel ? () => abrirManualParaRefeicao(refeicao.id) : undefined}
                 />
               </motion.div>
             ))

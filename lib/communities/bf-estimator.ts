@@ -8,10 +8,14 @@
  */
 
 interface EstimarBFParams {
-  peso:    number; // kg
-  altura:  number; // cm
-  idade?:  number; // anos (default: 30)
-  sexo?:   "M" | "F"; // default: "M"
+  peso?:       number; // kg
+  altura?:     number; // cm
+  peso_kg?:    number; // kg
+  altura_cm?:  number; // cm
+  cintura_cm?: number; // cm
+  quadril_cm?: number; // cm
+  idade?:      number; // anos (default: 30)
+  sexo?:       "M" | "F"; // default: "M"
 }
 
 interface EstimarBFResult {
@@ -20,6 +24,7 @@ interface EstimarBFResult {
   classificacao: string; // Ex: "Normal", "Sobrepeso", etc.
   massa_gorda:   number; // kg
   massa_magra:   number; // kg
+  aviso:         string;
 }
 
 /**
@@ -30,18 +35,35 @@ interface EstimarBFResult {
 export function estimarBF({
   peso,
   altura,
+  peso_kg,
+  altura_cm,
+  cintura_cm,
+  quadril_cm,
   idade = 30,
   sexo  = "M",
 }: EstimarBFParams): EstimarBFResult {
-  const alturaM = altura / 100;
-  const imc     = peso / (alturaM * alturaM);
+  const pesoFinal = peso ?? peso_kg;
+  const alturaFinal = altura ?? altura_cm;
+
+  if (!pesoFinal || !alturaFinal) {
+    throw new Error("Peso e altura são obrigatórios para estimar BF.");
+  }
+
+  const alturaM = alturaFinal / 100;
+  const imc     = pesoFinal / (alturaM * alturaM);
   const sexoNum = sexo === "M" ? 1 : 0;
 
-  const bf = (1.2 * imc) + (0.23 * idade) - (10.8 * sexoNum) - 5.4;
+  let bf = (1.2 * imc) + (0.23 * idade) - (10.8 * sexoNum) - 5.4;
+  if (cintura_cm && alturaFinal) {
+    bf = sexo === "M"
+      ? 495 / (1.0324 - 0.19077 * Math.log10(cintura_cm) + 0.15456 * Math.log10(alturaFinal)) - 450
+      : 495 / (1.29579 - 0.35004 * Math.log10(cintura_cm + (quadril_cm ?? cintura_cm)) + 0.221 * Math.log10(alturaFinal)) - 450;
+  }
+
   const bf_estimado = Math.max(3, Math.min(60, parseFloat(bf.toFixed(1))));
 
-  const massa_gorda = parseFloat(((bf_estimado / 100) * peso).toFixed(1));
-  const massa_magra = parseFloat((peso - massa_gorda).toFixed(1));
+  const massa_gorda = parseFloat(((bf_estimado / 100) * pesoFinal).toFixed(1));
+  const massa_magra = parseFloat((pesoFinal - massa_gorda).toFixed(1));
 
   const classificacao = classificarBF(bf_estimado, sexo);
 
@@ -51,6 +73,7 @@ export function estimarBF({
     classificacao,
     massa_gorda,
     massa_magra,
+    aviso: "Estimativa matemática de apoio para acompanhamento remoto. Não substitui bioimpedância ou avaliação presencial.",
   };
 }
 

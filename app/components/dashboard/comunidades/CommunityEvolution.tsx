@@ -8,6 +8,7 @@ import {
   Scale, Target, X, CheckCircle2, BarChart3,
 } from "lucide-react";
 import { estimarBF } from "@/lib/communities/bf-estimator";
+import { toast } from "sonner";
 
 // ══════════════════════════════════════════════════════════════════
 // TIPOS
@@ -119,7 +120,7 @@ export function CommunityEvolution({
   // ── Salvar medida ──────────────────────────────────────────────
   const handleSalvar = async () => {
     if (!form.peso_kg && !form.cintura_cm) {
-      alert("Preencha ao menos peso ou cintura.");
+      toast.warning("Preencha ao menos peso ou cintura.");
       return;
     }
     setSaving(true);
@@ -148,10 +149,10 @@ export function CommunityEvolution({
 
       onNotify?.({
         title:   "Biometria Registrada",
-        message: "Dados sincronizados com sucesso.",
         type:    "social",
       });
 
+      toast.success("Dados sincronizados com sucesso.");
       setForm({
         peso_kg: "", altura_cm: "", cintura_cm: "",
         quadril_cm: "", biceps_cm: "", objetivo: "",
@@ -161,7 +162,7 @@ export function CommunityEvolution({
       setView("dashboard");
       await loadMedidas();
     } catch (err: any) {
-      alert("Erro: " + err.message);
+      toast.error("Erro ao salvar biometria: " + err.message);
     } finally {
       setSaving(false);
     }

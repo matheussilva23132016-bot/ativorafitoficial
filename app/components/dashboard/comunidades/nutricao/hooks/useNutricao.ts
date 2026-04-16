@@ -65,8 +65,8 @@ export function useNutricao(
     setErro(null);
     try {
       const [cardRes, solRes, membrosRes] = await Promise.all([
-        fetch(`/api/communities/${communityId}/nutrition/cardapios`),
-        fetch(`/api/communities/${communityId}/nutrition/solicitacoes`),
+        fetch(`/api/communities/${communityId}/nutrition/cardapios?userId=${encodeURIComponent(userId)}`),
+        fetch(`/api/communities/${communityId}/nutrition/solicitacoes?userId=${encodeURIComponent(userId)}`),
         fetch(`/api/communities/${communityId}/members?simple=true`),
       ]);
 
@@ -93,9 +93,9 @@ export function useNutricao(
             : Array.isArray(membrosData.membros)
               ? membrosData.membros
               : []
-        ).map((m: { id: string; name?: string; nome?: string }) => ({
-          id:   m.id,
-          nome: m.name ?? m.nome ?? "Membro",
+        ).map((m: { id?: string; user_id?: string; name?: string; nome?: string; nickname?: string; full_name?: string }) => ({
+          id:   m.id ?? m.user_id ?? "",
+          nome: m.name ?? m.nome ?? m.full_name ?? m.nickname ?? "Membro",
         }));
 
         // Garante que o próprio usuário sempre aparece no topo da lista
@@ -117,7 +117,7 @@ export function useNutricao(
     if (!communityId) return;
     try {
       const res  = await fetch(
-        `/api/communities/${communityId}/nutrition/medidas?alunoId=${alunoId}`
+        `/api/communities/${communityId}/nutrition/medidas?alunoId=${encodeURIComponent(alunoId)}&requesterId=${encodeURIComponent(userId)}`
       );
       const data = res.ok ? await res.json() : {};
       if (Array.isArray(data.medidas)) {
@@ -158,7 +158,7 @@ export function useNutricao(
         {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify(medidas),
+          body:    JSON.stringify({ ...medidas, requesterId: userId }),
         }
       );
     } catch {
@@ -243,7 +243,7 @@ export function useNutricao(
         {
           method:  "PATCH",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ status, obs }),
+          body:    JSON.stringify({ status, obs, requesterId: userId }),
         }
       );
     } catch {
@@ -257,7 +257,7 @@ export function useNutricao(
     setSolicitacoes(prev => prev.filter(s => s.id !== id));
     try {
       await fetch(
-        `/api/communities/${communityId}/nutrition/solicitacoes/${id}`,
+        `/api/communities/${communityId}/nutrition/solicitacoes/${id}?requesterId=${encodeURIComponent(userId)}`,
         { method: "DELETE" }
       );
     } catch { /* silencioso */ }
@@ -283,7 +283,7 @@ export function useNutricao(
         {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify(atualizado),
+          body:    JSON.stringify({ ...atualizado, requesterId: userId }),
         }
       );
       if (res.ok) {
@@ -325,7 +325,7 @@ export function useNutricao(
         {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ solicitacaoId }),
+          body:    JSON.stringify({ solicitacaoId, requesterId: userId }),
         }
       );
     } catch {
@@ -339,7 +339,7 @@ export function useNutricao(
     setCardapios(prev => prev.filter(c => c.id !== id));
     try {
       await fetch(
-        `/api/communities/${communityId}/nutrition/cardapios/${id}`,
+        `/api/communities/${communityId}/nutrition/cardapios/${id}?requesterId=${encodeURIComponent(userId)}`,
         { method: "DELETE" }
       );
     } catch { /* silencioso */ }
@@ -480,7 +480,10 @@ export function useNutricao(
         body:    JSON.stringify({ prompt, solicitacaoId: solicitacao.id }),
       });
 
-      if (!res.ok) throw new Error("Falha na geração por IA");
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Falha na IA (${res.status}): ${text}`);
+      }
 
       const data = await res.json();
 

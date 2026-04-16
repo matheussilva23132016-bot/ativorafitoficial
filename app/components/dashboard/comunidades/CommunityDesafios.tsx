@@ -7,6 +7,7 @@ import {
   ImageIcon, X, Upload, AlertTriangle, RefreshCw,
   ChevronDown,
 } from "lucide-react";
+import { toast } from "sonner";
 import { canDo } from "@/lib/communities/permissions";
 
 interface Desafio {
@@ -19,10 +20,12 @@ interface Desafio {
   dia_semana:     string | null;
   prazo:          string | null;
   status:         "ativo" | "encerrado" | "rascunho";
-  entrega_id:     string | null;
-  entrega_status: "pendente" | "em_analise" | "aprovado" | "reprovado" | "reenvio" | null;
-  xp_aplicado:    number;
-  tentativa:      number | null;
+  entrega_id:          string | null;
+  entrega_status:      "pendente" | "em_analise" | "aprovado" | "reprovado" | "reenvio" | null;
+  entrega_conteudo?:   string | null;
+  entrega_arquivo_url?:string | null;
+  xp_aplicado:         number;
+  tentativa:           number | null;
 }
 
 interface CommunityDesafiosProps {
@@ -41,6 +44,16 @@ const STATUS_CONFIG = {
   reenvio:    { bg: "bg-yellow-500/10 hover:bg-yellow-500 hover:text-black", border: "border-yellow-500/20", text: "text-yellow-400" },
 };
 
+const isFileDelivery = (tipo: Desafio["tipo_envio"]) =>
+  tipo === "foto" || tipo === "video" || tipo === "arquivo";
+
+const acceptForDelivery = (tipo: Desafio["tipo_envio"]) => {
+  if (tipo === "foto") return "image/*";
+  if (tipo === "video") return "video/*";
+  if (tipo === "arquivo") return "image/*,video/*,application/pdf";
+  return undefined;
+};
+
 export function CommunityDesafios({
   currentUser, communityId, userTags, onNotify, triggerXP,
 }: CommunityDesafiosProps) {
@@ -53,13 +66,24 @@ export function CommunityDesafios({
   const [showNewModal, setShowNewModal] = useState(false);
   const [expandedId, setExpandedId]     = useState<string | null>(null);
 
+  // States de Modais de Gamificação
+  const [submitModalDesafio, setSubmitModalDesafio] = useState<Desafio | null>(null);
+  const [conteudoEntrega, setConteudoEntrega]       = useState("");
+  const [arquivoEntrega, setArquivoEntrega]         = useState<File | null>(null);
+  const [uploadingEntrega, setUploadingEntrega]     = useState(false);
+
+  const [avaliarModalDesafio, setAvaliarModalDesafio] = useState<Desafio | null>(null);
+  const [comentarioAvaliacao, setComentarioAvaliacao] = useState("");
+
   const [newDesafio, setNewDesafio] = useState({
-    titulo:        "",
-    descricao:     "",
-    instrucoes:    "",
-    tipo_envio:    "check" as Desafio["tipo_envio"],
-    xp_recompensa: 20,
-    dia_semana:    "Livre",
+    titulo:                "",
+    descricao:             "",
+    instrucoes:            "",
+    tipo_envio:            "check" as Desafio["tipo_envio"],
+    xp_recompensa:         20,
+    dia_semana:            "Livre",
+    criterio_avaliacao:    "",
+    aprovador_responsavel: "",
   });
 
   const loadDesafios = useCallback(async () => {
@@ -78,7 +102,37 @@ export function CommunityDesafios({
 
   useEffect(() => { loadDesafios(); }, [loadDesafios]);
 
-  const handleEnviar = async (desafio: Desafio) => {
+  const resetSubmitModal = () => {
+    setSubmitModalDesafio(null);
+    setConteudoEntrega("");
+    setArquivoEntrega(null);
+  };
+
+  const uploadArquivoEntrega = async () => {
+    if (!arquivoEntrega) return null;
+
+    const formData = new FormData();
+    formData.append("file", arquivoEntrega);
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.url) {
+      throw new Error(data.error ?? "Falha ao enviar arquivo");
+    }
+    return String(data.url);
+  };
+
+  const handleEnviar = async (
+    desafio: Desafio,
+    conteudoFornecido?: string,
+    arquivoUrl?: string | null,
+  ) => {
+    const conteudoNormalizado = conteudoFornecido?.trim()
+      || (desafio.tipo_envio === "check" ? "check" : null);
+
     setProcessingId(desafio.id);
     try {
       const res = await fetch(`/api/communities/${communityId}/desafios/entregar`, {
@@ -87,29 +141,39 @@ export function CommunityDesafios({
         body: JSON.stringify({
           desafioId: desafio.id,
           userId:    currentUser?.id,
-          conteudo:  desafio.tipo_envio === "check" ? "check" : null,
+          conteudo:  conteudoNormalizado,
+          arquivo_url: arquivoUrl ?? null,
         }),
       });
       if (!res.ok) throw new Error("Falha ao enviar");
       setDesafios(prev =>
-        prev.map(d => d.id === desafio.id ? { ...d, entrega_status: "em_analise" } : d)
+        prev.map(d => d.id === desafio.id ? {
+          ...d,
+          entrega_status: "em_analise",
+          entrega_conteudo: conteudoNormalizado,
+          entrega_arquivo_url: arquivoUrl ?? null,
+          tentativa: (d.tentativa ?? 0) + 1,
+        } : d)
       );
       onNotify?.({ title: "Entrega Enviada", message: `${desafio.titulo} — aguardando avaliação.`, type: "treino" });
+      toast.success("Missão enviada com sucesso!");
+      return true;
     } catch (err: any) {
-      alert("Erro: " + err.message);
+      toast.error("Erro ao enviar: " + err.message);
+      return false;
     } finally {
       setProcessingId(null);
     }
   };
 
-  const handleAvaliar = async (desafio: Desafio, acao: "aprovar" | "reprovar" | "reenvio") => {
+  const handleAvaliar = async (desafio: Desafio, acao: "aprovar" | "reprovar" | "reenvio", comentario?: string) => {
     if (!desafio.entrega_id) return;
     setProcessingId(desafio.id);
     try {
       const res = await fetch(`/api/communities/${communityId}/desafios/entregar`, {
         method:  "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entregaId: desafio.entrega_id, acao, avaliado_por: currentUser?.id }),
+        body: JSON.stringify({ entregaId: desafio.entrega_id, acao, avaliado_por: currentUser?.id, comentario }),
       });
       if (!res.ok) throw new Error("Falha ao avaliar");
       const novoStatus = acao === "aprovar" ? "aprovado" : acao === "reprovar" ? "reprovado" : "reenvio";
@@ -123,9 +187,12 @@ export function CommunityDesafios({
       if (acao === "aprovar") {
         triggerXP?.(desafio.xp_recompensa);
         onNotify?.({ title: "Desafio Aprovado! ✅", message: `+${desafio.xp_recompensa} XP concedido.`, type: "treino" });
+        toast.success("Desafio aprovado!");
+      } else {
+        toast.info(`Desafio marcado como ${novoStatus}.`);
       }
     } catch (err: any) {
-      alert("Erro: " + err.message);
+      toast.error("Erro ao avaliar: " + err.message);
     } finally {
       setProcessingId(null);
     }
@@ -142,12 +209,22 @@ export function CommunityDesafios({
       });
       if (!res.ok) throw new Error("Falha ao criar");
       const tituloSalvo = newDesafio.titulo;
-      setNewDesafio({ titulo: "", descricao: "", instrucoes: "", tipo_envio: "check", xp_recompensa: 20, dia_semana: "Livre" });
+      setNewDesafio({
+        titulo: "",
+        descricao: "",
+        instrucoes: "",
+        tipo_envio: "check",
+        xp_recompensa: 20,
+        dia_semana: "Livre",
+        criterio_avaliacao: "",
+        aprovador_responsavel: "",
+      });
       setShowNewModal(false);
       onNotify?.({ title: "Missão Criada", message: `${tituloSalvo} publicada para o esquadrão.`, type: "treino" });
+      toast.success("Missão criada!");
       await loadDesafios();
     } catch (err: any) {
-      alert("Erro: " + err.message);
+      toast.error("Erro ao criar missão: " + err.message);
     } finally {
       setProcessingId(null);
     }
@@ -173,7 +250,7 @@ export function CommunityDesafios({
         {canCreate && (
           <button
             onClick={() => setShowNewModal(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-sky-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shrink-0"
+            className="flex w-full items-center justify-center gap-2 px-4 py-2.5 bg-sky-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shrink-0 sm:w-auto"
           >
             <Plus size={13} /> Nova Missão
           </button>
@@ -181,7 +258,7 @@ export function CommunityDesafios({
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
           { label: "Aprovados",  value: totalAprovados, icon: CheckCircle2, color: "text-green-500",  bg: "bg-green-500/10 border-green-500/20"  },
           { label: "Em Análise", value: totalPendentes, icon: Clock,        color: "text-orange-500", bg: "bg-orange-500/10 border-orange-500/20" },
@@ -284,14 +361,17 @@ export function CommunityDesafios({
                 <div className="mt-5 pt-5 border-t border-white/5 space-y-2">
                   {(entregaStatus === "pendente" || entregaStatus === "reenvio") && (
                     <button
-                      onClick={() => handleEnviar(desafio)}
+                      onClick={() => {
+                        if (desafio.tipo_envio === "check") handleEnviar(desafio);
+                        else setSubmitModalDesafio(desafio);
+                      }}
                       disabled={isProcessing}
                       className={`w-full flex items-center justify-center gap-2 py-3 transition-all text-white text-[10px] font-black uppercase tracking-widest rounded-xl border ${cfg.bg} ${cfg.border} disabled:opacity-40`}
                     >
                       {isProcessing
                         ? <RefreshCw size={13} className="animate-spin" />
-                        : desafio.tipo_envio === "foto"
-                          ? <><ImageIcon size={13} /> Enviar Prova</>
+                        : isFileDelivery(desafio.tipo_envio) || desafio.tipo_envio === "link"
+                          ? <><Upload size={13} /> Enviar Prova</>
                           : <><CheckCircle2 size={13} /> Concluir</>
                       }
                     </button>
@@ -315,8 +395,30 @@ export function CommunityDesafios({
                     </div>
                   )}
 
+                  {((desafio.entrega_conteudo && desafio.entrega_conteudo !== "check") || desafio.entrega_arquivo_url) && (
+                    <div className="mt-4 p-3 bg-white/5 border border-white/10 rounded-xl">
+                      <p className="text-[9px] font-black uppercase text-white/40 tracking-widest mb-2">Prova Enviada:</p>
+                      {desafio.entrega_conteudo && desafio.entrega_conteudo !== "check" && desafio.tipo_envio === "texto" ? (
+                        <p className="text-xs text-white/80 leading-relaxed italic border-l-2 border-sky-500 pl-3">
+                          "{desafio.entrega_conteudo}"
+                        </p>
+                      ) : desafio.entrega_conteudo && desafio.entrega_conteudo !== "check" ? (
+                        <a href={desafio.entrega_conteudo} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-sky-400 hover:text-sky-300 transition-colors bg-sky-500/10 px-3 py-2 rounded-lg truncate">
+                          <ImageIcon size={13} className="shrink-0" />
+                          <span className="truncate">{desafio.entrega_conteudo}</span>
+                        </a>
+                      ) : null}
+                      {desafio.entrega_arquivo_url && (
+                        <a href={desafio.entrega_arquivo_url} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-2 text-xs text-emerald-300 hover:text-emerald-200 transition-colors bg-emerald-500/10 px-3 py-2 rounded-lg truncate">
+                          <Upload size={13} className="shrink-0" />
+                          <span className="truncate">Abrir arquivo enviado</span>
+                        </a>
+                      )}
+                    </div>
+                  )}
+
                   {canEvaluate && entregaStatus === "em_analise" && (
-                    <div className="flex gap-2 mt-2">
+                    <div className="grid grid-cols-1 gap-2 mt-2 sm:grid-cols-3">
                       <button
                         onClick={() => handleAvaliar(desafio, "aprovar")}
                         disabled={isProcessing}
@@ -325,14 +427,14 @@ export function CommunityDesafios({
                         {isProcessing ? <RefreshCw size={11} className="animate-spin mx-auto" /> : "✓ Aprovar"}
                       </button>
                       <button
-                        onClick={() => handleAvaliar(desafio, "reenvio")}
+                        onClick={() => setAvaliarModalDesafio(desafio)}
                         disabled={isProcessing}
                         className="flex-1 py-2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[9px] font-black uppercase rounded-xl hover:bg-yellow-500 hover:text-black transition-all disabled:opacity-40"
                       >
                         ↩ Reenvio
                       </button>
                       <button
-                        onClick={() => handleAvaliar(desafio, "reprovar")}
+                        onClick={() => setAvaliarModalDesafio(desafio)}
                         disabled={isProcessing}
                         className="flex-1 py-2 bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[9px] font-black uppercase rounded-xl hover:bg-rose-500 hover:text-black transition-all disabled:opacity-40"
                       >
@@ -430,6 +532,7 @@ export function CommunityDesafios({
                       <option value="video">Vídeo</option>
                       <option value="texto">Texto</option>
                       <option value="link">Link</option>
+                      <option value="arquivo">Arquivo/PDF</option>
                     </select>
                   </div>
                   <div className="space-y-2 col-span-2">
@@ -444,6 +547,26 @@ export function CommunityDesafios({
                         <option key={d} value={d}>{d}</option>
                       ))}
                     </select>
+                  </div>
+                  
+                  <div className="space-y-2 col-span-2">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Critério de Avaliação (opcional)</label>
+                    <textarea
+                      value={newDesafio.criterio_avaliacao}
+                      onChange={e => setNewDesafio(p => ({ ...p, criterio_avaliacao: e.target.value }))}
+                      placeholder="Ex: O vídeo precisa estar gravado de corpo inteiro."
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm h-16 resize-none outline-none focus:border-sky-500/50 transition-all placeholder:text-white/15"
+                    />
+                  </div>
+
+                  <div className="space-y-2 col-span-2">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Aprovador Responsável (opcional)</label>
+                    <input
+                      value={newDesafio.aprovador_responsavel}
+                      onChange={e => setNewDesafio(p => ({ ...p, aprovador_responsavel: e.target.value }))}
+                      placeholder="Ex: Treinador Marcos"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-bold outline-none focus:border-sky-500/50 transition-all placeholder:text-white/15"
+                    />
                   </div>
                 </div>
 
@@ -462,6 +585,176 @@ export function CommunityDesafios({
           </div>
         )}
       </AnimatePresence>
+
+      {/* MODAL ENVIAR PROVA (PARTICIPANTE) */}
+      <AnimatePresence>
+        {submitModalDesafio && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-sm bg-[#0A1222] border border-white/10 rounded-[28px] p-6 shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-base font-black uppercase italic text-white tracking-tighter">
+                  Enviar <span className="text-sky-500">Prova</span>
+                </h3>
+                <button
+                  onClick={resetSubmitModal}
+                  className="p-1.5 bg-white/5 rounded-xl text-white/30 hover:text-rose-400"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-[10px] text-white/40 leading-relaxed uppercase tracking-widest font-bold">
+                  {submitModalDesafio.tipo_envio === "texto" 
+                    ? "Escreva o relato da sua missão abaixo:"
+                    : isFileDelivery(submitModalDesafio.tipo_envio)
+                      ? "Envie o arquivo solicitado e adicione uma legenda opcional:"
+                    : `Insira o link (URL) da sua ${submitModalDesafio.tipo_envio} abaixo:`}
+                </p>
+
+                {submitModalDesafio.tipo_envio === "texto" ? (
+                  <textarea
+                    value={conteudoEntrega}
+                    onChange={e => setConteudoEntrega(e.target.value)}
+                    placeholder="Minha missão foi..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm h-32 resize-none outline-none focus:border-sky-500/50"
+                  />
+                ) : submitModalDesafio.tipo_envio === "link" ? (
+                  <input
+                    value={conteudoEntrega}
+                    onChange={e => setConteudoEntrega(e.target.value)}
+                    placeholder={`https://link-da-sua-${submitModalDesafio.tipo_envio}...`}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-sky-500/50 placeholder:text-white/15"
+                  />
+                ) : (
+                  <textarea
+                    value={conteudoEntrega}
+                    onChange={e => setConteudoEntrega(e.target.value)}
+                    placeholder="Legenda opcional para o avaliador..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm h-20 resize-none outline-none focus:border-sky-500/50 placeholder:text-white/15"
+                  />
+                )}
+
+                {isFileDelivery(submitModalDesafio.tipo_envio) && (
+                  <label className="flex min-h-[110px] cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-white/5 px-4 py-5 text-center transition-colors hover:border-sky-500/40">
+                    <Upload size={18} className="text-sky-400" />
+                    <span className="mt-2 text-xs font-black text-white">
+                      {arquivoEntrega?.name ?? "Selecionar arquivo"}
+                    </span>
+                    <span className="mt-1 text-[10px] text-white/30">
+                      Foto, video ou PDF conforme a missao.
+                    </span>
+                    <input
+                      type="file"
+                      accept={acceptForDelivery(submitModalDesafio.tipo_envio)}
+                      onChange={event => setArquivoEntrega(event.target.files?.[0] ?? null)}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+
+                <button
+                  onClick={async () => {
+                    setUploadingEntrega(true);
+                    try {
+                      const arquivoUrl = isFileDelivery(submitModalDesafio.tipo_envio)
+                        ? await uploadArquivoEntrega()
+                        : null;
+                      const enviado = await handleEnviar(submitModalDesafio, conteudoEntrega, arquivoUrl);
+                      if (enviado) resetSubmitModal();
+                    } catch (err: any) {
+                      toast.error(err.message ?? "Falha ao enviar prova.");
+                    } finally {
+                      setUploadingEntrega(false);
+                    }
+                  }}
+                  disabled={
+                    processingId === submitModalDesafio.id
+                    || uploadingEntrega
+                    || (isFileDelivery(submitModalDesafio.tipo_envio)
+                      ? !arquivoEntrega
+                      : !conteudoEntrega.trim())
+                  }
+                  className="w-full py-3 bg-sky-500 text-black font-black uppercase tracking-widest rounded-xl hover:scale-[1.02] transition-all disabled:opacity-40"
+                >
+                  {processingId === submitModalDesafio.id || uploadingEntrega ? "Aguarde..." : "Finalizar Missão"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL AVALIAR PROVA (ADM) */}
+      <AnimatePresence>
+        {avaliarModalDesafio && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-sm bg-[#0A1222] border border-white/10 rounded-[28px] p-6 shadow-2xl"
+            >
+               <div className="flex justify-between items-center mb-4">
+                <h3 className="text-base font-black uppercase italic text-white tracking-tighter">
+                  Feedback de <span className="text-sky-500">Avaliação</span>
+                </h3>
+                <button
+                  onClick={() => { setAvaliarModalDesafio(null); setComentarioAvaliacao(""); }}
+                  className="p-1.5 bg-white/5 rounded-xl text-white/30 hover:text-rose-400"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-[10px] uppercase font-bold text-white/30 tracking-widest">
+                  Por que o aluno reprovou ou precisa reenviar?
+                </p>
+
+                <textarea
+                  value={comentarioAvaliacao}
+                  onChange={e => setComentarioAvaliacao(e.target.value)}
+                  placeholder="Escreva o motivo..."
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm h-24 resize-none outline-none focus:border-rose-500/50"
+                />
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={async () => {
+                      await handleAvaliar(avaliarModalDesafio, "reenvio", comentarioAvaliacao);
+                      setAvaliarModalDesafio(null);
+                      setComentarioAvaliacao("");
+                    }}
+                    disabled={!comentarioAvaliacao.trim() || processingId === avaliarModalDesafio.id}
+                    className="py-3 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[10px] font-black uppercase rounded-xl hover:bg-yellow-500 hover:text-black transition-all disabled:opacity-40"
+                  >
+                    Exigir Reenvio
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await handleAvaliar(avaliarModalDesafio, "reprovar", comentarioAvaliacao);
+                      setAvaliarModalDesafio(null);
+                      setComentarioAvaliacao("");
+                    }}
+                    disabled={!comentarioAvaliacao.trim() || processingId === avaliarModalDesafio.id}
+                    className="py-3 bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[10px] font-black uppercase rounded-xl hover:bg-rose-500 hover:text-black transition-all disabled:opacity-40"
+                  >
+                    Reprovar
+                  </button>
+                </div>
+              </div>
+
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

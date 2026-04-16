@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import db from "../../../../lib/db";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -8,16 +10,16 @@ export async function GET(req: Request) {
 
     if (!username) return NextResponse.json({ error: "Nickname ausente." }, { status: 400 });
 
-    // Busca usuários que estão com status 'pendente' para o usuário logado
-    const [rows]: any = await db.execute(`
-      SELECT 
-        s.id, 
-        u.nickname as username, 
-        u.avatar_url 
+    const [rows]: any = await db.execute(
+      `SELECT
+        s.id,
+        u.nickname as username,
+        u.avatar_url
       FROM seguidores s
-      JOIN usuarios u ON s.follower_nickname = u.nickname
-      WHERE s.following_nickname = ? AND s.status = 'pendente'
-    `, [username]);
+      LEFT JOIN ativora_users u ON s.seguidor_nickname = u.nickname
+      WHERE s.seguido_nickname = ? AND s.status = 'pendente'`,
+      [username]
+    );
 
     return NextResponse.json(rows);
   } catch (error: any) {

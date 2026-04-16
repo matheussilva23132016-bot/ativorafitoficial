@@ -1,78 +1,111 @@
 import { NextResponse } from 'next/server';
-import pool from '@/lib/db';
+import prisma from '@/lib/prisma';
+import { startOfWeek, endOfWeek } from 'date-fns';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
-    const communityId = searchParams.get('communityId');
 
-    if (!userId || !communityId) {
-      return NextResponse.json({ error: 'Parâmetros ausentes.' }, { status: 400 });
+    if (!userId) {
+      return NextResponse.json({ error: 'Identificação do atleta necessária.' }, { status: 400 });
     }
 
-    // 1. Busca Progresso Semanal
-    const [progressRows]: any = await pool.query(
-      `SELECT workouts_completed, total_workouts, completion_percentage 
-       FROM weekly_progress 
-       WHERE user_id = ? AND community_id = ? 
-       ORDER BY week_start_date DESC LIMIT 1`,
-      [userId, communityId]
-    );
+    // 1. Mapeamento de Dia da Semana para o Enum do Prisma
+    const diasMapping: Record<number, any> = {
+      0: 'Domingo',
+      1: 'Segunda',
+      2: 'Terça',
+      3: 'Quarta',
+      4: 'Quinta',
+      5: 'Sexta',
+      6: 'Sábado'
+    };
+    const diaAtualEnum = diasMapping[new Date().getDay()];
 
-    const statsSemana = progressRows.length > 0 ? {
-      concluidos: progressRows[0].workouts_completed,
-      total: progressRows[0].total_workouts,
-      porcentagem: parseFloat(progressRows[0].completion_percentage)
-    } : { concluidos: 0, total: 5, porcentagem: 0 };
+    // 2. Busca Treino de Hoje (Priorizando individuais, depois comunidade)
+    const treinoDeHoje = await prisma.treinos.findFirst({
+      where: {
+        status: 'published',
+        dia_semana: diaAtualEnum,
+        OR: [
+          { aluno_id: userId }, // Treino específico para o aluno
+          { alvo: 'todos' }      // Treino de comunidade
+        ]
+      },
+      include: {
+        _count: {
+          select: { exercicios_treino: true }
+        }
+      },
+      orderBy: [
+        { alvo: 'desc' } // Prioriza 'individual' se houver
+      ]
+    });
 
-    // 2. Busca o Treino de Hoje
-    const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-    const diaAtual = diasSemana[new Date().getDay()];
-
-    const [workoutRows]: any = await pool.query(
-      `SELECT id, title, focus, estimated_minutes 
-       FROM workouts 
-       WHERE community_id = ? AND day_of_week = ? AND status = 'published'
-       AND (assigned_to_user_id IS NULL OR assigned_to_user_id = ?)
-       LIMIT 1`,
-      [communityId, diaAtual, userId]
-    );
-
-    let treinoDeHoje = null;
-    if (workoutRows.length > 0) {
-      // Verifica se o aluno já fez este treino hoje
-      const [sessionRows]: any = await pool.query(
-        `SELECT status FROM workout_sessions 
-         WHERE workout_id = ? AND user_id = ? AND DATE(created_at) = CURDATE()`,
-        [workoutRows[0].id, userId]
-      );
-
-      let statusTreino = 'nao_iniciado';
-      if (sessionRows.length > 0) {
-        statusTreino = sessionRows[0].status; // 'in_progress' ou 'completed'
+    // 3. Verifica se já existe execução em andamento ou concluída hoje
+    const execucaoHoje = await prisma.treino_execucoes.findFirst({
+      where: {
+        user_id: userId,
+        treino_id: treinoDeHoje?.id,
+        created_at: {
+          gte: new Date(new Date().setHours(0, 0, 0, 0))
+        }
       }
+    });
 
-      treinoDeHoje = {
-        id: workoutRows[0].id,
-        titulo: workoutRows[0].title,
-        foco: workoutRows[0].focus,
-        tempo: `${workoutRows[0].estimated_minutes} min`,
-        status: statusTreino
-      };
-    }
+    // 4. Calcula Progresso Semanal (Baseado em execuções concluídas na semana atual)
+    const inicioSemana = startOfWeek(new Date(), { weekStartsOn: 1 }); // Segunda
+    const fimSemana = endOfWeek(new Date(), { weekStartsOn: 1 });
 
-    // 3. (Opcional) Busca Notificações
-    const [notificacoes]: any = await pool.query(
-      `SELECT id, title, message as msg, type, is_read as 'read', created_at as time 
-       FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
-      [userId]
-    );
+    const execucoesSemana = await prisma.treino_execucoes.count({
+      where: {
+        user_id: userId,
+        concluido: true,
+        concluido_em: {
+          gte: inicioSemana,
+          lte: fimSemana
+        }
+      }
+    });
 
-    return NextResponse.json({ statsSemana, treinoDeHoje, notificacoes });
+    // 5. Busca notificações recentes.
+    const notificacoes = await prisma.notificacoes_comunidade.findMany({
+      where: { user_id: userId, lida: false },
+      orderBy: { created_at: 'desc' },
+      take: 5
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        hoje: treinoDeHoje ? {
+          id: treinoDeHoje.id,
+          titulo: treinoDeHoje.titulo,
+          foco: treinoDeHoje.foco,
+          totalExercicios: treinoDeHoje._count.exercicios_treino,
+          status: execucaoHoje?.concluido ? 'concluido' : execucaoHoje ? 'em_andamento' : 'nao_iniciado',
+          execucaoId: execucaoHoje?.id
+        } : null,
+        stats: {
+          concluidosSemana: execucoesSemana,
+          metaSemanal: 5, // Pode ser dinâmico no futuro
+          porcentagem: Math.min(Math.round((execucoesSemana / 5) * 100), 100)
+        },
+        notificacoes: notificacoes.map(n => ({
+          id: n.id,
+          title: n.titulo,
+          msg: n.mensagem,
+          type: n.tipo,
+          time: n.created_at
+        }))
+      }
+    });
 
   } catch (error) {
-    console.error('Erro na API de Dashboard:', error);
-    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
+    console.error(' [TREINOS_DASHBOARD_ERROR]:', error);
+    return NextResponse.json({ error: 'Falha ao carregar dashboard de treinos.' }, { status: 500 });
   }
 }

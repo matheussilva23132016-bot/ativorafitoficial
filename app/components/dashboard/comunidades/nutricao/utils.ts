@@ -54,6 +54,51 @@ export function classificarRCQ(rcq: number, sexo: SexoBio): {
   return                   { label: "Alto risco",       cor: "text-rose-500"    };
 }
 
+export function calcularRFM(
+  sexo: SexoBio,
+  altura: number,
+  cintura: number,
+): number {
+  if (altura <= 0 || cintura <= 0) return 0;
+  const rfm = sexo === "masculino"
+    ? 64 - (20 * altura / cintura)
+    : 76 - (20 * altura / cintura);
+
+  const min = sexo === "masculino" ? 3 : 10;
+  const max = sexo === "masculino" ? 50 : 60;
+  return parseFloat(Math.max(min, Math.min(rfm, max)).toFixed(1));
+}
+
+export function calcularMassas(peso: number, gorduraEst: number) {
+  const massaGordaKg = parseFloat((peso * (gorduraEst / 100)).toFixed(1));
+  const massaMagraKg = parseFloat(Math.max(0, peso - massaGordaKg).toFixed(1));
+  return { massaGordaKg, massaMagraKg };
+}
+
+export function gerarRecomendacaoCorporal(params: {
+  sexo: SexoBio;
+  imc: number;
+  gorduraEst: number;
+}) {
+  const { sexo, imc, gorduraEst } = params;
+  const limiteAlto = sexo === "masculino" ? 25 : 32;
+  const limiteBaixo = sexo === "masculino" ? 10 : 18;
+
+  if (imc < 18.5 || gorduraEst < limiteBaixo) {
+    return "Prioridade: aumentar energia e proteína com acompanhamento, preservando saúde hormonal e ganho gradual de massa magra.";
+  }
+
+  if (gorduraEst >= limiteAlto || imc >= 30) {
+    return "Prioridade: déficit calórico controlado, alta ingestão proteica, fibras e acompanhamento semanal para reduzir gordura sem perder massa magra.";
+  }
+
+  if (imc >= 25 || gorduraEst >= limiteAlto - 5) {
+    return "Prioridade: recomposição corporal com leve déficit ou manutenção, treino consistente e distribuição proteica ao longo do dia.";
+  }
+
+  return "Prioridade: manter composição atual, ajustar calorias ao objetivo e usar o cardápio para melhorar performance, constância e recuperação.";
+}
+
 // ══════════════════════════════════════════════════════════════════
 // % GORDURA — Método Navy (U.S. Navy Body Fat Formula)
 // Requer: cintura, pescoço, altura (+ quadril para feminino)
@@ -139,26 +184,14 @@ export function classificarGordura(
 export function processarMedidas(
   input: Omit<MedidasCorporais, "id" | "imc" | "rcq" | "gorduraEst" | "classificacaoRCQ" | "metodoCalculo">,
 ): MedidasCorporais {
-  const { peso, altura, cintura, quadril, pescoco, sexo } = input;
+  const { peso, altura, cintura, quadril, sexo } = input;
 
   const imc = calcularIMC(peso, altura);
-  const rcq = calcularRCQ(cintura, quadril);
-  const { label: classificacaoRCQ } = classificarRCQ(rcq, sexo);
-
-  let gorduraEst: number | null = null;
-  let metodoCalculo: "navy" | "rcq" = "rcq";
-
-  // Tenta Navy se tiver pescoço
-  if (pescoco && pescoco > 0) {
-    gorduraEst = calcularGorduraNavy(sexo, altura, cintura, pescoco, quadril);
-    if (gorduraEst !== null) metodoCalculo = "navy";
-  }
-
-  // Fallback RCQ
-  if (gorduraEst === null) {
-    gorduraEst = estimarGorduraPorRCQ(rcq, sexo, imc);
-    metodoCalculo = "rcq";
-  }
+  const rcq = quadril && quadril > 0 ? calcularRCQ(cintura, quadril) : undefined;
+  const classificacaoRCQ = rcq ? classificarRCQ(rcq, sexo).label : undefined;
+  const gorduraEst = calcularRFM(sexo, altura, cintura);
+  const { massaGordaKg, massaMagraKg } = calcularMassas(peso, gorduraEst);
+  const recomendacaoCorporal = gerarRecomendacaoCorporal({ sexo, imc, gorduraEst });
 
   return {
     ...input,
@@ -167,7 +200,10 @@ export function processarMedidas(
     rcq,
     gorduraEst,
     classificacaoRCQ,
-    metodoCalculo,
+    metodoCalculo:   "rfm",
+    massaGordaKg,
+    massaMagraKg,
+    recomendacaoCorporal,
   };
 }
 

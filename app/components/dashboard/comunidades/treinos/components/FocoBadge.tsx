@@ -6,7 +6,7 @@ import { FOCOS_LIST } from "../constants";
 
 interface FocoBadgeProps {
   foco: FocoTreino;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
 }
 
 export function FocoBadge({ foco, size = "sm" }: FocoBadgeProps) {
@@ -14,12 +14,13 @@ export function FocoBadge({ foco, size = "sm" }: FocoBadgeProps) {
   if (!config) return null;
 
   const sizeClasses = {
+    xs: "px-2 py-0.5 text-[7px] gap-1",
     sm: "px-2.5 py-1 text-[8px] gap-1.5",
     md: "px-3.5 py-1.5 text-[9px] gap-2",
     lg: "px-4 py-2 text-[10px] gap-2.5",
   };
 
-  const iconSizes = { sm: 10, md: 12, lg: 14 };
+  const iconSizes = { xs: 9, sm: 10, md: 12, lg: 14 };
 
   return (
     <span

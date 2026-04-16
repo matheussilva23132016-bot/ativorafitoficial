@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import prisma from "@/lib/prisma";
 
 // GET /api/communities?userId=xxx
 export async function GET(req: NextRequest) {
@@ -7,30 +7,53 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: "userId obrigatório" }, { status: 400 });
 
   try {
-    const [rows] = await db.query(`
-      SELECT 
-        c.*,
-        cm.status   AS member_status,
-        cm.id       AS membro_id,
-        GROUP_CONCAT(DISTINCT ct.nome ORDER BY ct.nivel_poder DESC SEPARATOR ',') AS tags
-      FROM comunidades c
-      LEFT JOIN comunidade_membros cm 
-        ON cm.comunidade_id = c.id AND cm.user_id = ?
-      LEFT JOIN comunidade_membro_tags cmt 
-        ON cmt.membro_id = cm.id
-      LEFT JOIN comunidade_tags ct 
-        ON ct.id = cmt.tag_id
-      WHERE c.status = 'ativa'
-        AND (c.privacidade = 'public' OR cm.status = 'aprovado')
-      GROUP BY c.id
-      ORDER BY cm.status = 'aprovado' DESC, c.created_at DESC
-    `, [userId]);
+    const rawComms = await prisma.comunidades.findMany({
+      where: {
+        status: 'ativa',
+        OR: [
+          { privacidade: 'public' },
+          { comunidade_membros: { some: { user_id: userId, status: 'aprovado' } } },
+          { owner_id: userId }
+        ]
+      },
+      include: {
+        comunidade_membros: {
+          where: { user_id: userId },
+          include: {
+            comunidade_membro_tags: {
+              include: {
+                comunidade_tags: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { created_at: 'desc' }
+    });
 
-    const communities = (rows as any[]).map(r => ({
-      ...r,
-      isMember: r.member_status === "aprovado",
-      userTags: r.tags ? r.tags.split(",") : ["Participante"],
-    }));
+    const communities = rawComms.map(c => {
+      const membro = c.comunidade_membros[0];
+      const tags = membro?.comunidade_membro_tags
+        .map(mt => mt.comunidade_tags)
+        .sort((a, b) => (b?.nivel_poder ?? 0) - (a?.nivel_poder ?? 0))
+        .map(t => t?.nome)
+        .filter(Boolean) || ["Participante"];
+
+      return {
+        ...c,
+        name:        c.nome,
+        description: c.descricao,
+        member_status: membro?.status || null,
+        membro_id:     membro?.id || null,
+        isMember:      membro?.status === "aprovado",
+        userTags:      tags,
+      };
+    }).sort((a, b) => {
+      // Ordena membros aprovados primeiro
+      if (a.isMember && !b.isMember) return -1;
+      if (!a.isMember && b.isMember) return 1;
+      return 0;
+    });
 
     return NextResponse.json({ communities });
   } catch (err: any) {
@@ -48,69 +71,79 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "name e owner_id obrigatórios" }, { status: 400 });
     }
 
-    const conn = await db.getConnection();
-    await conn.beginTransaction();
-
-    try {
+    const result = await prisma.$transaction(async (tx) => {
       // 1. Cria a comunidade
-      await conn.query(`
-        INSERT INTO comunidades (id, nome, descricao, cover_url, tema, foco, privacidade, owner_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, [id, name, description, cover_url, theme ?? "sky", focus ?? "Todas", privacy ?? "public", owner_id]);
+      const community = await tx.comunidades.create({
+        data: {
+          id,
+          nome: name,
+          descricao: description ?? "",
+          cover_url: cover_url ?? "",
+          tema: theme ?? "sky",
+          foco: focus ?? "Todas",
+          privacidade: privacy ?? "public",
+          owner_id,
+          status: 'ativa',
+          total_membros: 1
+        }
+      });
 
-      // 2. Cria tags padrão da comunidade
+      // 2. Cria tags padrão
       const tagsDefault = [
-        { nome: "Participante", cor: "sky",    nivel: 1 },
-        { nome: "Instrutor",    cor: "emerald", nivel: 2 },
-        { nome: "Nutri",        cor: "green",  nivel: 3 },
-        { nome: "ADM",          cor: "purple", nivel: 4 },
-        { nome: "Dono",         cor: "amber",  nivel: 5 },
+        { nome: "Participante", cor: "sky",     nivel_poder: 1 },
+        { nome: "Instrutor",    cor: "emerald", nivel_poder: 2 },
+        { nome: "Personal",     cor: "emerald", nivel_poder: 2 },
+        { nome: "Nutri",        cor: "green",   nivel_poder: 3 },
+        { nome: "Nutricionista", cor: "green",   nivel_poder: 3 },
+        { nome: "ADM",          cor: "purple",  nivel_poder: 4 },
+        { nome: "Dono",         cor: "amber",   nivel_poder: 5 },
       ];
-      for (const tag of tagsDefault) {
-        const tagId = `tag-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        await conn.query(`
-          INSERT INTO comunidade_tags (id, comunidade_id, nome, cor, nivel_poder)
-          VALUES (?, ?, ?, ?, ?)
-        `, [tagId, id, tag.nome, tag.cor, tag.nivel]);
+
+      const createdTags: any[] = [];
+      for (const t of tagsDefault) {
+        const tag = await tx.comunidade_tags.create({
+          data: {
+            id: `tag-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            comunidade_id: id,
+            nome: t.nome,
+            cor: t.cor,
+            nivel_poder: t.nivel_poder
+          }
+        });
+        createdTags.push(tag);
       }
 
-      // 3. Adiciona o criador como membro aprovado com tag Dono
+      // 3. Adiciona dono como membro aprovado
       const membroId = `mb-${Date.now()}`;
-      await conn.query(`
-        INSERT INTO comunidade_membros (id, comunidade_id, user_id, status, joined_at)
-        VALUES (?, ?, ?, 'aprovado', NOW())
-      `, [membroId, id, owner_id]);
+      const membro = await tx.comunidade_membros.create({
+        data: {
+          id: membroId,
+          comunidade_id: id,
+          user_id: owner_id,
+          status: 'aprovado',
+          joined_at: new Date()
+        }
+      });
 
-      // 4. Busca tag Dono para atribuir
-      const [tagRows] = await conn.query(`
-        SELECT id FROM comunidade_tags 
-        WHERE comunidade_id = ? AND nome = 'Dono' LIMIT 1
-      `, [id]);
-      const donoTagId = (tagRows as any[])[0]?.id;
-
-      if (donoTagId) {
-        const mtId = `mt-${Date.now()}`;
-        await conn.query(`
-          INSERT INTO comunidade_membro_tags (id, membro_id, tag_id, atribuido_por)
-          VALUES (?, ?, ?, ?)
-        `, [mtId, membroId, donoTagId, owner_id]);
+      // 4. Atribui tag Dono
+      const donoTag = createdTags.find(t => t.nome === "Dono");
+      if (donoTag) {
+        await tx.comunidade_membro_tags.create({
+          data: {
+            id: `mt-${Date.now()}`,
+            membro_id: membroId,
+            tag_id: donoTag.id,
+            atribuido_por: owner_id
+          }
+        });
       }
 
-      // 5. Atualiza contador
-      await conn.query(`
-        UPDATE comunidades SET total_membros = 1 WHERE id = ?
-      `, [id]);
+      return { communityId: id };
+    });
 
-      await conn.commit();
-      conn.release();
-
-      return NextResponse.json({ success: true, communityId: id });
-    } catch (err) {
-      await conn.rollback();
-      conn.release();
-      throw err;
-    }
+    return NextResponse.json({ success: true, communityId: result.communityId });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+

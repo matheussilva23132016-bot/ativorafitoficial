@@ -1,43 +1,76 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import prisma from "@/lib/prisma";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
+  const resolvedParams = await params;
+  const paramsId = resolvedParams.id;
   const semana = req.nextUrl.searchParams.get("semana") ?? "atual";
 
   try {
-    let dateFilter = "";
+    let inicioSemana: Date | undefined;
+    
     if (semana === "atual") {
       const hoje  = new Date();
       const dia   = hoje.getDay();
       const diff  = dia === 0 ? 6 : dia - 1;
       const inicio = new Date(hoje);
       inicio.setDate(hoje.getDate() - diff);
-      dateFilter = `AND rs.semana_inicio = '${inicio.toISOString().split("T")[0]}'`;
+      inicio.setHours(0, 0, 0, 0);
+      inicioSemana = inicio;
     }
 
-    const [rows] = await db.query(`
-      SELECT 
-        rs.*,
-        u.nickname,
-        u.avatar_url,
-        u.full_name,
-        GROUP_CONCAT(DISTINCT ct.nome ORDER BY ct.nivel_poder DESC SEPARATOR ',') AS tags
-      FROM ranking_semanal rs
-      LEFT JOIN usuarios u ON u.id = rs.user_id
-      LEFT JOIN comunidade_membros cm 
-        ON cm.comunidade_id = rs.comunidade_id AND cm.user_id = rs.user_id
-      LEFT JOIN comunidade_membro_tags cmt ON cmt.membro_id = cm.id
-      LEFT JOIN comunidade_tags ct ON ct.id = cmt.tag_id
-      WHERE rs.comunidade_id = ? ${dateFilter}
-      GROUP BY rs.id
-      ORDER BY rs.xp_total DESC, rs.desafios_ok DESC
-    `, [params.id]);
+    const rankingRaw = await prisma.ranking_semanal.findMany({
+      where: {
+        comunidade_id: paramsId,
+        ...(inicioSemana ? { semana_inicio: inicioSemana } : {})
+      },
+      include: {
+        comunidades: {
+          include: {
+            comunidade_membros: {
+              include: {
+                comunidade_membro_tags: {
+                  include: {
+                    comunidade_tags: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      orderBy: [
+        { xp_total: 'desc' },
+        { desafios_ok: 'desc' }
+      ]
+    });
 
-    const ranking = (rows as any[]).map((r, idx) => ({
-      ...r,
-      posicao: idx + 1,
-      tags:    r.tags ? r.tags.split(",") : ["Participante"],
-    }));
+    // Buscamos os nomes dos usuários manualmente pois a relação no schema está fraca (String vs Int)
+    const userIds = rankingRaw.map(r => r.user_id);
+    const users = await prisma.usuarios.findMany({
+      where: { id: { in: userIds.map(id => parseInt(id)).filter(id => !isNaN(id)) } }
+    });
+
+    const ranking = rankingRaw.map((r, idx) => {
+      const u = users.find(user => user.id.toString() === r.user_id);
+      
+      // Busca o membro específico para pegar as tags atuais
+      const membro = r.comunidades.comunidade_membros.find(m => m.user_id === r.user_id);
+      const tags = membro?.comunidade_membro_tags
+        .map(mt => mt.comunidade_tags)
+        .sort((a, b) => (b?.nivel_poder ?? 0) - (a?.nivel_poder ?? 0))
+        .map(t => t?.nome)
+        .filter(Boolean) || ["Participante"];
+
+      return {
+        ...r,
+        posicao: idx + 1,
+        nickname: u?.nickname || "Atleta",
+        full_name: u?.nickname || "Atleta",
+        avatar_url: u?.foto_url || null,
+        tags: tags,
+      };
+    });
 
     return NextResponse.json({ ranking });
   } catch (err: any) {

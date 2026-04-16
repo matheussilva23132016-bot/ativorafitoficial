@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     // 3. Disparar Notificação para o HUB (Aparecerá no Dashboard principal do App)
     await connection.query(
       `INSERT INTO notifications (id, user_id, community_id, title, message, type, is_read) 
-       VALUES (?, ?, ?, '🎯 Novo Protocolo Liberado!', 'Seu treinador acaba de publicar seu novo ciclo de performance.', 'treino', false)`,
+       VALUES (?, ?, ?, 'Novo treino disponível!', 'Seu treinador publicou um novo treino para você.', 'treino', false)`,
       [crypto.randomUUID(), assignedTo, communityId]
     );
 
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   } catch (error) {
     await connection.rollback();
     console.error('ERRO_SAVE_PLAN:', error);
-    return NextResponse.json({ error: 'Falha crítica ao salvar plano' }, { status: 500 });
+    return NextResponse.json({ error: 'Falha ao salvar plano de treino.' }, { status: 500 });
   } finally {
     connection.release();
   }

@@ -17,7 +17,9 @@ export type DiaSemana =
   | "Quinta"
   | "Sexta"
   | "Sábado"
-  | "Domingo";
+  | "Domingo"
+  | "Livre"
+  | (string & {});
 
 // ── Exercício ────────────────────────────────────────────────
 export interface Exercicio {
@@ -64,6 +66,7 @@ export interface Treino {
   paraAluno?: string;   // userId — treino individual
   paraGrupo?: string;   // groupId — treino para grupo
   paraTodos?: boolean;  // treino para toda a comunidade
+  solicitacaoId?: string;
 }
 
 // ── Solicitação de treino (aluno → profissional) ──────────────

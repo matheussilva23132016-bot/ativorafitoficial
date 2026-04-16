@@ -1,32 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import prisma from "@/lib/prisma";
+
+const TAG_DEFAULTS: Record<string, { cor: string; nivel_poder: number }> = {
+  Participante: { cor: "sky", nivel_poder: 1 },
+  Instrutor: { cor: "emerald", nivel_poder: 2 },
+  Personal: { cor: "emerald", nivel_poder: 2 },
+  Nutri: { cor: "green", nivel_poder: 3 },
+  Nutricionista: { cor: "green", nivel_poder: 3 },
+  ADM: { cor: "purple", nivel_poder: 4 },
+  Dono: { cor: "amber", nivel_poder: 5 },
+};
 
 // GET — Lista membros aprovados com tags
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
+  const resolvedParams = await params;
+  const paramsId = resolvedParams.id;
   try {
-    const [rows] = await db.query(`
-      SELECT 
-        cm.id AS membro_id,
-        cm.user_id,
-        cm.joined_at,
-        u.nickname,
-        u.full_name,
-        u.avatar_url,
-        GROUP_CONCAT(ct.nome ORDER BY ct.nivel_poder DESC SEPARATOR ',') AS tags
-      FROM comunidade_membros cm
-      LEFT JOIN usuarios u ON u.id = cm.user_id
-      LEFT JOIN comunidade_membro_tags cmt ON cmt.membro_id = cm.id
-      LEFT JOIN comunidade_tags ct ON ct.id = cmt.tag_id
-      WHERE cm.comunidade_id = ? AND cm.status = 'aprovado'
-      GROUP BY cm.id
-      ORDER BY MAX(ct.nivel_poder) DESC, cm.joined_at ASC
-    `, [params.id]);
+    const membersRaw = await prisma.comunidade_membros.findMany({
+      where: {
+        comunidade_id: paramsId,
+        status: 'aprovado'
+      },
+      include: {
+        comunidade_membro_tags: {
+          include: {
+            comunidade_tags: true
+          }
+        }
+      },
+      orderBy: { joined_at: 'asc' }
+    });
 
-    const members = (rows as any[]).map(r => ({
-      ...r,
-      tags: r.tags ? r.tags.split(",") : ["Participante"],
-      role: r.tags ? r.tags.split(",")[0] : "Participante",
-    }));
+    // Como as tabelas 'usuarios' e 'comunidade_membros' podem não ter FK explícita no Prisma devido ao tipo (Int vs String)
+    // Buscamos os nicknames e nomes manualmente ou via raw se necessário. 
+    // Porém, para maior performance e tipagem, vamos usar o Raw apenas para o JOIN complexo de usuários se a relação não existir.
+    
+    // No schema atual, usamos 'ativora_users' como base unificada.
+    const userIds = membersRaw.map(m => m.user_id);
+    const users = await prisma.ativora_users.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, nickname: true, avatar_url: true }
+    });
+
+    const members = membersRaw.map(m => {
+      const u = users.find(user => user.id === m.user_id);
+      const tags = m.comunidade_membro_tags
+        .map(mt => mt.comunidade_tags)
+        .sort((a, b) => (b?.nivel_poder ?? 0) - (a?.nivel_poder ?? 0))
+        .map(t => t?.nome)
+        .filter(Boolean) || ["Participante"];
+
+      return {
+        membro_id:  m.id,
+        user_id:    m.user_id,
+        joined_at:  m.joined_at,
+        nickname:   u?.nickname || "Atleta",
+        full_name:  u?.nickname || "Atleta", 
+        avatar_url: u?.avatar_url || null,
+        tags:       tags,
+        role:       tags[0] || "Participante",
+      };
+    }).sort((a, b) => {
+      // Ordena por poder da tag principal (aproximado via nome se necessário, ou podemos adicionar campo poder)
+      return 0; // Já ordenado pelo joined_at no banco
+    });
 
     return NextResponse.json({ members });
   } catch (err: any) {
@@ -35,58 +72,98 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PATCH — Atribuir/remover tag de membro
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
+  const resolvedParams = await params;
+  const paramsId = resolvedParams.id;
   try {
     const { membroId, tagNome, acao, requesterId } = await req.json();
-    // acao: "add" | "remove"
+
+    if (tagNome === "Participante" && acao === "remove") {
+      return NextResponse.json(
+        { error: "Participante e a tag base de todo membro aprovado" },
+        { status: 400 }
+      );
+    }
 
     // Verifica permissão (ADM ou Dono)
-    const [permCheck] = await db.query(`
-      SELECT cm.id FROM comunidade_membros cm
-      INNER JOIN comunidade_membro_tags cmt ON cmt.membro_id = cm.id
-      INNER JOIN comunidade_tags ct ON ct.id = cmt.tag_id
-      WHERE cm.comunidade_id = ? AND cm.user_id = ? 
-        AND ct.nome IN ('ADM','Dono') AND cm.status = 'aprovado'
-    `, [params.id, requesterId]);
+    const requesterMembro = await prisma.comunidade_membros.findFirst({
+      where: {
+        comunidade_id: paramsId,
+        user_id: requesterId,
+        status: 'aprovado',
+        comunidade_membro_tags: {
+          some: {
+            comunidade_tags: {
+              nome: { in: ['ADM', 'Dono'] }
+            }
+          }
+        }
+      },
+      include: {
+        comunidade_membro_tags: {
+          include: { comunidade_tags: true }
+        }
+      }
+    });
 
-    if (!(permCheck as any[]).length) {
+    const communityOwner = await prisma.comunidades.findUnique({
+      where: { id: paramsId },
+      select: { owner_id: true }
+    });
+    const isOwner = communityOwner?.owner_id === String(requesterId);
+
+    if (!requesterMembro && !isOwner) {
       return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
     }
 
     // Busca a tag pelo nome
-    const [tagRows] = await db.query(`
-      SELECT id, nivel_poder FROM comunidade_tags 
-      WHERE comunidade_id = ? AND nome = ?
-    `, [params.id, tagNome]);
+    let tag = await prisma.comunidade_tags.findFirst({
+      where: { comunidade_id: paramsId, nome: tagNome }
+    });
 
-    const tag = (tagRows as any[])[0];
+    if (!tag && acao === "add" && TAG_DEFAULTS[tagNome]) {
+      tag = await prisma.comunidade_tags.create({
+        data: {
+          id: `tag-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          comunidade_id: paramsId,
+          nome: tagNome,
+          cor: TAG_DEFAULTS[tagNome].cor,
+          nivel_poder: TAG_DEFAULTS[tagNome].nivel_poder,
+        }
+      });
+    }
+
     if (!tag) return NextResponse.json({ error: "Tag não encontrada" }, { status: 404 });
 
-    // ADM não pode atribuir tag Dono
-    const [requesterTagRows] = await db.query(`
-      SELECT MAX(ct.nivel_poder) AS max_poder
-      FROM comunidade_membros cm
-      INNER JOIN comunidade_membro_tags cmt ON cmt.membro_id = cm.id
-      INNER JOIN comunidade_tags ct ON ct.id = cmt.tag_id
-      WHERE cm.comunidade_id = ? AND cm.user_id = ?
-    `, [params.id, requesterId]);
-
-    const requesterPower = (requesterTagRows as any[])[0]?.max_poder ?? 1;
+    // ADM não pode atribuir tag de nível superior
+    const requesterPower = isOwner
+      ? 6
+      : Math.max(...(requesterMembro?.comunidade_membro_tags.map(mt => mt.comunidade_tags?.nivel_poder ?? 1) ?? [1]), 1);
+    
     if (tag.nivel_poder >= requesterPower) {
       return NextResponse.json({ error: "Não pode atribuir tag de nível igual ou superior ao seu" }, { status: 403 });
     }
 
     if (acao === "add") {
-      const mtId = `mt-${Date.now()}`;
-      await db.query(`
-        INSERT IGNORE INTO comunidade_membro_tags (id, membro_id, tag_id, atribuido_por)
-        VALUES (?, ?, ?, ?)
-      `, [mtId, membroId, tag.id, requesterId]);
+      await prisma.comunidade_membro_tags.upsert({
+        where: {
+          membro_id_tag_id: {
+            membro_id: membroId,
+            tag_id: tag.id
+          }
+        },
+        update: {},
+        create: {
+          id: `mt-${Date.now()}`,
+          membro_id: membroId,
+          tag_id: tag.id,
+          atribuido_por: requesterId
+        }
+      });
     } else {
-      await db.query(`
-        DELETE FROM comunidade_membro_tags 
-        WHERE membro_id = ? AND tag_id = ?
-      `, [membroId, tag.id]);
+      await prisma.comunidade_membro_tags.deleteMany({
+        where: { membro_id: membroId, tag_id: tag.id }
+      });
     }
 
     return NextResponse.json({ success: true });
@@ -96,33 +173,53 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // DELETE — Remover membro
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
+  const resolvedParams = await params;
+  const paramsId = resolvedParams.id;
   try {
-    const { membroId, requesterId, motivo } = await req.json();
+    const { membroId, requesterId } = await req.json();
 
-    const [permCheck] = await db.query(`
-      SELECT cm.id FROM comunidade_membros cm
-      INNER JOIN comunidade_membro_tags cmt ON cmt.membro_id = cm.id
-      INNER JOIN comunidade_tags ct ON ct.id = cmt.tag_id
-      WHERE cm.comunidade_id = ? AND cm.user_id = ?
-        AND ct.nome IN ('ADM','Dono') AND cm.status = 'aprovado'
-    `, [params.id, requesterId]);
+    // Verifica permissão
+    const requesterMembro = await prisma.comunidade_membros.findFirst({
+      where: {
+        comunidade_id: paramsId,
+        user_id: requesterId,
+        status: 'aprovado',
+        comunidade_membro_tags: {
+          some: {
+            comunidade_tags: {
+              nome: { in: ['ADM', 'Dono'] }
+            }
+          }
+        }
+      }
+    });
 
-    if (!(permCheck as any[]).length) {
+    const communityOwner = await prisma.comunidades.findUnique({
+      where: { id: paramsId },
+      select: { owner_id: true }
+    });
+    const isOwner = communityOwner?.owner_id === String(requesterId);
+
+    if (!requesterMembro && !isOwner) {
       return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
     }
 
-    await db.query(`
-      UPDATE comunidade_membros SET status = 'removido' WHERE id = ?
-    `, [membroId]);
+    await prisma.$transaction(async (tx) => {
+      await tx.comunidade_membros.update({
+        where: { id: membroId },
+        data: { status: 'removido' }
+      });
 
-    await db.query(`
-      UPDATE comunidades 
-      SET total_membros = (
-        SELECT COUNT(*) FROM comunidade_membros 
-        WHERE comunidade_id = ? AND status = 'aprovado'
-      ) WHERE id = ?
-    `, [params.id, params.id]);
+      const count = await tx.comunidade_membros.count({
+        where: { comunidade_id: paramsId, status: 'aprovado' }
+      });
+
+      await tx.comunidades.update({
+        where: { id: paramsId },
+        data: { total_membros: count }
+      });
+    });
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

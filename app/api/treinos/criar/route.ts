@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     }
 
     await connection.commit(); // Confirma e salva tudo no HD
-    return NextResponse.json({ success: true, message: 'Protocolo publicado com sucesso!' }, { status: 201 });
+    return NextResponse.json({ success: true, message: 'Treino publicado com sucesso!' }, { status: 201 });
 
   } catch (error) {
     await connection.rollback(); // Cancela tudo se der erro

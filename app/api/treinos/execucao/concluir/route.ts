@@ -1,59 +1,82 @@
 import { NextResponse } from 'next/server';
-import pool from '@/lib/db';
-import crypto from 'crypto';
+import prisma from '@/lib/prisma';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { userId, workoutId, communityId, rating, feedback } = body;
+    const { userId, treinoId, exerciciosConcluidos, totalExercicios, nota, feedback } = body;
 
-    if (!userId || !workoutId || !communityId) {
-      return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 });
+    if (!userId || !treinoId) {
+      return NextResponse.json({ error: 'Dados de sessão incompletos.' }, { status: 400 });
     }
 
-    const sessionId = crypto.randomUUID();
+    // 1. Localiza a execução mais recente não concluída deste treino para o usuário
+    let execucao = await prisma.treino_execucoes.findFirst({
+      where: {
+        user_id: userId,
+        treino_id: treinoId,
+        concluido: false
+      },
+      orderBy: { created_at: 'desc' }
+    });
 
-    // 1. Salva a Sessão de Treino com o Feedback
-    await pool.query(
-      `INSERT INTO workout_sessions (id, workout_id, user_id, status, completed_at, feedback_rating, feedback_notes) 
-       VALUES (?, ?, ?, 'completed', NOW(), ?, ?)`,
-      [sessionId, workoutId, userId, rating, feedback]
-    );
-
-    // 2. Atualiza a Gamificação Semanal
-    const [weekRows]: any = await pool.query(
-      `SELECT id, workouts_completed, total_workouts FROM weekly_progress 
-       WHERE user_id = ? AND community_id = ? ORDER BY week_start_date DESC LIMIT 1`,
-      [userId, communityId]
-    );
-
-    if (weekRows.length > 0) {
-      const currentWeek = weekRows[0];
-      const newCompleted = currentWeek.workouts_completed + 1;
-      const newPercentage = Math.min((newCompleted / currentWeek.total_workouts) * 100, 100);
-
-      await pool.query(
-        `UPDATE weekly_progress SET workouts_completed = ?, completion_percentage = ? WHERE id = ?`,
-        [newCompleted, newPercentage, currentWeek.id]
-      );
-    } else {
-      // Cria a semana caso não exista
-      const today = new Date();
-      const day = today.getDay() || 7; 
-      if(day !== 1) today.setHours(-24 * (day - 1)); 
-      const startOfWeek = today.toISOString().split('T')[0];
-
-      await pool.query(
-        `INSERT INTO weekly_progress (id, user_id, community_id, week_start_date, workouts_completed, total_workouts, completion_percentage) 
-         VALUES (?, ?, ?, ?, 1, 5, 20.00)`,
-        [crypto.randomUUID(), userId, communityId, startOfWeek]
-      );
+    // 2. Se não houver execução aberta, criamos uma instantânea (fallback premium)
+    if (!execucao) {
+      execucao = await prisma.treino_execucoes.create({
+        data: {
+          user_id: userId,
+          treino_id: treinoId,
+          iniciado_em: new Date(),
+          total_exercicios: totalExercicios || 0
+        }
+      });
     }
 
-    return NextResponse.json({ success: true, message: 'Treino forjado', xpEarned: 150 });
+    // 3. Cálculos de gamificação.
+    const baseXP = 100;
+    const bonusNota = (nota || 0) * 10; // Bonus por intensidade
+    const bonusPerfeicao = exerciciosConcluidos === totalExercicios ? 50 : 0;
+    const totalXP = baseXP + bonusNota + bonusPerfeicao;
+
+    // 4. Update de Execução (Prisma Atomic Transaction)
+    const result = await prisma.$transaction(async (tx) => {
+      // Finaliza a execução de treino
+      const updatedExec = await tx.treino_execucoes.update({
+        where: { id: execucao.id },
+        data: {
+          concluido: true,
+          concluido_em: new Date(),
+          exercicios_concluidos: exerciciosConcluidos || totalExercicios,
+          feedback_nota: nota,
+          feedback_obs: feedback,
+          xp_ganho: totalXP
+        }
+      });
+
+      // Evolui o Usuário (XP e Streak)
+      const user = await tx.ativora_users.update({
+        where: { id: userId },
+        data: {
+          xp: { increment: totalXP },
+          current_streak: { increment: 1 } // Lógica simplificada, futuramente checar intervalo de datas
+        }
+      });
+
+      return { updatedExec, user };
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Treino finalizado. Progresso salvo.',
+      data: {
+        xpGained: totalXP,
+        newStreak: result.user.current_streak,
+        newTotalXP: result.user.xp
+      }
+    });
 
   } catch (error) {
-    console.error('Erro ao concluir treino:', error);
-    return NextResponse.json({ error: 'Falha no servidor' }, { status: 500 });
+    console.error(' [TREINOS_CONCLUIR_ERROR]:', error);
+    return NextResponse.json({ error: 'Falha ao processar evolução do atleta.' }, { status: 500 });
   }
 }

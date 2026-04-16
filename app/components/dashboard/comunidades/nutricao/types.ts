@@ -26,7 +26,9 @@ export type DiaSemana =
   | "Quinta"
   | "Sexta"
   | "Sábado"
-  | "Domingo";
+  | "Domingo"
+  | "Livre"
+  | (string & {});
 
 // ── Medidas corporais ─────────────────────────────────────────────
 export interface MedidasCorporais {
@@ -37,14 +39,17 @@ export interface MedidasCorporais {
   peso:            number;           // kg
   altura:          number;           // cm
   cintura:         number;           // cm — obrigatório
-  quadril:         number;           // cm — obrigatório
-  pescoco?:        number;           // cm — opcional, melhora precisão Navy
+  quadril?:        number;           // cm — opcional, usado apenas para RCQ quando informado
+  pescoco?:        number;           // cm — legado/opcional
   // ── Calculados ──────────────────────────────────────────────────
   imc?:            number;
   rcq?:            number;           // razão cintura / quadril
   gorduraEst?:     number;           // % estimado
   classificacaoRCQ?: string;         // "Ótimo" | "Bom" | "Regular" | "Alto"
-  metodoCalculo?:  "navy" | "rcq";   // qual método foi usado
+  metodoCalculo?:  "rfm" | "rcq" | "navy";   // qual método foi usado
+  massaGordaKg?:   number;
+  massaMagraKg?:   number;
+  recomendacaoCorporal?: string;
 }
 
 // ── Alimento ──────────────────────────────────────────────────────
@@ -120,6 +125,7 @@ export interface HistoricoMedidas {
 
 // ── Props do entry point ──────────────────────────────────────────
 export interface CommunityNutricaoProps {
+  communityId?: string;
   currentUser: any;
   userTags:    string[];
 }

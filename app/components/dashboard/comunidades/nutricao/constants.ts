@@ -101,7 +101,7 @@ export const RESTRICOES_COMUNS = [
 
 // ── Disclaimer obrigatório ────────────────────────────────────────
 export const DISCLAIMER_COMPOSICAO =
-  "⚠️ Estimativa de apoio calculada a partir de medidas antropométricas simples. " +
+  "Estimativa de apoio calculada por RFM a partir de sexo biológico, altura e cintura. " +
   "Não substitui avaliação clínica ou exame de bioimpedância. " +
   "Sempre sujeita à revisão do profissional responsável.";
 
@@ -141,7 +141,7 @@ export function buildIAPrompt(params: {
     altura  ? `Altura: ${altura}cm`                       : null,
     sexo    ? `Sexo: ${sexo}`                             : null,
     imc     ? `IMC: ${imc.toFixed(1)}`                    : null,
-    gorduraEst ? `%Gordura estimado: ${gorduraEst.toFixed(1)}%` : null,
+    gorduraEst ? `Gordura corporal estimada por RFM: ${gorduraEst.toFixed(1)}%` : null,
     rcq     ? `RCQ: ${rcq.toFixed(2)}`                    : null,
   ].filter(Boolean).join(" | ");
 
@@ -155,6 +155,7 @@ Restrições alimentares: ${restricoesStr}
 ${dadosCorporais ? `Dados corporais: ${dadosCorporais}` : ""}
 
 Estruture o cardápio com 5-6 refeições por dia (café da manhã, lanche manhã, almoço, lanche tarde, jantar, ceia opcional).
+ATENÇÃO À VARIEDADE: O cardápio deve ter alta diversidade alimentar ao longo dos 7 dias. Não coloque exatamente as mesmas refeições todos os dias da semana. Gire os carboidratos (arroz, batata doce, macarrão, mandioca, aveia), as proteínas (frango, carne magra, ovos, peixes) e as fontes de gordura/fibras ao decorrer da semana para evitar monotonia.
 Para cada alimento, informe quantidade, calorias aproximadas, proteínas, carboidratos e gorduras.
 Inclua observações personalizadas ao final.
 Responda em JSON seguindo exatamente a estrutura de DiaCardapio[].

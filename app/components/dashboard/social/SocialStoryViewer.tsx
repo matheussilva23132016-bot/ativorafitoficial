@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { X } from "lucide-react";
+import { motion } from "framer-motion";
 import Image from "next/image";
 
 export const SocialStoryViewer = ({ stories, initialIndex, onClose }: { 
@@ -12,6 +12,7 @@ export const SocialStoryViewer = ({ stories, initialIndex, onClose }: {
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const story = stories[currentIndex];
+  const username = story?.username || "ativora";
 
   // Auto-avanço: 5 segundos por story
   useEffect(() => {
@@ -27,7 +28,7 @@ export const SocialStoryViewer = ({ stories, initialIndex, onClose }: {
   return (
     <motion.div 
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center"
+      className="fixed inset-0 z-[1200] bg-black flex flex-col items-center justify-center"
     >
       {/* Barra de Progresso */}
       <div className="absolute top-4 left-0 right-0 flex gap-1 px-4 z-10">
@@ -48,10 +49,10 @@ export const SocialStoryViewer = ({ stories, initialIndex, onClose }: {
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full border-2 border-sky-500 p-0.5">
             <div className="w-full h-full rounded-full overflow-hidden relative bg-black">
-              {story.avatar_url ? <Image src={story.avatar_url} alt={story.username} fill className="object-cover" unoptimized /> : <div className="w-full h-full flex items-center justify-center text-xs font-black">{story.username[0]}</div>}
+              {story.avatar_url ? <Image src={story.avatar_url} alt={username} fill className="object-cover" unoptimized /> : <div className="w-full h-full flex items-center justify-center text-xs font-black">{username[0]}</div>}
             </div>
           </div>
-          <span className="font-bold text-white text-sm shadow-lg">@{story.username}</span>
+          <span className="font-bold text-white text-sm shadow-lg">@{username}</span>
         </div>
         <button onClick={onClose} className="p-2 text-white/50 hover:text-white"><X size={24} /></button>
       </div>
@@ -59,9 +60,13 @@ export const SocialStoryViewer = ({ stories, initialIndex, onClose }: {
       {/* Mídia principal */}
       <div className="relative w-full h-full max-w-lg overflow-hidden">
         {story.media_type === 'video' ? (
-          <video src={story.media_url} autoPlay playsInline className="w-full h-full object-contain" />
-        ) : (
+          <video src={story.media_url} autoPlay muted playsInline controls className="w-full h-full object-contain" />
+        ) : story.media_url ? (
           <Image src={story.media_url} alt="Story" fill className="object-contain" unoptimized />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center px-8 text-center text-sm font-bold text-white/35">
+            Este story não possui mídia disponível.
+          </div>
         )}
       </div>
 

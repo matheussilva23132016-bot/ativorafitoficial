@@ -4,19 +4,26 @@ import React, { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AtivoraFeed } from "./AtivoraFeed";
 import { SocialProfile } from "./SocialProfile";
+import { SocialMessages } from "./SocialMessages";
 
-interface UserProfile {
+export interface UserProfileData {
   username: string;
   avatar?: string | null;
   avatar_url?: string | null;
   foto_url?: string | null;
   bio?: string | null;
+  description?: string | null;
   role?: string;
   xp?: number;
   nivel?: number;
   streak?: number;
+  followers?: number;
+  following?: number;
   is_verified?: boolean;
+  is_private?: boolean;
 }
+
+type UserProfile = UserProfileData;
 
 interface AtivoraSocialProps {
   onBack: () => void;
@@ -24,7 +31,7 @@ interface AtivoraSocialProps {
   isGuest?: boolean;
 }
 
-type SocialView = "feed" | "profile" | "messages" | "notifications" | "onboarding" | "cadastro";
+type SocialView = "feed" | "profile" | "messages" | "notifications" | "onboarding" | "cadastro" | "viewing_profile";
 type CadastroStep = "foto" | "usuario" | "bio";
 const STEP_ORDER: CadastroStep[] = ["foto", "usuario", "bio"];
 
@@ -43,29 +50,49 @@ export const AtivoraSocial = ({
   const [cadastroUsername, setCadastroUsername] = useState("");
   const [cadastroBio, setCadastroBio] = useState("");
   const [usernameError, setUsernameError] = useState("");
+  const [selectedNickname, setSelectedNickname] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("@ativora_profile");
-      if (saved) {
-        const parsedUser = JSON.parse(saved) as UserProfile;
-        setUser(parsedUser);
-        setHasAccount(true);
-        setCurrentView(initialRoute);
-      } else if (isGuest) {
+    const fetchProfile = async () => {
+      if (isGuest) {
         setHasAccount(false);
         setCurrentView("feed");
-      } else {
-        setHasAccount(false);
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/perfil");
+        if (res.ok) {
+          const data = await res.json();
+          // Mapeia os campos do banco para o estado do Social
+          const mappedUser: UserProfile = {
+            username: data.nickname || "Atleta",
+            avatar: data.avatar_url,
+            avatar_url: data.avatar_url,
+            foto_url: data.avatar_url,
+            bio: data.bio,
+            xp: data.xp,
+            nivel: data.nivel_int,
+            streak: data.current_streak,
+            followers: data.followers,
+            following: data.following,
+            is_verified: data.is_verified,
+          };
+          setUser(mappedUser);
+          setHasAccount(true);
+          setCurrentView(initialRoute);
+        } else {
+          setHasAccount(false);
+          setCurrentView("onboarding");
+        }
+      } catch (error) {
+        console.error("Erro ao carregar perfil:", error);
         setCurrentView("onboarding");
       }
-    } catch (error) {
-      console.error("Erro ao carregar perfil local:", error);
-      setUser(null);
-      setHasAccount(false);
-      setCurrentView(isGuest ? "feed" : "onboarding");
-    }
+    };
+
+    fetchProfile();
   }, [initialRoute, isGuest]);
 
   const safeUser: UserProfile = user ?? {
@@ -77,6 +104,7 @@ export const AtivoraSocial = ({
     xp: 0,
     nivel: 1,
     streak: 0,
+    followers: 0,
     is_verified: false,
   };
 
@@ -110,22 +138,42 @@ export const AtivoraSocial = ({
     setCadastroStep("bio");
   };
 
-  const handleFinalizarCadastro = (skipBio = false) => {
-    const newProfile: UserProfile = {
-      username: cadastroUsername,
-      avatar: cadastroFoto,
-      avatar_url: cadastroFoto,
-      foto_url: cadastroFoto,
-      bio: skipBio ? null : cadastroBio.trim() || null,
-      nivel: 1,
-      xp: 0,
-      streak: 0,
-      is_verified: false,
-    };
-    setUser(newProfile);
-    setHasAccount(true);
-    localStorage.setItem("@ativora_profile", JSON.stringify(newProfile));
-    setCurrentView("feed");
+  const handleFinalizarCadastro = async (skipBio = false) => {
+    const bioToSave = skipBio ? null : cadastroBio.trim() || null;
+    
+    try {
+      const res = await fetch("/api/perfil", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nickname: cadastroUsername,
+          avatar_url: cadastroFoto,
+          bio: bioToSave,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erro ao salvar perfil");
+      }
+
+      const newProfile: UserProfile = {
+        username: cadastroUsername,
+        avatar: cadastroFoto,
+        avatar_url: cadastroFoto,
+        foto_url: cadastroFoto,
+        bio: bioToSave,
+        nivel: 1,
+        xp: 0,
+        streak: 0,
+        is_verified: false,
+      };
+      setUser(newProfile);
+      setHasAccount(true);
+      setCurrentView("feed");
+    } catch (error: any) {
+      alert(error.message);
+    }
   };
 
   const stepIndex = STEP_ORDER.indexOf(cadastroStep);
@@ -164,7 +212,7 @@ export const AtivoraSocial = ({
           </div>
 
           <p className="text-white/70 font-semibold italic text-lg leading-snug mb-12 max-w-xs">
-            Acompanhe treinos reais e a evolução da elite em tempo real.
+            Compartilhe os seus resultados
           </p>
 
           <div className="flex flex-col gap-3 w-full max-w-xs">
@@ -511,37 +559,47 @@ export const AtivoraSocial = ({
   // TELA: APP PRINCIPAL (Feed + Profile) — sem nenhuma alteração
   // ══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="flex flex-col h-full bg-[#010307] text-white font-sans">
-      <header className="w-full max-w-4xl mx-auto px-6 py-8 flex items-center justify-between border-b border-white/5">
-        <div className="flex flex-col text-left cursor-pointer" onClick={onBack}>
-          <h1 className="text-3xl font-black italic uppercase tracking-tighter text-sky-500 leading-none">
-            ATIVORA
-          </h1>
-          <span className="text-[9px] font-black uppercase tracking-[0.4em] text-white/20 mt-1.5">
-            PROTOCOLO CENTRAL
-          </span>
-        </div>
+    <div className="flex h-full min-w-0 w-full flex-col overflow-hidden bg-[#010307] text-white font-sans relative">
+      
+      {/* Global Atmospheric Glow */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-sky-500/5 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[35%] h-[35%] bg-indigo-500/5 rounded-full blur-[100px]" />
+      </div>
 
-        <div
-          className="relative cursor-pointer"
-          onClick={() => setCurrentView("profile")}
-        >
-          <div className="w-13 h-13 rounded-2xl bg-linear-to-br from-sky-500 to-purple-600 p-0.5 shadow-[0_0_15px_rgba(14,165,233,0.3)] transition-transform hover:scale-105">
-            <div className="w-full h-full rounded-[14px] bg-[#010307] overflow-hidden">
-              <img
-                src={profileImage}
-                alt="Perfil"
-                className="w-full h-full object-cover"
-              />
+      <div className="relative z-10 flex h-full min-w-0 w-full flex-col">
+        {currentView !== "feed" && currentView !== "messages" && (
+          <header className="w-full max-w-4xl mx-auto px-6 py-8 flex items-center justify-between border-b border-white/5">
+          <div className="flex flex-col text-left cursor-pointer" onClick={onBack}>
+            <h1 className="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">
+              ATIVORA <span className="text-sky-500">SOCIAL</span>
+            </h1>
+            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 mt-1.5">
+              Compartilhe os seus resultados
+            </span>
+          </div>
+
+          <div
+            className="relative cursor-pointer"
+            onClick={() => setCurrentView("profile")}
+          >
+            <div className="w-13 h-13 rounded-2xl bg-linear-to-br from-sky-500 to-purple-600 p-0.5 shadow-[0_0_15px_rgba(14,165,233,0.3)] transition-transform hover:scale-105">
+              <div className="w-full h-full rounded-[14px] bg-[#010307] overflow-hidden">
+                <img
+                  src={profileImage}
+                  alt="Perfil"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+            <div className="absolute -bottom-1 -right-1 bg-sky-500 text-black text-[8px] font-[1000] px-2 py-0.5 rounded-full border-2 border-[#010307]">
+              LVL {safeUser.nivel || 1}
             </div>
           </div>
-          <div className="absolute -bottom-1 -right-1 bg-sky-500 text-black text-[8px] font-[1000] px-2 py-0.5 rounded-full border-2 border-[#010307]">
-            LVL {safeUser.nivel || 1}
-          </div>
-        </div>
-      </header>
+        </header>
+      )}
 
-      <main className="flex-1 overflow-y-auto custom-scrollbar">
+      <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar w-full">
         <AnimatePresence mode="wait">
           {currentView === "feed" && (
             <AtivoraFeed
@@ -551,29 +609,70 @@ export const AtivoraSocial = ({
               onBack={onBack}
               onOpenMessages={() => setCurrentView("messages")}
               onOpenNotifications={() => setCurrentView("notifications")}
-              onOpenUserProfile={(nickname: string) =>
-                console.log("Ver perfil:", nickname)
-              }
+              onOpenUserProfile={(nickname: string) => {
+                setSelectedNickname(nickname.replace(/^@/, ""));
+                setCurrentView("viewing_profile");
+              }}
             />
           )}
 
+          {currentView === "messages" && (
+            <SocialMessages
+              currentUser={safeUser}
+              onBack={() => setCurrentView("feed")}
+              onOpenUserProfile={(nickname: string) => {
+                setSelectedNickname(nickname.replace(/^@/, ""));
+                setCurrentView("viewing_profile");
+              }}
+            />
+          )}
+
+          {/* VISUALIZAÇÃO DE PERFIL DE TERCEIROS */}
+          {currentView === "viewing_profile" && selectedNickname && (
+            <SocialProfile
+              profileData={{ username: selectedNickname } as any}
+              isOwnProfile={false}
+              loggedUserNickname={safeUser.username}
+              onBack={() => {
+                setSelectedNickname(null);
+                setCurrentView("feed");
+              }}
+              onProfileUpdate={() => {}}
+            />
+          )}
+
+          {/* PERFIL DO PRÓPRIO USUÁRIO */}
           {currentView === "profile" && (
             <SocialProfile
               profileData={safeUser}
               isOwnProfile={true}
+              loggedUserNickname={safeUser.username}
               onBack={() => setCurrentView("feed")}
-              onProfileUpdate={(updatedData: UserProfile) => {
-                setUser(updatedData);
-                setHasAccount(true);
-                localStorage.setItem(
-                  "@ativora_profile",
-                  JSON.stringify(updatedData)
-                );
+              onProfileUpdate={async (updatedData: UserProfile) => {
+                try {
+                  const res = await fetch("/api/perfil", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      nickname: updatedData.username,
+                      avatar_url: updatedData.avatar_url || updatedData.avatar,
+                      bio: updatedData.bio,
+                    }),
+                  });
+
+                  if (!res.ok) throw new Error("Erro ao atualizar base de dados");
+
+                  setUser(updatedData);
+                  setHasAccount(true);
+                } catch (error) {
+                  console.error(error);
+                }
               }}
             />
           )}
         </AnimatePresence>
       </main>
+      </div>
     </div>
   );
 };

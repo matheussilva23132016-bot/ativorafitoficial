@@ -8,6 +8,7 @@ import {
   Users, BrainCircuit, Database, Plus, X, Send,
   RefreshCw, Target, UtensilsCrossed, Dumbbell,
 } from "lucide-react";
+import { toast } from "sonner";
 
 // ══════════════════════════════════════════════════════════════════
 // TIPOS
@@ -118,9 +119,10 @@ export function VisaoGeralAtivora({
         message: "O esquadrão foi notificado.",
         type:    "social",
       });
+      toast.success("O esquadrão foi notificado!");
       await loadAnuncios();
     } catch (err: any) {
-      alert("Erro: " + err.message);
+      toast.error("Erro ao enviar anúncio: " + err.message);
     } finally {
       setSending(false);
     }

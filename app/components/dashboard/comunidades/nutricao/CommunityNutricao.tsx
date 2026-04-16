@@ -9,10 +9,11 @@ import type { CommunityNutricaoProps } from "./types";
 import { UtensilsCrossed, Users } from "lucide-react";
 
 export function CommunityNutricao({
+  communityId: communityIdProp,
   currentUser,
   userTags,
 }: CommunityNutricaoProps) {
-  const communityId = currentUser?.activeCommunityId ?? "";
+  const communityId = communityIdProp ?? currentUser?.activeCommunityId ?? "";
   const userId      = currentUser?.id ?? "";
 
   const tagsNorm = useMemo(
@@ -23,7 +24,12 @@ export function CommunityNutricao({
   const powerLevel = useMemo(() => {
     if (tagsNorm.includes("dono")      || tagsNorm.includes("owner"))        return 5;
     if (tagsNorm.includes("adm")       || tagsNorm.includes("admin"))        return 4;
-    if (tagsNorm.includes("nutri")     || tagsNorm.includes("nutritionist")) return 3;
+    if (
+      tagsNorm.includes("nutri") ||
+      tagsNorm.includes("nutricionista") ||
+      tagsNorm.includes("nutritionist") ||
+      tagsNorm.includes("personal")
+    ) return 3;
     if (tagsNorm.includes("instrutor") || tagsNorm.includes("trainer"))      return 2;
     return 1;
   }, [tagsNorm]);
@@ -33,18 +39,22 @@ export function CommunityNutricao({
   // Profissionais podem alternar entre visão de prof e visão de aluno
   const [visao, setVisao] = useState<"prof" | "aluno">("prof");
 
-  const hook = useNutricao(communityId, userId);
+  const hook = useNutricao(
+    communityId,
+    userId,
+    currentUser?.name ?? currentUser?.full_name ?? currentUser?.nickname ?? "Você",
+  );
 
   return (
     <div className="space-y-4">
 
       {/* Toggle de visão — só aparece para profissionais */}
       {isProfessional && (
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:inline-flex">
           <button
             onClick={() => setVisao("prof")}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl
-              text-[9px] font-black uppercase tracking-widest transition-all
+              justify-center text-[9px] font-black uppercase tracking-widest transition-all
               ${visao === "prof"
                 ? "bg-white/10 text-white border border-white/10"
                 : "text-white/25 hover:text-white/50"
@@ -55,7 +65,7 @@ export function CommunityNutricao({
           <button
             onClick={() => setVisao("aluno")}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl
-              text-[9px] font-black uppercase tracking-widest transition-all
+              justify-center text-[9px] font-black uppercase tracking-widest transition-all
               ${visao === "aluno"
                 ? "bg-white/10 text-white border border-white/10"
                 : "text-white/25 hover:text-white/50"

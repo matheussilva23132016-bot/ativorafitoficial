@@ -5,7 +5,21 @@ import { HeroSection } from "./components/HeroSection";
 import { ProfileSelection } from "./components/ProfileSelection";
 import { RegistrationFlow } from "./components/RegistrationFlow";
 
+import { useSession } from "next-auth/react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
 export default function Home() {
+  const { status } = useSession();
+  const router = useRouter();
+
+  // Redireciona se já estiver autenticado
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/dashboard");
+    }
+  }, [status, router]);
+
   // 1. O ESTADO QUE CONTROLA QUAL TELA APARECE
   const [telaAtual, setTelaAtual] = useState<"inicio" | "perfis" | "cadastro">("inicio");
   

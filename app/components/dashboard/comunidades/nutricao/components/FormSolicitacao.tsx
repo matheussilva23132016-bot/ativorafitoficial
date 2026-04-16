@@ -394,10 +394,11 @@ export function FormSolicitacao({
                         { l: "Peso",    v: `${medidas.peso}kg`    },
                         { l: "Altura",  v: `${medidas.altura}cm`  },
                         { l: "Cintura", v: `${medidas.cintura}cm` },
-                        { l: "Quadril", v: `${medidas.quadril}cm` },
                         { l: "IMC",     v: medidas.imc?.toFixed(1) ?? "—" },
-                        { l: "Gordura", v: medidas.gorduraEst
+                        { l: "RFM", v: medidas.gorduraEst
                             ? `~${medidas.gorduraEst.toFixed(1)}%` : "—" },
+                        { l: "M. magra", v: medidas.massaMagraKg
+                            ? `${medidas.massaMagraKg.toFixed(1)}kg` : "—" },
                       ].map(item => (
                         <div key={item.l}>
                           <p className="text-[7px] font-black uppercase tracking-widest text-white/15">

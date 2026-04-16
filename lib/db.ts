@@ -30,3 +30,4 @@ if (process.env.NODE_ENV !== "production") {
 
 // ✅ EXPORTAÇÃO NOMEADA (Resolve o erro 1192)
 export const db = pool;
+export default db;

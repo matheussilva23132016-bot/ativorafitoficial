@@ -40,7 +40,7 @@ function getNotifIcon(tipo: string): React.ReactNode {
   if (tipo.includes("ranking") || tipo.includes("campeao")) return <Trophy size={16} className="text-amber-400" />;
   if (tipo.includes("selo"))      return <Zap size={16} className="text-purple-500" />;
   if (tipo.includes("entrada") || tipo.includes("membro")) return <Users size={16} className="text-sky-500" />;
-  if (tipo.includes("anuncio"))   return <Megaphone size={16} className="text-orange-500" />;
+  if (tipo.includes("anuncio") || tipo.includes("aviso")) return <Megaphone size={16} className="text-orange-500" />;
   if (tipo.includes("aprovado"))  return <ShieldCheck size={16} className="text-green-500" />;
   if (tipo.includes("reprovado") || tipo.includes("recusado")) return <AlertCircle size={16} className="text-rose-500" />;
   return <Bell size={16} className="text-white/40" />;

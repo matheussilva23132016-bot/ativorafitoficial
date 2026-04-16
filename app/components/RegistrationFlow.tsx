@@ -7,10 +7,12 @@ import {
   User, Mail, Lock, MapPin, Hash, 
   ChevronRight, ArrowLeft, Check, Calendar, Eye, EyeOff,
   Target, Trophy, Activity, Shield, Globe, Star, 
-  Users, BookOpen, AlertCircle, Loader2
+  Users, AlertCircle, Loader2
 } from "lucide-react";
+import { signIn } from "next-auth/react";
+import { toast } from "sonner";
 
-// --- CONFIGURAÇÕES DE ELITE ---
+// --- CONFIGURAÇÕES DO CADASTRO ---
 const RESERVED_NICKNAMES = ["admin", "suporte", "ativorafit", "root", "system"];
 
 const INTERESSES_LIST = [
@@ -54,6 +56,21 @@ interface RegistrationProps {
 
 export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps) => {
   const router = useRouter();
+  const normalizedRole = role === "nutricionista" ? "nutri" : role;
+  const isTrainerRole = normalizedRole === "personal" || normalizedRole === "instrutor";
+  const isProfessionalRole = isTrainerRole || normalizedRole === "nutri";
+  const registroLabel =
+    normalizedRole === "personal"
+      ? "Nº CREF"
+      : normalizedRole === "instrutor"
+        ? "Documento profissional do instrutor"
+        : "Nº CRN";
+  const registroError =
+    normalizedRole === "personal"
+      ? "Informe seu CREF"
+      : normalizedRole === "instrutor"
+        ? "Informe o documento profissional do instrutor"
+        : "Informe seu CRN";
   const [step, setStep] = useState(1);
   const [time, setTime] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -62,7 +79,7 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
   const [showPass, setShowPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [filteredCities, setFilteredCities] = useState<string[]>([]);
-
+  
   const [formData, setFormData] = useState<RegistrationFormData>({
     nomeCompleto: "",
     email: "",
@@ -100,6 +117,7 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
 
   const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
   const validatePassword = (pass: string) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/.test(pass);
+  const validateNickname = (nickname: string) => /^[a-z0-9_.]{3,30}$/.test(nickname);
 
   const validateStep = () => {
     const newErrors: Record<string, string> = {};
@@ -110,13 +128,23 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
       if (formData.senha !== formData.confirmarSenha) newErrors.confirmarSenha = "Senhas não conferem";
     }
     if (step === 2) {
-      if (formData.nickname && RESERVED_NICKNAMES.includes(formData.nickname)) newErrors.nickname = "Nome reservado";
+      if (!validateNickname(formData.nickname)) newErrors.nickname = "Use 3 a 30 letras, números, ponto ou underline";
+      if (RESERVED_NICKNAMES.includes(formData.nickname)) newErrors.nickname = "Nome reservado";
       if (!formData.dataNascimento) newErrors.dataNascimento = "Informe sua data de nascimento";
       if (!formData.cidadeEstado.trim()) newErrors.cidadeEstado = "Informe sua localização";
+    }
+    if (step === 3 && isProfessionalRole) {
+      if (!formData.registro.trim()) newErrors.registro = registroError;
+      if (!formData.especialidade.trim()) newErrors.especialidade = "Informe seu foco principal";
+    }
+    if (step === 3 && normalizedRole === "influencer") {
+      if (!formData.nicho.trim()) newErrors.nicho = "Informe seu nicho";
+      if (!formData.rede.trim()) newErrors.rede = "Informe sua rede principal";
     }
     if (step === 4 && formData.interesses.length === 0) newErrors.interesses = "Selecione ao menos um foco";
     if (step === 5) {
       if (!formData.termos) newErrors.termos = "Aceite os termos";
+      if (!formData.privacidade) newErrors.privacidade = "Autorize o uso dos dados essenciais";
     }
 
     setErrors(newErrors);
@@ -144,22 +172,35 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
     setErrors({});
 
     try {
+      // 1. Registro via API Prisma
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, role })
+        body: JSON.stringify({ ...formData, role: normalizedRole })
       });
       
       const data = await res.json();
 
       if (!res.ok) {
-        setErrors({ general: data.error || "Falha na sincronização tática." });
+        setErrors({ general: data.error || "Não foi possível criar sua conta." });
+        setLoading(false);
         return;
       }
 
-      localStorage.setItem("@ativora_token", data.token);
-      localStorage.setItem("@ativora_user", JSON.stringify(data.user));
+      // 2. Login Automático via NextAuth
+      const loginRes = await signIn("credentials", {
+        identificador: formData.email,
+        senha: formData.senha,
+        redirect: false,
+      });
+
+      if (loginRes?.error) {
+        toast.error("Atleta registrado, mas falha no acesso inicial: " + loginRes.error);
+        router.push('/login');
+        return;
+      }
       
+      toast.success("Conta criada. Bem-vindo ao AtivoraFit.");
       onComplete(formData);
       router.push('/dashboard');
 
@@ -171,7 +212,7 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
   };
 
   const toggleTag = (tag: string) => {
-    const limit = (role === 'aluno' || role === 'influencer') ? 2 : 3;
+    const limit = (normalizedRole === 'aluno' || normalizedRole === 'influencer') ? 2 : 3;
     setFormData(prev => ({
       ...prev,
       interesses: prev.interesses.includes(tag) 
@@ -190,7 +231,7 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
         <div className="bg-sky-500/10 border-b border-sky-500/30 backdrop-blur-xl py-3 px-6 flex items-center justify-between shadow-2xl">
           <div className="flex items-center gap-3">
              <div className="w-2 h-2 rounded-full bg-sky-500 animate-pulse shadow-[0_0_15px_#0EA5E9]" />
-             <span className="text-[9px] md:text-xs font-black uppercase tracking-[0.5em] text-sky-400">Ativora OS • Versão Black Label</span>
+             <span className="text-[9px] md:text-xs font-black uppercase tracking-[0.5em] text-sky-400">AtivoraFit • Beta 1.0</span>
           </div>
         </div>
       </div>
@@ -198,7 +239,7 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
       <header className="w-full max-w-7xl px-6 md:px-12 py-16 md:py-24 flex justify-between items-center z-20">
         <button onClick={onBack} className="flex items-center gap-3 bg-white/5 px-6 py-3 rounded-full border border-white/10 text-white/60 hover:text-white transition-all group">
           <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-          <span className="text-[10px] font-black uppercase tracking-widest">Abortar</span>
+          <span className="text-[10px] font-black uppercase tracking-widest">Voltar</span>
         </button>
         <div className="text-right">
           <span className="text-[10px] font-black tracking-widest opacity-60 block">{time}</span>
@@ -225,7 +266,7 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
 
             {step === 1 && (
               <div className="space-y-6">
-                <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter text-white leading-none">ACESSO AO <span className="text-sky-500">SISTEMA</span></h2>
+                <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter text-white leading-none">CRIE SUA <span className="text-sky-500">CONTA</span></h2>
                 <div className="space-y-4">
                   <Input name="nomeCompleto" icon={<User />} placeholder="Nome Completo" error={errors.nomeCompleto} value={formData.nomeCompleto} onChange={handleInputChange} />
                   <Input name="email" icon={<Mail />} placeholder="E-mail" type="email" error={errors.email} value={formData.email} onChange={handleInputChange} />
@@ -239,7 +280,7 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
 
             {step === 2 && (
               <div className="space-y-6">
-                <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter text-white leading-none">IDENTIDADE <span className="text-sky-500">DIGITAL</span></h2>
+                <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter text-white leading-none">SEU <span className="text-sky-500">PERFIL</span></h2>
                 <div className="space-y-4">
                   <Input name="nickname" icon={<Hash />} placeholder="Seu nickname (ex: matheus_pro)" error={errors.nickname} value={formData.nickname} onChange={handleInputChange} />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -264,7 +305,7 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
               <div className="space-y-6">
                 <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter text-white leading-none">PERFIL <span className="text-sky-500">TÉCNICO</span></h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {role === 'aluno' && (
+                  {normalizedRole === 'aluno' && (
                     <>
                       <Select name="nivel" icon={<Trophy />} value={formData.nivel} options={["Iniciante", "Intermediário", "Avançado", "Atleta"]} onChange={handleInputChange} />
                       <Select name="freq" icon={<Activity />} value={formData.freq} options={["1-2x por semana", "3-5x por semana", "Diário"]} onChange={handleInputChange} />
@@ -272,12 +313,20 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
                       <Input name="altura" icon={<ArrowLeft className="rotate-90"/>} type="number" placeholder="ALTURA (CM)" value={formData.altura} onChange={handleInputChange} />
                     </>
                   )}
-                  {(role === 'personal' || role === 'nutri') && (
+                  {isProfessionalRole && (
                     <>
-                      <Input name="registro" icon={<Shield />} placeholder={role === 'personal' ? "Nº CREF" : "Nº CRN"} value={formData.registro} onChange={handleInputChange} />
+                      <Input name="registro" icon={<Shield />} placeholder={registroLabel} error={errors.registro} value={formData.registro} onChange={handleInputChange} />
                       <Input name="exp" icon={<Trophy />} type="number" placeholder="ANOS DE EXPERIÊNCIA" value={formData.exp} onChange={handleInputChange} />
                       <Select name="modalidade" icon={<Globe />} value={formData.modalidade} options={["Online", "Presencial", "Híbrido"]} onChange={handleInputChange} />
-                      <Input name="especialidade" icon={<Target />} placeholder="FOCO PRINCIPAL" value={formData.especialidade} onChange={handleInputChange} />
+                      <Input name="especialidade" icon={<Target />} placeholder={normalizedRole === "instrutor" ? "MODALIDADE / AULA PRINCIPAL" : "FOCO PRINCIPAL"} error={errors.especialidade} value={formData.especialidade} onChange={handleInputChange} />
+                    </>
+                  )}
+                  {normalizedRole === 'influencer' && (
+                    <>
+                      <Input name="seguidores" icon={<Users />} type="number" placeholder="SEGUIDORES APROXIMADOS" value={formData.seguidores} onChange={handleInputChange} />
+                      <Input name="nicho" icon={<Target />} placeholder="NICHO PRINCIPAL" error={errors.nicho} value={formData.nicho} onChange={handleInputChange} />
+                      <Select name="rede" icon={<Globe />} value={formData.rede} options={["Instagram", "TikTok", "YouTube", "X/Twitter", "Outra"]} onChange={handleInputChange} />
+                      <Input name="especialidade" icon={<Star />} placeholder="TIPO DE CONTEÚDO" value={formData.especialidade} onChange={handleInputChange} />
                     </>
                   )}
                 </div>
@@ -286,7 +335,7 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
 
             {step === 4 && (
               <div className="space-y-6">
-                <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter text-white leading-none">OBJETIVOS DE <span className="text-sky-500">PERFORMANCE</span></h2>
+                <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter text-white leading-none">SEUS <span className="text-sky-500">OBJETIVOS</span></h2>
                 <div className="flex flex-wrap gap-2">
                   {INTERESSES_LIST.map(t => <Tag key={t} text={t} active={formData.interesses.includes(t)} onClick={() => toggleTag(t)} />)}
                 </div>
@@ -297,12 +346,12 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
               <div className="space-y-6">
                 <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter text-white leading-none">TERMOS & <span className="text-sky-500">SEGURANÇA</span></h2>
                 <div className="bg-white/5 border border-white/10 rounded-3xl p-6 text-[10px] text-white/50 space-y-4">
-                  <p><strong className="text-white">1. OBJETO:</strong> Acesso à Matriz AtivoraFit pessoal e focado em performance.</p>
-                  <p><strong className="text-white">2. DADOS:</strong> Autorização de processamento para evolução de $XP$.</p>
+                  <p><strong className="text-white">1. OBJETO:</strong> Acesso ao AtivoraFit para treino, nutrição, social, comunidades e evolução pessoal.</p>
+                  <p><strong className="text-white">2. DADOS:</strong> Uso de informações essenciais para cadastro, segurança, personalização e funcionamento do app.</p>
                 </div>
                 <div className="space-y-4">
                   <Checkbox name="termos" label="Aceito os Termos de Uso" checked={formData.termos} onChange={handleInputChange} error={errors.termos} />
-                  <Checkbox name="privacidade" label="Autorizo processamento de dados" checked={formData.privacidade} onChange={handleInputChange} />
+                  <Checkbox name="privacidade" label="Autorizo o uso dos dados essenciais" checked={formData.privacidade} onChange={handleInputChange} error={errors.privacidade} />
                 </div>
               </div>
             )}
@@ -317,7 +366,7 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
             disabled={loading}
             className="flex-2 py-6 md:py-8 bg-sky-500 text-[#010409] font-black text-xl md:text-2xl rounded-3xl md:rounded-4xl shadow-[0_0_20px_rgba(14,165,233,0.4)] flex items-center justify-center gap-4 transition-all active:scale-95 disabled:opacity-50"
           >
-            {loading ? <Loader2 size={32} className="animate-spin" /> : step === totalSteps ? "FINALIZAR MATRIZ" : "PRÓXIMO PASSO"}
+            {loading ? <Loader2 size={32} className="animate-spin" /> : step === totalSteps ? "CRIAR CONTA" : "PRÓXIMO PASSO"}
             {!loading && <ChevronRight className="w-6 h-6" />}
           </button>
         </div>

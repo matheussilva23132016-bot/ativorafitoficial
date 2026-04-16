@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import db from "../../../../lib/db"; // CAMINHO RELATIVO BLINDADO (4 níveis)
+import { db } from "../../../../lib/db"; 
 
 export async function POST(req: Request) {
   try {
@@ -9,25 +9,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
     }
 
+    if (followerNickname === followingNickname) {
+      return NextResponse.json({ error: "Você não pode seguir a si mesmo" }, { status: 400 });
+    }
+
     // 1. VERIFICA SE O ALVO É UMA CONTA PRIVADA
-    const [targetUser]: any = await db.execute(
-      "SELECT conta_privada FROM usuarios WHERE username = ? LIMIT 1",
+    const [targetUsers]: any = await db.execute(
+      "SELECT is_private FROM ativora_users WHERE nickname = ? LIMIT 1",
       [followingNickname]
     );
 
-    if (targetUser.length === 0) {
+    if (!targetUsers || targetUsers.length === 0) {
       return NextResponse.json({ error: "Atleta não encontrado na matriz" }, { status: 404 });
     }
 
-    const isPrivate = targetUser[0].conta_privada === 1;
+    const isPrivate = targetUsers[0].is_private === 1;
 
     // 2. CHECA SE JÁ EXISTE UMA CONEXÃO (PARA FAZER O TOGGLE)
-    const [existingFollow]: any = await db.execute(
+    const [existingFollows]: any = await db.execute(
       "SELECT id FROM seguidores WHERE seguidor_nickname = ? AND seguido_nickname = ? LIMIT 1",
       [followerNickname, followingNickname]
     );
 
-    if (existingFollow.length > 0) {
+    if (existingFollows && existingFollows.length > 0) {
       // SE JÁ EXISTE, O USUÁRIO QUER "PARAR DE SEGUIR"
       await db.execute(
         "DELETE FROM seguidores WHERE seguidor_nickname = ? AND seguido_nickname = ?",
@@ -49,7 +53,6 @@ export async function POST(req: Request) {
       );
 
       // --- GATILHO DE NOTIFICAÇÃO (SINAL DE ALERTA) ---
-      // Registra na matriz que o destinatário recebeu uma nova interação de 'follow'
       await db.execute(
         "INSERT INTO notificacoes (destinatario_nickname, remetente_nickname, tipo) VALUES (?, ?, ?)",
         [followingNickname, followerNickname, 'follow']
@@ -70,4 +73,4 @@ export async function POST(req: Request) {
       details: error.message 
     }, { status: 500 });
   }
-}
+}

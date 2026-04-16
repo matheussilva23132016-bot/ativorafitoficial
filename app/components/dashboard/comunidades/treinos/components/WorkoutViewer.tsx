@@ -3,7 +3,7 @@
 
 import {
   ArrowLeft, Play, ExternalLink, CheckCircle2,
-  Circle, Pencil, Zap, Clock, RotateCcw,
+  Circle, Pencil, Zap, Clock, RotateCcw, Download,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Treino } from "../types";
@@ -17,10 +17,11 @@ interface Props {
   onEdit?: () => void;
   onIniciar?: () => void;
   onToggleExercicio?: (exercicioId: string) => void;
+  pdfUrl?: string;
 }
 
 export function WorkoutViewer({
-  treino, isGestao,
+  treino, isGestao, pdfUrl,
   onClose, onEdit, onIniciar, onToggleExercicio,
 }: Props) {
   const pct   = percentualConcluido(treino);
@@ -38,6 +39,17 @@ export function WorkoutViewer({
           <ArrowLeft size={14} /> Voltar
         </button>
         <div className="flex gap-2">
+          {pdfUrl && (
+            <a
+              href={pdfUrl}
+              download
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20
+                rounded-xl text-[9px] font-black uppercase text-emerald-300 hover:bg-emerald-500/20
+                transition-all"
+            >
+              <Download size={12} /> PDF offline
+            </a>
+          )}
           {isGestao && onEdit && (
             <button
               onClick={onEdit}

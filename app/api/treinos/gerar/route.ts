@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     }
 
     const rascunhoIA = {
-      titulo: `Protocolo IA: ${foco}`,
+      titulo: `Treino IA: ${foco}`,
       foco: foco,
       tempo: "45 min",
       dia: "Seg",
@@ -38,6 +38,6 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('Erro na IA:', error);
-    return NextResponse.json({ error: 'O motor de IA falhou.' }, { status: 500 });
+    return NextResponse.json({ error: 'A IA não conseguiu gerar o treino agora.' }, { status: 500 });
   }
 }

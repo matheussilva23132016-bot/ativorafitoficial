@@ -9,6 +9,7 @@ import {
   CheckCircle, Check, Clock, Trophy, Medal
 } from "lucide-react";
 import Image from "next/image";
+import { toast } from "sonner";
 import { UserProfileData } from "./AtivoraSocial";
 
 interface PostItem { id: number; media_url: string; media_type: 'image' | 'video'; }
@@ -29,6 +30,7 @@ interface SocialProfileProps {
   onProfileUpdate: (data: UserProfileData) => void;
   isOwnProfile?: boolean; 
   onPrivacyToggle?: (isPrivate: boolean) => Promise<void>;
+  loggedUserNickname?: string;
 }
 
 export const SocialProfile = ({ 
@@ -37,12 +39,13 @@ export const SocialProfile = ({
   startInEditMode, 
   onProfileUpdate,
   isOwnProfile: isOwnProfileProp,
-  onPrivacyToggle
+  onPrivacyToggle,
+  loggedUserNickname
 }: SocialProfileProps) => {
   const [isEditing, setIsEditing] = useState(startInEditMode || false);
   const [currentProfile, setCurrentProfile] = useState(profileData);
-  const [editBio, setEditBio] = useState(profileData.bio);
-  const [editDesc, setEditDesc] = useState(profileData.description);
+  const [editBio, setEditBio] = useState(profileData.bio || "");
+  const [editDesc, setEditDesc] = useState(profileData.description || "");
   const [isPrivate, setIsPrivate] = useState(profileData.is_private || false);
   const [isSaving, setIsSaving] = useState(false);
   const [userPosts, setUserPosts] = useState<PostItem[]>([]);
@@ -52,11 +55,12 @@ export const SocialProfile = ({
   const [loggedUser, setLoggedUser] = useState<UserProfileData | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followStatus, setFollowStatus] = useState<'aceito' | 'pendente' | 'nenhum'>('nenhum');
-  const [followersCount, setFollowersCount] = useState(0);
-  const [streak, setStreak] = useState(0);
-  const [xp, setXp] = useState(0);
+  const [followersCount, setFollowersCount] = useState(profileData.followers || 0);
+  const [followingCount, setFollowingCount] = useState(profileData.following || 0);
+  const [streak, setStreak] = useState(profileData.streak || 0);
+  const [xp, setXp] = useState(profileData.xp || 0);
 
-  const isOwnProfile = isOwnProfileProp ?? (loggedUser?.username === currentProfile.username);
+  const isOwnProfile = isOwnProfileProp ?? (loggedUserNickname === currentProfile.username);
 
   const levelInfo = useMemo(() => {
     const level = Math.floor(Math.sqrt((xp || 0) / 10)) + 1;
@@ -70,7 +74,7 @@ export const SocialProfile = ({
     try {
       const [resPosts, resProfile, resConquistas] = await Promise.all([
         fetch(`/api/posts/listar?nickname=${profileData.username}`),
-        fetch(`/api/perfil/buscar?username=${profileData.username}`),
+        fetch(`/api/perfil/publico?nickname=${profileData.username}&viewer=${loggedUserNickname || ""}`),
         fetch(`/api/social/conquistas?username=${profileData.username}`) // Busca conquistas
       ]);
 
@@ -79,9 +83,22 @@ export const SocialProfile = ({
       
       if (resProfile.ok) {
         const data = await resProfile.json();
-        if (data.streak) setStreak(data.streak);
+        setCurrentProfile((previous) => ({
+          ...previous,
+          ...data,
+          username: data.username || previous.username,
+          avatar: data.avatar || data.avatar_url || previous.avatar,
+          avatar_url: data.avatar_url || data.avatar || previous.avatar_url,
+        }));
+        if (!isEditing) {
+          setEditBio(data.bio || "");
+          setEditDesc(data.description || "");
+        }
+
+        if (data.streak !== undefined) setStreak(data.streak);
         if (data.xp !== undefined) setXp(data.xp);
         if (data.followers !== undefined) setFollowersCount(data.followers);
+        if (data.following !== undefined) setFollowingCount(data.following);
         
         const status = data.follow_status || (data.is_following ? 'aceito' : 'nenhum');
         setFollowStatus(status);
@@ -94,29 +111,28 @@ export const SocialProfile = ({
         if (resSol.ok) setSolicitacoes(await resSol.json());
       }
     } catch { console.error("Erro na sincronização da matriz."); }
-  }, [profileData.username, isOwnProfile]);
+  }, [profileData.username, loggedUserNickname, isOwnProfile, isEditing]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('@ativora_profile');
-    if (saved) setLoggedUser(JSON.parse(saved));
     fetchProfileData();
   }, [fetchProfileData]);
 
   const handleFollowToggle = async () => {
-    if (!loggedUser) return alert("⚠️ PROTOCOLO: Identifique-se para seguir!");
+    if (!loggedUserNickname) return toast.warning("⚠️ PROTOCOLO: Identifique-se para seguir!");
     try {
       const res = await fetch('/api/social/seguir', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ followerNickname: loggedUser.username, followingNickname: currentProfile.username })
+        body: JSON.stringify({ followerNickname: loggedUserNickname, followingNickname: currentProfile.username })
       });
       const data = await res.json();
       if (data.success) {
         setFollowStatus(data.status || 'nenhum');
         setIsFollowing(data.status === 'aceito');
         setFollowersCount(prev => data.status === 'aceito' ? prev + 1 : (data.following === false ? prev - 1 : prev));
+        toast.success(data.status === 'aceito' ? "Você agora segue este atleta!" : "Solicitação enviada.");
       }
-    } catch { alert("Falha na conexão com o núcleo social."); }
+    } catch { toast.error("Falha na conexão com o núcleo social."); }
   };
 
   const handleDecisao = async (id: number, acao: 'aceitar' | 'recusar') => {
@@ -129,8 +145,9 @@ export const SocialProfile = ({
       if (res.ok) {
         setSolicitacoes(prev => prev.filter(s => s.id !== id));
         if (acao === 'aceitar') setFollowersCount(prev => prev + 1);
+        toast.success(acao === 'aceitar' ? "Solicitação aceita!" : "Solicitação removida.");
       }
-    } catch { alert("Erro ao processar decisão na matriz."); }
+    } catch { toast.error("Erro ao processar decisão na matriz."); }
   };
 
   const handleSaveProfile = async () => {
@@ -156,8 +173,9 @@ export const SocialProfile = ({
         setCurrentProfile(updatedData);
         onProfileUpdate(updatedData);
         setIsEditing(false);
+        toast.success("Dados da matriz atualizados!");
       }
-    } catch { alert("Erro ao gravar dados na matriz."); } finally { setIsSaving(false); }
+    } catch { toast.error("Erro ao gravar dados na matriz."); } finally { setIsSaving(false); }
   };
 
   const handleDeleteAccount = () => {
@@ -169,7 +187,7 @@ export const SocialProfile = ({
   };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl mx-auto pb-20 px-2 lg:px-0 pt-4">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto pb-20 px-3 sm:px-5 lg:px-0 pt-4">
       
       <div className="flex items-center justify-between py-4 mb-4">
         <button onClick={onBack} className="text-white hover:text-sky-500 transition-colors p-2"><ArrowLeft size={24} /></button>
@@ -192,7 +210,7 @@ export const SocialProfile = ({
         ) : <div className="w-10" />}
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-6">
         <AnimatePresence>
           {isOwnProfile && solicitacoes.length > 0 && (
             <motion.div 
@@ -222,7 +240,7 @@ export const SocialProfile = ({
           )}
         </AnimatePresence>
 
-        <div className="px-2">
+        <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] px-4 py-4 shadow-2xl sm:px-5">
             <div className="flex justify-between items-end mb-2">
                 <div className="flex items-center gap-2">
                     <Award size={18} className="text-sky-500" />
@@ -255,9 +273,10 @@ export const SocialProfile = ({
             )}
         </div>
 
-        <div className="flex items-center gap-6 lg:gap-10 px-2">
+        <div className="rounded-lg border border-white/[0.06] bg-[#05080d]/80 p-4 sm:p-6">
+        <div className="flex items-center gap-5 lg:gap-10">
           <div className="relative shrink-0">
-            <div className={`w-24 h-24 lg:w-32 lg:h-32 rounded-full p-1 ${currentProfile.role !== 'aluno' ? 'bg-gradient-to-tr from-sky-500 via-purple-500 to-sky-300 shadow-neon' : 'bg-white/10'}`}>
+            <div className={`w-24 h-24 lg:w-32 lg:h-32 rounded-full p-1 ${currentProfile.role && currentProfile.role !== 'aluno' ? 'bg-gradient-to-tr from-sky-500 via-purple-500 to-sky-300 shadow-neon' : 'bg-white/10'}`}>
               <div className="w-full h-full rounded-full border-4 border-[#010307] bg-[#010307] overflow-hidden relative">
                 {currentProfile.avatar ? (
                   <Image src={currentProfile.avatar} alt="Profile" fill className="object-cover" unoptimized />
@@ -266,7 +285,7 @@ export const SocialProfile = ({
                 )}
               </div>
             </div>
-            {currentProfile.role !== 'aluno' && (
+            {currentProfile.role && currentProfile.role !== 'aluno' && (
               <div className="absolute bottom-0 right-2 bg-sky-500 p-1.5 rounded-full text-black border-2 border-[#010307]">
                 <ShieldCheck size={14} strokeWidth={3} />
               </div>
@@ -276,12 +295,12 @@ export const SocialProfile = ({
           <div className="flex-1 flex justify-around lg:justify-start lg:gap-12 text-center lg:text-left">
             <div><span className="block text-xl lg:text-2xl font-black text-white">{userPosts.length}</span><span className="text-[10px] text-white/50 uppercase font-bold tracking-widest">Posts</span></div>
             <div><span className="block text-xl lg:text-2xl font-black text-white">{followersCount}</span><span className="text-[10px] text-white/50 uppercase font-bold tracking-widest">Seguidores</span></div>
-            <div><span className="block text-xl lg:text-2xl font-black text-white">0</span><span className="text-[10px] text-white/50 uppercase font-bold tracking-widest">Seguindo</span></div>
+            <div><span className="block text-xl lg:text-2xl font-black text-white">{followingCount}</span><span className="text-[10px] text-white/50 uppercase font-bold tracking-widest">Seguindo</span></div>
           </div>
         </div>
 
         {!isEditing && (
-          <div className="px-2 space-y-4">
+          <div className="mt-5 space-y-4">
             <div className="text-left space-y-1">
               <h2 className="font-black text-white text-base lg:text-lg flex items-center gap-2">
                 {currentProfile.username}
@@ -291,7 +310,7 @@ export const SocialProfile = ({
               </h2>
               <p className="text-white text-sm leading-relaxed">{currentProfile.bio}</p>
               <p className="text-white/40 text-xs italic">{currentProfile.description}</p>
-              {currentProfile.role !== 'aluno' && (
+              {currentProfile.role && currentProfile.role !== 'aluno' && (
                 <div className="flex items-center gap-2 text-sky-500 pt-2 font-bold text-xs cursor-pointer hover:underline">
                   <LinkIcon size={14} /><span>ativorafit.online/expert/{currentProfile.username}</span>
                 </div>
@@ -314,7 +333,7 @@ export const SocialProfile = ({
                 
                 {(currentProfile.role === 'personal' || currentProfile.role === 'nutri') && (
                   <button 
-                    onClick={() => alert("Protocolo de Consultoria: Iniciando conexão...")}
+                    onClick={() => toast.info("Protocolo de Consultoria: Iniciando conexão segura com o Expert...")}
                     className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 text-black font-black uppercase tracking-widest text-[10px] py-3 rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.3)] flex items-center justify-center gap-2 hover:scale-[1.02] transition-all"
                   >
                     <Zap size={16} className="fill-current" /> Consultoria
@@ -324,6 +343,7 @@ export const SocialProfile = ({
             )}
           </div>
         )}
+        </div>
 
         {isEditing && isOwnProfile && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="px-2 space-y-4 bg-white/5 p-6 rounded-3xl border border-white/10">

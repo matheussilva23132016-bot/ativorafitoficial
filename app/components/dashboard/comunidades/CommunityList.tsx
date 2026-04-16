@@ -8,21 +8,22 @@ import {
 import { CommunityCard } from "./CommunityCard";
 import { motion, AnimatePresence } from "framer-motion";
 import { CommunityHub } from "./CommunityHub";
+import { toast } from "sonner";
 
 interface CommunityListProps {
-  currentUser: any;
-  initialDeepLink?: { communityId: string; tab: string } | null;
-  onClearDeepLink?: () => void;
-  onNotify?: (notif: any) => void;
-  triggerXP?: (amount: number) => void;
+  currentUser:       any;
+  initialDeepLink?:  { communityId: string; tab: string } | null;
+  onClearDeepLink?:  () => void;
+  onNotify?:         (notif: any) => void;
+  triggerXP?:        (amount: number) => void;
 }
 
 const ELITE_THEMES = [
-  { id: "sky",     label: "Céu Neon",     bg: "bg-sky-500",     text: "text-sky-500"     },
-  { id: "rose",    label: "Sangue Alpha",  bg: "bg-rose-500",    text: "text-rose-500"    },
-  { id: "emerald", label: "Bio Digital",   bg: "bg-emerald-500", text: "text-emerald-500" },
-  { id: "purple",  label: "Cyber Roxo",    bg: "bg-purple-500",  text: "text-purple-500"  },
-  { id: "amber",   label: "Ouro Puro",     bg: "bg-amber-500",   text: "text-amber-500"   },
+  { id: "sky",     label: "Céu Neon",    bg: "bg-sky-500",     text: "text-sky-500"     },
+  { id: "rose",    label: "Sangue Alpha", bg: "bg-rose-500",    text: "text-rose-500"    },
+  { id: "emerald", label: "Bio Digital",  bg: "bg-emerald-500", text: "text-emerald-500" },
+  { id: "purple",  label: "Cyber Roxo",   bg: "bg-purple-500",  text: "text-purple-500"  },
+  { id: "amber",   label: "Ouro Puro",    bg: "bg-amber-500",   text: "text-amber-500"   },
 ];
 
 const CATEGORIAS = [
@@ -32,9 +33,12 @@ const CATEGORIAS = [
 ];
 
 const FORM_INITIAL = {
-  name: "", description: "", focus: "Todas",
-  privacy: "public" as "public" | "private",
-  cover_url: "", theme: "sky",
+  name:        "",
+  description: "",
+  focus:       "Todas",
+  privacy:     "public" as "public" | "private",
+  cover_url:   "",
+  theme:       "sky",
 };
 
 export function CommunityList({
@@ -43,22 +47,17 @@ export function CommunityList({
   const [activeCommunityId, setActiveCommunityId] = useState<string | null>(
     initialDeepLink?.communityId ?? null
   );
-  const [comunidades, setComunidades] = useState<any[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [isCreating, setIsCreating]   = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newGroup, setNewGroup]       = useState(FORM_INITIAL);
+  const [comunidades,   setComunidades]   = useState<any[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [isCreating,    setIsCreating]    = useState(false);
+  const [isSubmitting,  setIsSubmitting]  = useState(false);
+  const [newGroup,      setNewGroup]      = useState(FORM_INITIAL);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeTheme  = ELITE_THEMES.find(t => t.id === newGroup.theme) ?? ELITE_THEMES[0];
 
   const getUserId = useCallback((): string | null => {
-    try {
-      const stored = typeof window !== "undefined"
-        ? localStorage.getItem("@ativora_user") : null;
-      if (stored) return JSON.parse(stored).id;
-      return currentUser?.id ?? null;
-    } catch { return null; }
+    return currentUser?.id ?? null;
   }, [currentUser]);
 
   const loadCommunities = useCallback(async () => {
@@ -77,6 +76,12 @@ export function CommunityList({
 
   useEffect(() => { loadCommunities(); }, [loadCommunities]);
 
+  useEffect(() => {
+    if (initialDeepLink?.communityId) {
+      setActiveCommunityId(initialDeepLink.communityId);
+    }
+  }, [initialDeepLink?.communityId, initialDeepLink?.tab]);
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -89,35 +94,42 @@ export function CommunityList({
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     const uid = getUserId();
-    if (!uid) { alert("⚠️ Usuário não autenticado."); return; }
+    if (!uid) { 
+      toast.error("⚠️ Usuário não autenticado."); 
+      return; 
+    }
     setIsSubmitting(true);
 
     const groupData = {
-      id: `group-${Date.now()}`,
+      id:       `group-${Date.now()}`,
       ...newGroup,
-      name: newGroup.name.toUpperCase(),
+      name:     newGroup.name.toUpperCase(),
       owner_id: uid,
     };
 
     try {
       const res    = await fetch("/api/communities", {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(groupData),
+        body:    JSON.stringify(groupData),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error ?? "Falha na criação");
 
-      setComunidades(prev => [
-        { ...groupData, total_membros: 1, role: "Dono", isMember: true },
-        ...prev,
-      ]);
+      // Recarrega do banco para garantir dados completos (corrige bug 3)
+      await loadCommunities();
+
       setIsCreating(false);
       setNewGroup(FORM_INITIAL);
-      onNotify?.({ title: "Base Operacional", message: "Esquadrão forjado com sucesso.", type: "social" });
+      onNotify?.({
+        title:   "Base Operacional",
+        message: "Esquadrão forjado com sucesso.",
+        type:    "social",
+      });
+      toast.success("Esquadrão forjado com sucesso!");
       triggerXP?.(250);
     } catch (err: any) {
-      alert("❌ Erro: " + err.message);
+      toast.error("Erro ao criar grupo: " + err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -132,7 +144,13 @@ export function CommunityList({
         currentUser={currentUser}
         triggerXP={triggerXP ?? (() => {})}
         onNotify={onNotify}
-        onBack={() => { setActiveCommunityId(null); onClearDeepLink?.(); }}
+        initialTab={initialDeepLink?.tab}
+        onBack={() => {
+          setActiveCommunityId(null);
+          onClearDeepLink?.();
+          // Recarrega lista ao voltar para refletir possível deleção
+          loadCommunities();
+        }}
       />
     );
   }
@@ -141,12 +159,12 @@ export function CommunityList({
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="w-full max-w-6xl mx-auto p-4 sm:p-8 pb-32 text-left selection:bg-sky-500/30"
+      className="w-full max-w-6xl mx-auto p-3 sm:p-8 pb-32 text-left selection:bg-sky-500/30"
     >
       {/* Header */}
-      <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-12 border-b border-white/5 pb-8">
+      <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 sm:gap-6 mb-8 sm:mb-12 border-b border-white/5 pb-6 sm:pb-8">
         <div>
-          <h1 className="text-4xl sm:text-6xl font-black italic uppercase tracking-tighter text-white leading-none">
+          <h1 className="text-3xl sm:text-6xl font-black italic uppercase tracking-tighter text-white leading-none">
             COMUNIDADES <span className="text-sky-500">ELITE</span>
           </h1>
           <p className="text-white/20 text-[10px] font-black uppercase tracking-widest mt-2 italic">
@@ -155,7 +173,7 @@ export function CommunityList({
         </div>
         <button
           onClick={() => setIsCreating(true)}
-          className="flex items-center gap-3 bg-white text-black px-8 py-4 rounded-2xl font-black uppercase text-xs hover:bg-sky-500 transition-all active:scale-95 shadow-lg shrink-0"
+          className="flex w-full sm:w-auto items-center justify-center gap-3 bg-white text-black px-8 py-4 rounded-2xl font-black uppercase text-xs hover:bg-sky-500 transition-all active:scale-95 shadow-lg shrink-0"
         >
           <Plus size={16} /> CRIAR GRUPO
         </button>

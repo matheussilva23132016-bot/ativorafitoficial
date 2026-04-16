@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 // CORREÇÃO: Alterado de lucide-center para lucide-react
 import { Camera, ArrowRight, ArrowLeft, Plus, Check, Loader2 } from "lucide-react";
 import Image from "next/image";
+import { toast } from "sonner";
 import { UserProfileData } from "./AtivoraSocial";
 
 interface OnboardingProps {
@@ -61,7 +62,7 @@ export const SocialOnboarding = ({ onFinish, onBack }: OnboardingProps) => {
         result = JSON.parse(responseText);
       } catch {
         console.error("Falha na interpretação da Matriz:", responseText);
-        alert(`Erro na resposta do servidor (Status ${response.status}).`);
+        toast.error(`Erro na resposta do servidor (Status ${response.status}).`);
         setIsSaving(false);
         return; 
       }
@@ -77,16 +78,17 @@ export const SocialOnboarding = ({ onFinish, onBack }: OnboardingProps) => {
           is_private: false
         };
 
+        toast.success("Matriz sincronizada com sucesso!");
         onFinish(dataForCache);
 
       } else {
-        alert(`Erro na Matriz: ${result.details || result.error || "Tente outro nickname de operação"}`);
+        toast.error(`Erro na Matriz: ${result.details || result.error || "Tente outro nickname de operação"}`);
         setIsSaving(false);
       }
       
     } catch (error) {
       console.error("Falha ao conectar com o núcleo:", error);
-      alert("A conexão com a API falhou.");
+      toast.error("A conexão com a API falhou.");
       setIsSaving(false);
     }
   };

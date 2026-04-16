@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import db from "../../../../../lib/db";
+import { isGenericSocialNickname } from "@/lib/socialFilters";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
@@ -8,19 +11,20 @@ export async function GET() {
     const [rows]: any = await db.execute(
       `SELECT 
         s.id, 
-        s.usuario_nickname as username, 
+        s.username as username, 
         s.media_url, 
         s.media_type, 
         s.created_at,
         u.avatar_url,
         u.role
        FROM stories s
-       JOIN usuarios u ON s.usuario_nickname = u.nickname
-       WHERE s.expira_em > NOW()
-       ORDER BY s.created_at DESC`
+       LEFT JOIN ativora_users u ON s.username = u.nickname
+       WHERE s.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+       ORDER BY s.created_at DESC
+       LIMIT 50`
     );
 
-    return NextResponse.json(rows);
+    return NextResponse.json((rows || []).filter((story: any) => !isGenericSocialNickname(story.username)));
   } catch (error: any) {
     console.error("ERRO NA SINCRONIZAÇÃO DE STORIES:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

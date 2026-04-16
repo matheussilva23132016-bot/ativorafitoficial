@@ -1,0 +1,1322 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model app_settings {
+  id         Int       @id @default(autoincrement())
+  chave      String    @unique(map: "unique_chave") @db.VarChar(100)
+  valor      String    @db.VarChar(255)
+  descricao  String?   @db.VarChar(255)
+  created_at DateTime? @default(now()) @db.DateTime(0)
+  updated_at DateTime? @default(now()) @db.DateTime(0)
+}
+
+model ativora_announcements {
+  id                  Int                               @id @default(autoincrement())
+  community_id        String                            @db.VarChar(50)
+  author_id           String                            @db.VarChar(50)
+  title               String                            @db.VarChar(100)
+  content             String                            @db.Text
+  importance          ativora_announcements_importance? @default(normal)
+  created_at          DateTime?                         @default(now()) @db.Timestamp(0)
+  ativora_communities ativora_communities               @relation(fields: [community_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "ativora_announcements_ibfk_1")
+  ativora_users       ativora_users                     @relation(fields: [author_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "ativora_announcements_ibfk_2")
+
+  @@index([author_id], map: "author_id")
+  @@index([community_id], map: "community_id")
+}
+
+model ativora_communities {
+  id                    String                       @id @db.VarChar(50)
+  name                  String                       @db.VarChar(255)
+  description           String?                      @db.Text
+  focus                 String?                      @default("Todos") @db.VarChar(100)
+  privacy               ativora_communities_privacy? @default(public)
+  theme                 String?                      @default("sky") @db.VarChar(50)
+  cover_url             String?                      @db.LongText
+  owner_id              String                       @db.VarChar(50)
+  created_at            DateTime?                    @default(now()) @db.Timestamp(0)
+  ativora_announcements ativora_announcements[]
+  ativora_users         ativora_users                @relation(fields: [owner_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_owner")
+  ativora_members       ativora_members[]
+
+  @@index([owner_id], map: "fk_owner")
+}
+
+model ativora_evolution {
+  id            Int           @id @default(autoincrement())
+  user_id       String        @db.VarChar(50)
+  peso          Decimal?      @db.Decimal(5, 2)
+  bf            Decimal?      @db.Decimal(4, 2)
+  cintura       Decimal?      @db.Decimal(5, 2)
+  bra_o         Decimal?      @map("braço") @db.Decimal(5, 2)
+  perna         Decimal?      @db.Decimal(5, 2)
+  photo_url     String?       @db.LongText
+  date          DateTime?     @default(now()) @db.Timestamp(0)
+  ativora_users ativora_users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "ativora_evolution_ibfk_1")
+
+  @@index([user_id], map: "user_id")
+}
+
+model ativora_members {
+  id                  Int                   @id @default(autoincrement())
+  user_id             String                @db.VarChar(50)
+  community_id        String                @db.VarChar(50)
+  role                ativora_members_role? @default(ALUNO)
+  joined_at           DateTime?             @default(now()) @db.Timestamp(0)
+  ativora_users       ativora_users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "ativora_members_ibfk_1")
+  ativora_communities ativora_communities   @relation(fields: [community_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "ativora_members_ibfk_2")
+
+  @@unique([user_id, community_id], map: "unique_membership")
+  @@index([community_id], map: "community_id")
+}
+
+model ativora_users {
+  id                    String                  @id @db.VarChar(50)
+  email                 String                  @unique(map: "email") @db.VarChar(255)
+  password_hash         String                  @db.VarChar(255)
+  full_name             String                  @db.VarChar(255)
+  nickname              String?                 @unique(map: "nickname") @db.VarChar(50)
+  genero                String?                 @db.VarChar(20)
+  data_nascimento       DateTime?               @db.Date
+  cidade_estado         String?                 @db.VarChar(100)
+  interesses            String?                 @db.Text
+  nivel                 String?                 @db.VarChar(50)
+  freq                  String?                 @db.VarChar(50)
+  peso                  String?                 @db.VarChar(20)
+  altura                String?                 @db.VarChar(20)
+  registro              String?                 @db.VarChar(50)
+  exp                   String?                 @db.VarChar(50)
+  modalidade            String?                 @db.VarChar(50)
+  especialidade         String?                 @db.VarChar(100)
+  seguidores            String?                 @db.VarChar(50)
+  nicho                 String?                 @db.VarChar(100)
+  rede                  String?                 @db.VarChar(50)
+  role                  ativora_users_role?     @default(aluno)
+  xp_score              Int?                    @default(0)
+  created_at            DateTime?               @default(now()) @db.Timestamp(0)
+  account_status        String?                 @default("active") @db.VarChar(20)
+  avatar_url            String?                 @db.Text
+  bio                   String?                 @db.Text
+  current_streak        Int?                    @default(0)
+  descricao             String?                 @db.Text
+  email_verified        Boolean?                @default(false)
+  external_link         String?                 @db.VarChar(255)
+  failed_login_attempts Int?                    @default(0)
+  locked_until          DateTime?               @db.DateTime(0)
+  last_login_at         DateTime?               @db.DateTime(0)
+  is_private            Boolean?                @default(false)
+  is_verified           Boolean?                @default(false)
+  last_post_date        DateTime?               @db.Date
+  nivel_int             Int?                    @default(1)
+  xp                    Int?                    @default(0)
+  ativora_announcements ativora_announcements[]
+  ativora_communities   ativora_communities[]
+  ativora_evolution     ativora_evolution[]
+  ativora_members       ativora_members[]
+}
+
+model cardapios {
+  id                 String               @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  comunidade_id      String               @db.VarChar(36)
+  criado_por         String               @db.VarChar(36)
+  titulo             String               @db.VarChar(200)
+  foco               String?              @db.VarChar(100)
+  calorias_meta      Int?
+  proteina_meta      Int?
+  proteinas_dia      Int?
+  carbo_meta         Int?
+  gordura_meta       Int?
+  status             cardapios_status     @default(draft)
+  alvo               cardapios_alvo       @default(individual)
+  alvo_user_id       String?              @db.VarChar(36)
+  aluno_id           String?              @db.VarChar(36)
+  aluno_nome         String?              @db.VarChar(200)
+  solicitacao_id     String?              @db.VarChar(36)
+  semana             String?              @db.VarChar(10)
+  gerado_por_ia      Boolean              @default(false)
+  ia_revisado        Boolean              @default(false)
+  semana_ref         DateTime?            @db.Date
+  obs                String?              @db.Text
+  created_at         DateTime             @default(now()) @db.DateTime(0)
+  updated_at         DateTime             @default(now()) @db.DateTime(0)
+  comunidades        comunidades          @relation(fields: [comunidade_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "cardapios_ibfk_1")
+  refeicoes_cardapio refeicoes_cardapio[]
+
+  @@index([aluno_id, status], map: "idx_aluno_status")
+  @@index([alvo_user_id], map: "idx_alvo_user")
+  @@index([comunidade_id], map: "idx_comunidade")
+}
+
+model comentarios {
+  id               Int       @id @default(autoincrement())
+  post_id          Int
+  usuario_nickname String    @db.VarChar(255)
+  conteudo         String    @db.Text
+  role_na_epoca    String?   @db.VarChar(50)
+  created_at       DateTime? @default(now()) @db.Timestamp(0)
+
+  @@index([post_id], map: "post_id")
+}
+
+model communities {
+  id                 String               @id @db.VarChar(36)
+  name               String               @db.VarChar(255)
+  description        String?              @db.Text
+  cover_url          String?              @db.Text
+  owner_id           String               @db.VarChar(36)
+  status             String?              @default("active") @db.VarChar(20)
+  created_at         DateTime?            @default(now()) @db.Timestamp(0)
+  updated_at         DateTime?            @default(now()) @db.Timestamp(0)
+  community_members  community_members[]
+  community_requests community_requests[]
+  workouts           workouts[]
+}
+
+model community_members {
+  id           String       @id @db.VarChar(36)
+  community_id String?      @db.VarChar(36)
+  user_id      String       @db.VarChar(36)
+  tags         String?      @db.LongText
+  status       String?      @default("pending") @db.VarChar(20)
+  joined_at    DateTime?    @default(now()) @db.Timestamp(0)
+  communities  communities? @relation(fields: [community_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_community")
+
+  @@unique([community_id, user_id], map: "community_user_unique")
+  @@index([user_id], map: "idx_members_user")
+}
+
+model community_requests {
+  id           String       @id @db.VarChar(36)
+  community_id String?      @db.VarChar(36)
+  user_id      String       @db.VarChar(36)
+  message      String?      @db.Text
+  status       String?      @default("pending") @db.VarChar(20)
+  created_at   DateTime?    @default(now()) @db.Timestamp(0)
+  communities  communities? @relation(fields: [community_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_community_req")
+
+  @@index([community_id], map: "fk_community_req")
+  @@index([status], map: "idx_requests_status")
+}
+
+model comunidade_anuncios {
+  id            String      @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  comunidade_id String      @db.VarChar(36)
+  autor_id      String      @db.VarChar(36)
+  titulo        String      @db.VarChar(200)
+  conteudo      String      @db.Text
+  fixado        Boolean     @default(false)
+  created_at    DateTime    @default(now()) @db.DateTime(0)
+  comunidades   comunidades @relation(fields: [comunidade_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "comunidade_anuncios_ibfk_1")
+
+  @@index([comunidade_id], map: "idx_comunidade")
+}
+
+model comunidade_membro_tags {
+  id                 String             @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  membro_id          String             @db.VarChar(36)
+  tag_id             String             @db.VarChar(36)
+  atribuido_por      String             @db.VarChar(36)
+  created_at         DateTime           @default(now()) @db.DateTime(0)
+  comunidade_membros comunidade_membros @relation(fields: [membro_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "comunidade_membro_tags_ibfk_1")
+  comunidade_tags    comunidade_tags    @relation(fields: [tag_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "comunidade_membro_tags_ibfk_2")
+
+  @@unique([membro_id, tag_id], map: "uq_membro_tag")
+  @@index([membro_id], map: "idx_membro")
+  @@index([tag_id], map: "idx_tag")
+}
+
+model comunidade_membros {
+  id                     String                    @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  comunidade_id          String                    @db.VarChar(36)
+  user_id                String                    @db.VarChar(36)
+  status                 comunidade_membros_status @default(pendente)
+  motivo_recusa          String?                   @db.Text
+  joined_at              DateTime?                 @db.DateTime(0)
+  created_at             DateTime                  @default(now()) @db.DateTime(0)
+  comunidade_membro_tags comunidade_membro_tags[]
+  comunidades            comunidades               @relation(fields: [comunidade_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "comunidade_membros_ibfk_1")
+
+  @@unique([comunidade_id, user_id], map: "uq_membro")
+  @@index([comunidade_id], map: "idx_comunidade")
+  @@index([status], map: "idx_status")
+  @@index([user_id], map: "idx_user")
+}
+
+model comunidade_tags {
+  id                     String                   @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  comunidade_id          String                   @db.VarChar(36)
+  nome                   String                   @db.VarChar(50)
+  cor                    String                   @default("sky") @db.VarChar(20)
+  nivel_poder            Int                      @default(1) @db.TinyInt
+  created_at             DateTime                 @default(now()) @db.DateTime(0)
+  comunidade_membro_tags comunidade_membro_tags[]
+  comunidades            comunidades              @relation(fields: [comunidade_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "comunidade_tags_ibfk_1")
+
+  @@index([comunidade_id], map: "idx_comunidade")
+}
+
+model comunidades {
+  id                        String                      @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  nome                      String                      @db.VarChar(100)
+  descricao                 String?                     @db.Text
+  cover_url                 String?                     @db.VarChar(500)
+  tema                      String                      @default("sky") @db.VarChar(20)
+  foco                      String                      @default("Todas") @db.VarChar(50)
+  privacidade               comunidades_privacidade     @default(public)
+  status                    comunidades_status          @default(ativa)
+  owner_id                  String                      @db.VarChar(36)
+  total_membros             Int                         @default(0)
+  created_at                DateTime                    @default(now()) @db.DateTime(0)
+  updated_at                DateTime                    @default(now()) @db.DateTime(0)
+  cardapios                 cardapios[]
+  comunidade_anuncios       comunidade_anuncios[]
+  comunidade_membros        comunidade_membros[]
+  comunidade_tags           comunidade_tags[]
+  desafios                  desafios[]
+  medidas_corporais         medidas_corporais[]
+  ranking_semanal           ranking_semanal[]
+  solicitacoes_entrada      solicitacoes_entrada[]
+  solicitacoes_nutricionais solicitacoes_nutricionais[]
+  solicitacoes_treino       solicitacoes_treino[]
+  treinos                   treinos[]
+  usuario_selos             usuario_selos[]
+
+  @@index([owner_id], map: "idx_owner")
+  @@index([status], map: "idx_status")
+}
+
+model conquistas {
+  id               Int       @id @default(autoincrement())
+  usuario_nickname String    @db.VarChar(255)
+  tipo_badge       String    @db.VarChar(50)
+  conquistado_em   DateTime? @default(now()) @db.Timestamp(0)
+
+  @@unique([usuario_nickname, tipo_badge], map: "unique_conquista")
+}
+
+model consent_types {
+  id          Int        @id @default(autoincrement())
+  nome        String     @unique(map: "unique_nome") @db.VarChar(50)
+  descricao   String?    @db.VarChar(255)
+  obrigatorio Boolean?   @default(true)
+  versao      String?    @default("1.0") @db.VarChar(10)
+  ativo       Boolean?   @default(true)
+  created_at  DateTime?  @default(now()) @db.DateTime(0)
+  consents    consents[]
+}
+
+model consents {
+  id                 Int            @id @default(autoincrement())
+  user_id            Int
+  consent_type_id    Int?
+  tipo_consentimento String         @db.VarChar(50)
+  aceito             Boolean?       @default(false)
+  data_aceite        DateTime?      @default(now()) @db.DateTime(0)
+  ip_address         String?        @db.VarChar(45)
+  user_agent         String?        @db.Text
+  consent_types      consent_types? @relation(fields: [consent_type_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_consents_type")
+  users              users          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_consents_user")
+
+  @@index([consent_type_id], map: "fk_consents_type")
+  @@index([user_id], map: "fk_consents_user")
+}
+
+model curtidas {
+  id               Int       @id @default(autoincrement())
+  post_id          Int
+  usuario_nickname String    @db.VarChar(255)
+  created_at       DateTime? @default(now()) @db.Timestamp(0)
+
+  @@unique([post_id, usuario_nickname], map: "unique_like")
+}
+
+model denuncias {
+  id                   Int               @id @default(autoincrement())
+  post_id              Int
+  denunciante_nickname String            @db.VarChar(255)
+  motivo               String            @db.VarChar(255)
+  status               denuncias_status? @default(pendente)
+  criado_em            DateTime?         @default(now()) @db.Timestamp(0)
+  posts                posts             @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "denuncias_ibfk_1")
+
+  @@index([post_id], map: "post_id")
+}
+
+model desafios {
+  id                String               @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  comunidade_id     String               @db.VarChar(36)
+  criado_por        String               @db.VarChar(36)
+  titulo            String               @db.VarChar(200)
+  descricao         String               @db.Text
+  instrucoes        String?              @db.Text
+  tipo_envio        desafios_tipo_envio  @default(check)
+  xp_recompensa     Int                  @default(10)
+  dia_semana        desafios_dia_semana?
+  prazo             DateTime?            @db.DateTime(0)
+  status            desafios_status      @default(ativo)
+  created_at        DateTime             @default(now()) @db.DateTime(0)
+  updated_at        DateTime             @default(now()) @db.DateTime(0)
+  comunidades       comunidades          @relation(fields: [comunidade_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "desafios_ibfk_1")
+  entregas_desafios entregas_desafios[]
+
+  @@index([comunidade_id], map: "idx_comunidade")
+  @@index([status], map: "idx_status")
+}
+
+model document_verifications {
+  id             Int       @id @default(autoincrement())
+  document_id    Int
+  status         String?   @default("pendente") @db.VarChar(30)
+  verificado_por Int?
+  observacao     String?   @db.Text
+  verificado_em  DateTime? @db.DateTime(0)
+  created_at     DateTime? @default(now()) @db.DateTime(0)
+  documents      documents @relation(fields: [document_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_document_verifications_document")
+
+  @@index([document_id], map: "fk_document_verifications_document")
+}
+
+model documents {
+  id                     Int                      @id @default(autoincrement())
+  user_id                Int
+  tipo_documento         String                   @db.VarChar(50)
+  nome_arquivo           String                   @db.VarChar(255)
+  arquivo_url            String                   @db.VarChar(500)
+  mime_type              String?                  @db.VarChar(100)
+  tamanho_bytes          BigInt?
+  status_verificacao     String?                  @default("pendente") @db.VarChar(30)
+  observacao             String?                  @db.Text
+  created_at             DateTime?                @default(now()) @db.DateTime(0)
+  updated_at             DateTime?                @default(now()) @db.DateTime(0)
+  document_verifications document_verifications[]
+  users                  users                    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_documents_user")
+
+  @@index([user_id], map: "fk_documents_user")
+}
+
+model enquetes_votos {
+  id               Int    @id @default(autoincrement())
+  post_id          Int
+  usuario_nickname String @db.VarChar(255)
+  opcao            Int
+  posts            posts  @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "enquetes_votos_ibfk_1")
+
+  @@unique([post_id, usuario_nickname], map: "unique_voto")
+}
+
+model entregas_desafios {
+  id           String                   @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  desafio_id   String                   @db.VarChar(36)
+  user_id      String                   @db.VarChar(36)
+  conteudo     String?                  @db.Text
+  arquivo_url  String?                  @db.VarChar(500)
+  status       entregas_desafios_status @default(pendente)
+  avaliado_por String?                  @db.VarChar(36)
+  comentario   String?                  @db.Text
+  xp_aplicado  Int                      @default(0)
+  tentativa    Int                      @default(1) @db.TinyInt
+  created_at   DateTime                 @default(now()) @db.DateTime(0)
+  updated_at   DateTime                 @default(now()) @db.DateTime(0)
+  desafios     desafios                 @relation(fields: [desafio_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "entregas_desafios_ibfk_1")
+
+  @@index([desafio_id], map: "idx_desafio")
+  @@index([status], map: "idx_status")
+  @@index([user_id], map: "idx_user")
+}
+
+model exercicios_treino {
+  id               String             @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  treino_id        String             @db.VarChar(36)
+  ordem            Int                @default(1) @db.TinyInt
+  nome             String             @db.VarChar(200)
+  series           Int?               @db.TinyInt
+  reps             String?            @db.VarChar(20)
+  descanso         String?            @db.VarChar(20)
+  cadencia         String?            @db.VarChar(20)
+  rpe              Int?               @db.TinyInt
+  video_url        String?            @db.VarChar(500)
+  obs              String?            @db.Text
+  concluido        Boolean            @default(false)
+  carga_kg         Decimal?           @db.Decimal(6, 2)
+  tempo_exec       String?            @db.VarChar(20)
+  created_at       DateTime           @default(now()) @db.DateTime(0)
+  treinos          treinos            @relation(fields: [treino_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "exercicios_treino_ibfk_1")
+  treino_serie_log treino_serie_log[]
+
+  @@index([treino_id], map: "idx_treino")
+}
+
+model influencer_profiles {
+  id                Int       @id @default(autoincrement())
+  user_id           Int       @unique(map: "user_id_unique")
+  nome_criador      String?   @db.VarChar(120)
+  nicho_principal   String?   @db.VarChar(120)
+  plataformas       String?   @db.VarChar(255)
+  seguidores_total  Int?      @default(0)
+  tipo_conteudo     String?   @db.Text
+  mini_bio          String?   @db.Text
+  perfil_verificado Boolean?  @default(false)
+  created_at        DateTime? @default(now()) @db.DateTime(0)
+  updated_at        DateTime? @default(now()) @db.DateTime(0)
+  users             users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_influencer_profiles_user")
+}
+
+model interests {
+  id             Int              @id @default(autoincrement())
+  nome           String           @db.VarChar(100)
+  descricao      String?          @db.VarChar(255)
+  ativo          Boolean?         @default(true)
+  created_at     DateTime?        @default(now()) @db.DateTime(0)
+  user_interests user_interests[]
+}
+
+model intern_profiles {
+  id                Int       @id @default(autoincrement())
+  user_id           Int       @unique(map: "user_id_unique")
+  area_estagio      String?   @db.VarChar(120)
+  faculdade         String?   @db.VarChar(150)
+  periodo_atual     String?   @db.VarChar(50)
+  supervisor_local  String?   @db.VarChar(150)
+  mini_apresentacao String?   @db.Text
+  status_validacao  String?   @default("pendente") @db.VarChar(30)
+  created_at        DateTime? @default(now()) @db.DateTime(0)
+  updated_at        DateTime? @default(now()) @db.DateTime(0)
+  users             users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_intern_profiles_user")
+}
+
+model medidas_corporais {
+  id                String                  @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  user_id           String                  @db.VarChar(36)
+  comunidade_id     String                  @db.VarChar(36)
+  data              DateTime                @default(dbgenerated("(curdate())")) @db.Date
+  peso_kg           Decimal?                @db.Decimal(5, 2)
+  altura_cm         Decimal?                @db.Decimal(5, 1)
+  cintura_cm        Decimal?                @db.Decimal(5, 1)
+  quadril_cm        Decimal?                @db.Decimal(5, 1)
+  biceps_cm         Decimal?                @db.Decimal(5, 1)
+  pescoco_cm        Decimal?                @db.Decimal(5, 1)
+  imc               Decimal?                @db.Decimal(5, 2)
+  rcq               Decimal?                @db.Decimal(5, 3)
+  gordura_est       Decimal?                @db.Decimal(5, 2)
+  classificacao_rcq String?                 @db.VarChar(20)
+  metodo_calculo    String?                 @db.VarChar(10)
+  bf_estimado       Decimal?                @db.Decimal(4, 1)
+  sexo              medidas_corporais_sexo?
+  objetivo          String?                 @db.VarChar(100)
+  obs               String?                 @db.Text
+  created_at        DateTime                @default(now()) @db.DateTime(0)
+  comunidades       comunidades             @relation(fields: [comunidade_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "medidas_corporais_ibfk_1")
+
+  @@index([comunidade_id], map: "idx_comunidade")
+  @@index([user_id], map: "idx_user")
+  @@index([user_id, created_at], map: "idx_user_created")
+  @@index([user_id, created_at], map: "idx_user_data")
+}
+
+model mensagens {
+  id                    Int       @id @default(autoincrement())
+  remetente_nickname    String    @db.VarChar(255)
+  destinatario_nickname String    @db.VarChar(255)
+  conteudo              String    @db.Text
+  lida                  Boolean?  @default(false)
+  created_at            DateTime? @default(now()) @db.Timestamp(0)
+
+  @@index([destinatario_nickname], map: "destinatario_nickname")
+  @@index([remetente_nickname], map: "remetente_nickname")
+}
+
+model notificacoes {
+  id                    Int               @id @default(autoincrement())
+  destinatario_nickname String            @db.VarChar(255)
+  remetente_nickname    String            @db.VarChar(255)
+  tipo                  notificacoes_tipo
+  lida                  Boolean?          @default(false)
+  referencia_id         Int?
+  created_at            DateTime?         @default(now()) @db.Timestamp(0)
+
+  @@index([destinatario_nickname], map: "destinatario_nickname")
+}
+
+model notificacoes_comunidade {
+  id            String   @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  comunidade_id String?  @db.VarChar(36)
+  user_id       String   @db.VarChar(36)
+  tipo          String   @db.VarChar(50)
+  titulo        String   @db.VarChar(200)
+  mensagem      String   @db.Text
+  lida          Boolean  @default(false)
+  payload       String?  @db.LongText
+  created_at    DateTime @default(now()) @db.DateTime(0)
+
+  @@index([comunidade_id], map: "idx_comunidade")
+  @@index([lida], map: "idx_lida")
+  @@index([user_id], map: "idx_user")
+}
+
+model notifications {
+  id           String    @id @db.VarChar(36)
+  user_id      String    @db.VarChar(36)
+  community_id String    @db.VarChar(36)
+  title        String    @db.VarChar(150)
+  message      String    @db.Text
+  type         String?   @db.VarChar(50)
+  is_read      Boolean?  @default(false)
+  created_at   DateTime? @default(now()) @db.Timestamp(0)
+  target_id    String?   @db.VarChar(36)
+  target_tab   String?   @default("feed") @db.VarChar(50)
+
+  @@index([user_id, is_read], map: "idx_notifications_user")
+}
+
+model nutritionist_profiles {
+  id                 Int       @id @default(autoincrement())
+  user_id            Int       @unique(map: "user_id_unique")
+  nome_profissional  String?   @db.VarChar(120)
+  area_atuacao       String?   @db.VarChar(120)
+  crn                String?   @db.VarChar(50)
+  modo_atendimento   String?   @db.VarChar(50)
+  bio_profissional   String?   @db.Text
+  verificado         Boolean?  @default(false)
+  status_verificacao String?   @default("pendente") @db.VarChar(30)
+  created_at         DateTime? @default(now()) @db.DateTime(0)
+  updated_at         DateTime? @default(now()) @db.DateTime(0)
+  users              users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_nutritionist_profiles_user")
+}
+
+model objectives {
+  id              Int               @id @default(autoincrement())
+  nome            String            @db.VarChar(100)
+  descricao       String?           @db.VarChar(255)
+  ativo           Boolean?          @default(true)
+  created_at      DateTime?         @default(now()) @db.DateTime(0)
+  user_objectives user_objectives[]
+}
+
+model password_resets {
+  id         Int       @id @default(autoincrement())
+  email      String    @db.VarChar(255)
+  code_hash  String    @db.VarChar(255)
+  expires_at DateTime  @db.DateTime(0)
+  used       Boolean   @default(false)
+  created_at DateTime? @default(now()) @db.Timestamp(0)
+}
+
+model permissions {
+  id         Int    @id @default(autoincrement())
+  role_id    String @db.VarChar(20)
+  permission String @db.VarChar(60)
+  roles      roles  @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "permissions_ibfk_1")
+
+  @@unique([role_id, permission], map: "uq_role_perm")
+}
+
+model personal_profiles {
+  id                 Int       @id @default(autoincrement())
+  user_id            Int       @unique(map: "user_id_unique")
+  nome_profissional  String?   @db.VarChar(120)
+  area_atuacao       String?   @db.VarChar(120)
+  cref               String?   @db.VarChar(50)
+  modo_atendimento   String?   @db.VarChar(50)
+  bio_profissional   String?   @db.Text
+  verificado         Boolean?  @default(false)
+  status_verificacao String?   @default("pendente") @db.VarChar(30)
+  created_at         DateTime? @default(now()) @db.DateTime(0)
+  updated_at         DateTime? @default(now()) @db.DateTime(0)
+  users              users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_personal_profiles_user")
+}
+
+model posts {
+  id                Int                 @id @default(autoincrement())
+  nickname          String              @db.VarChar(255)
+  content           String?             @db.Text
+  media_url         String?             @db.VarChar(255)
+  media_type        String?             @default("text") @db.VarChar(20)
+  likes             Int?                @default(0)
+  criado_em         DateTime?           @default(now()) @db.Timestamp(0)
+  is_pinned         Boolean?            @default(false)
+  is_closed         Boolean?            @default(false)
+  post_type         posts_post_type?    @default(normal)
+  role              String?             @default("aluno") @db.VarChar(50)
+  enquete_pergunta  String?             @db.VarChar(255)
+  enquete_op1       String?             @db.VarChar(100)
+  enquete_op2       String?             @db.VarChar(100)
+  media_url_before  String?             @db.VarChar(255)
+  location          String?             @db.VarChar(120)
+  is_transformation Boolean?            @default(false)
+  comentarios_count Int?                @default(0)
+  denuncias         denuncias[]
+  enquetes_votos    enquetes_votos[]
+  posts_comentarios posts_comentarios[]
+  posts_salvos      posts_salvos[]
+}
+
+model posts_comentarios {
+  id         Int       @id @default(autoincrement())
+  post_id    Int
+  nickname   String    @db.VarChar(50)
+  conteudo   String    @db.Text
+  created_at DateTime? @default(now()) @db.Timestamp(0)
+  posts      posts     @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "posts_comentarios_ibfk_1")
+
+  @@index([post_id], map: "post_id")
+}
+
+model posts_salvos {
+  id               Int       @id @default(autoincrement())
+  usuario_nickname String    @db.VarChar(255)
+  post_id          Int
+  salvo_em         DateTime? @default(now()) @db.Timestamp(0)
+  posts            posts     @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "posts_salvos_ibfk_1")
+
+  @@unique([usuario_nickname, post_id], map: "unique_save")
+  @@index([post_id], map: "post_id")
+}
+
+model profiles {
+  id                   Int       @id @default(autoincrement())
+  user_id              Int       @unique(map: "user_id_unique")
+  role                 String    @db.VarChar(30)
+  nome_completo        String    @db.VarChar(120)
+  nickname             String?   @unique(map: "nickname_unique") @db.VarChar(30)
+  foto_url             String?   @db.VarChar(255)
+  genero               String?   @db.VarChar(30)
+  cidade_estado        String?   @db.VarChar(120)
+  data_nascimento      DateTime? @db.Date
+  bio                  String?   @db.Text
+  perfil_publico       Boolean?  @default(false)
+  exibir_marketplace   Boolean?  @default(false)
+  onboarding_concluido Boolean?  @default(false)
+  ativo                Boolean?  @default(true)
+  created_at           DateTime? @default(now()) @db.DateTime(0)
+  updated_at           DateTime? @default(now()) @db.DateTime(0)
+  users                users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_profiles_user")
+
+  @@index([role], map: "idx_profiles_role")
+}
+
+model ranking_semanal {
+  id             String      @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  comunidade_id  String      @db.VarChar(36)
+  user_id        String      @db.VarChar(36)
+  semana_inicio  DateTime    @db.Date
+  semana_fim     DateTime    @db.Date
+  xp_total       Int         @default(0)
+  desafios_ok    Int         @default(0)
+  desafios_total Int         @default(0)
+  posicao_final  Int?
+  vencedor       Boolean     @default(false)
+  updated_at     DateTime    @default(now()) @db.DateTime(0)
+  comunidades    comunidades @relation(fields: [comunidade_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "ranking_semanal_ibfk_1")
+
+  @@unique([comunidade_id, user_id, semana_inicio], map: "uq_ranking")
+  @@index([comunidade_id, semana_inicio], map: "idx_comunidade_semana")
+  @@index([xp_total(sort: Desc)], map: "idx_xp")
+}
+
+model refeicoes_cardapio {
+  id          String                         @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  cardapio_id String                         @db.VarChar(36)
+  dia_semana  refeicoes_cardapio_dia_semana?
+  nome        String                         @db.VarChar(100)
+  horario     String?                        @db.VarChar(20)
+  alimentos   String                         @db.LongText
+  calorias    Int?
+  proteina    Int?
+  carbo       Int?
+  gordura     Int?
+  obs         String?                        @db.Text
+  concluida   Boolean                        @default(false)
+  ordem       Int                            @default(1) @db.TinyInt
+  created_at  DateTime                       @default(now()) @db.DateTime(0)
+  cardapios   cardapios                      @relation(fields: [cardapio_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "refeicoes_cardapio_ibfk_1")
+
+  @@index([cardapio_id], map: "idx_cardapio")
+}
+
+model reserved_usernames {
+  id         Int       @id @default(autoincrement())
+  username   String    @unique(map: "unique_username") @db.VarChar(50)
+  motivo     String?   @db.VarChar(255)
+  created_at DateTime? @default(now()) @db.DateTime(0)
+}
+
+model roles {
+  id          String        @id @db.VarChar(20)
+  label       String        @db.VarChar(50)
+  emoji       String        @db.VarChar(10)
+  description String?       @db.Text
+  created_at  DateTime?     @default(now()) @db.Timestamp(0)
+  permissions permissions[]
+}
+
+model seguidores {
+  id                                              Int                @id @default(autoincrement())
+  seguidor_nickname                               String             @db.VarChar(50)
+  seguido_nickname                                String             @db.VarChar(50)
+  criado_em                                       DateTime?          @default(now()) @db.Timestamp(0)
+  status                                          seguidores_status? @default(aceito)
+  usuarios_seguidores_seguidor_nicknameTousuarios usuarios           @relation("seguidores_seguidor_nicknameTousuarios", fields: [seguidor_nickname], references: [nickname], onDelete: Cascade, onUpdate: Restrict, map: "seguidores_ibfk_1")
+  usuarios_seguidores_seguido_nicknameTousuarios  usuarios           @relation("seguidores_seguido_nicknameTousuarios", fields: [seguido_nickname], references: [nickname], onDelete: Cascade, onUpdate: Restrict, map: "seguidores_ibfk_2")
+
+  @@unique([seguidor_nickname, seguido_nickname], map: "unique_follow")
+  @@index([seguido_nickname], map: "seguido_nickname")
+}
+
+model selos {
+  id            String          @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  slug          String          @unique(map: "slug") @db.VarChar(50)
+  nome          String          @db.VarChar(100)
+  descricao     String?         @db.Text
+  icone         String?         @db.VarChar(10)
+  cor           String          @default("sky") @db.VarChar(20)
+  tipo          selos_tipo      @default(automatico)
+  criterio      String?         @db.LongText
+  usuario_selos usuario_selos[]
+}
+
+model session_exercises {
+  id               String           @id @db.VarChar(36)
+  session_id       String           @db.VarChar(36)
+  exercise_id      String           @db.VarChar(36)
+  is_completed     Boolean?         @default(false)
+  completed_at     DateTime?        @db.Timestamp(0)
+  workout_sessions workout_sessions @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_session_ex")
+
+  @@index([session_id], map: "fk_session_ex")
+}
+
+model signup_attempts {
+  id         Int       @id @default(autoincrement())
+  email      String?   @db.VarChar(255)
+  nickname   String?   @db.VarChar(50)
+  success    Boolean?  @default(false)
+  motivo     String?   @db.VarChar(255)
+  ip_address String?   @db.VarChar(45)
+  user_agent String?   @db.Text
+  created_at DateTime? @default(now()) @db.DateTime(0)
+}
+
+model solicitacoes_entrada {
+  id            String                      @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  comunidade_id String                      @db.VarChar(36)
+  user_id       String                      @db.VarChar(36)
+  mensagem      String?                     @db.Text
+  status        solicitacoes_entrada_status @default(pendente)
+  analisado_por String?                     @db.VarChar(36)
+  motivo_recusa String?                     @db.Text
+  created_at    DateTime                    @default(now()) @db.DateTime(0)
+  updated_at    DateTime                    @default(now()) @db.DateTime(0)
+  comunidades   comunidades                 @relation(fields: [comunidade_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "solicitacoes_entrada_ibfk_1")
+
+  @@index([comunidade_id], map: "idx_comunidade")
+  @@index([status], map: "idx_status")
+  @@index([user_id], map: "idx_user")
+}
+
+model solicitacoes_nutricionais {
+  id              String                           @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  comunidade_id   String                           @db.VarChar(36)
+  user_id         String                           @db.VarChar(36)
+  aluno_nome      String?                          @db.VarChar(200)
+  foco            String                           @db.VarChar(200)
+  objetivo        String?                          @db.Text
+  restricoes      String?                          @db.LongText
+  medida_dados    String?                          @db.LongText
+  medida_id       String?                          @db.VarChar(36)
+  obs             String?                          @db.Text
+  status          solicitacoes_nutricionais_status @default(pendente)
+  cardapio_gerado String?                          @db.VarChar(36)
+  respondido_por  String?                          @db.VarChar(36)
+  respondido_em   DateTime?                        @db.DateTime(0)
+  created_at      DateTime                         @default(now()) @db.DateTime(0)
+  updated_at      DateTime                         @default(now()) @db.DateTime(0)
+  comunidades     comunidades                      @relation(fields: [comunidade_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "solicitacoes_nutricionais_ibfk_1")
+
+  @@index([comunidade_id], map: "idx_comunidade")
+  @@index([status], map: "idx_status")
+  @@index([user_id], map: "idx_user")
+}
+
+model solicitacoes_treino {
+  id             String                     @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  comunidade_id  String                     @db.VarChar(36)
+  user_id        String                     @db.VarChar(36)
+  aluno_nome     String?                    @db.VarChar(200)
+  foco           String                     @db.VarChar(200)
+  objetivo       String?                    @db.Text
+  restricoes     String?                    @db.LongText
+  nivel          String?                    @db.VarChar(50)
+  dias_semana    String?                    @db.LongText
+  obs            String?                    @db.Text
+  status         solicitacoes_treino_status @default(pendente)
+  treino_gerado  String?                    @db.VarChar(36)
+  respondido_por String?                    @db.VarChar(36)
+  respondido_em  DateTime?                  @db.DateTime(0)
+  created_at     DateTime                   @default(now()) @db.DateTime(0)
+  updated_at     DateTime                   @default(now()) @db.DateTime(0)
+  comunidades    comunidades                @relation(fields: [comunidade_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "solicitacoes_treino_ibfk_1")
+
+  @@index([comunidade_id], map: "idx_comunidade")
+  @@index([status], map: "idx_status")
+  @@index([user_id], map: "idx_user")
+}
+
+model stories {
+  id         Int                @id @default(autoincrement())
+  username   String             @db.VarChar(255)
+  media_url  String             @db.LongText
+  media_type stories_media_type
+  role       String?            @default("aluno") @db.VarChar(50)
+  created_at DateTime?          @default(now()) @db.Timestamp(0)
+}
+
+model student_profiles {
+  id                 Int       @id @default(autoincrement())
+  user_id            Int       @unique(map: "user_id_unique")
+  objetivo_principal String?   @db.VarChar(120)
+  nivel_experiencia  String?   @db.VarChar(50)
+  peso_kg            Decimal?  @db.Decimal(5, 2)
+  altura_cm          Decimal?  @db.Decimal(5, 2)
+  restricoes_lesoes  String?   @db.Text
+  created_at         DateTime? @default(now()) @db.DateTime(0)
+  updated_at         DateTime? @default(now()) @db.DateTime(0)
+  users              users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_student_profiles_user")
+}
+
+model treino_execucoes {
+  id                    String             @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  treino_id             String             @db.VarChar(36)
+  user_id               String             @db.VarChar(36)
+  concluido             Boolean            @default(false)
+  iniciado_em           DateTime?          @db.DateTime(0)
+  concluido_em          DateTime?          @db.DateTime(0)
+  xp_ganho              Int                @default(0)
+  exercicios_concluidos Int                @default(0)
+  total_exercicios      Int                @default(0)
+  feedback_nota         Int?               @db.TinyInt
+  feedback_obs          String?            @db.Text
+  created_at            DateTime           @default(now()) @db.DateTime(0)
+  treinos               treinos            @relation(fields: [treino_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "treino_execucoes_ibfk_1")
+  treino_serie_log      treino_serie_log[]
+
+  @@index([treino_id], map: "idx_treino")
+  @@index([user_id], map: "idx_user")
+}
+
+model treino_serie_log {
+  id                String            @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  execucao_id       String            @db.VarChar(36)
+  exercicio_id      String            @db.VarChar(36)
+  serie_numero      Int               @default(1) @db.TinyInt
+  reps_feitas       Int?              @db.TinyInt
+  carga_kg          Decimal?          @db.Decimal(6, 2)
+  concluida         Boolean           @default(false)
+  created_at        DateTime          @default(now()) @db.DateTime(0)
+  treino_execucoes  treino_execucoes  @relation(fields: [execucao_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "tslog_execucao_fk")
+  exercicios_treino exercicios_treino @relation(fields: [exercicio_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "tslog_exercicio_fk")
+
+  @@index([execucao_id], map: "idx_execucao")
+  @@index([exercicio_id], map: "idx_exercicio")
+}
+
+model treinos {
+  id                String              @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  comunidade_id     String              @db.VarChar(36)
+  criado_por        String              @db.VarChar(36)
+  titulo            String              @db.VarChar(200)
+  descricao         String?             @db.Text
+  dia_semana        treinos_dia_semana?
+  foco              String?             @db.VarChar(100)
+  status            treinos_status      @default(draft)
+  alvo              treinos_alvo        @default(todos)
+  alvo_user_id      String?             @db.VarChar(36)
+  aluno_id          String?             @db.VarChar(36)
+  aluno_nome        String?             @db.VarChar(200)
+  solicitacao_id    String?             @db.VarChar(36)
+  semana_ref        String?             @db.VarChar(10)
+  obs               String?             @db.Text
+  gerado_por_ia     Boolean             @default(false)
+  ia_revisado       Boolean             @default(false)
+  created_at        DateTime            @default(now()) @db.DateTime(0)
+  updated_at        DateTime            @default(now()) @db.DateTime(0)
+  exercicios_treino exercicios_treino[]
+  treino_execucoes  treino_execucoes[]
+  comunidades       comunidades         @relation(fields: [comunidade_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "treinos_ibfk_1")
+
+  @@index([aluno_id], map: "idx_aluno_id")
+  @@index([alvo_user_id], map: "idx_alvo_user")
+  @@index([comunidade_id], map: "idx_comunidade")
+  @@index([status], map: "idx_status")
+}
+
+model user_interests {
+  id          Int       @id @default(autoincrement())
+  user_id     Int
+  interest_id Int
+  created_at  DateTime? @default(now()) @db.DateTime(0)
+  interests   interests @relation(fields: [interest_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_user_interests_interest")
+  users       users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_user_interests_user")
+
+  @@unique([user_id, interest_id], map: "unique_user_interest")
+  @@index([interest_id], map: "fk_user_interests_interest")
+}
+
+model user_objectives {
+  id           Int        @id @default(autoincrement())
+  user_id      Int
+  objective_id Int
+  created_at   DateTime?  @default(now()) @db.DateTime(0)
+  objectives   objectives @relation(fields: [objective_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_user_objectives_objective")
+  users        users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_user_objectives_user")
+
+  @@unique([user_id, objective_id], map: "unique_user_objective")
+  @@index([objective_id], map: "fk_user_objectives_objective")
+}
+
+model users {
+  id                    Int                    @id @default(autoincrement())
+  email                 String                 @unique(map: "email_unique") @db.VarChar(255)
+  password_hash         String                 @db.VarChar(255)
+  email_verified        Boolean?               @default(false)
+  account_status        String?                @default("pending") @db.VarChar(20)
+  failed_login_attempts Int?                   @default(0)
+  locked_until          DateTime?              @db.DateTime(0)
+  last_login_at         DateTime?              @db.DateTime(0)
+  accepted_terms_at     DateTime?              @db.DateTime(0)
+  accepted_privacy_at   DateTime?              @db.DateTime(0)
+  created_at            DateTime?              @default(now()) @db.DateTime(0)
+  updated_at            DateTime?              @default(now()) @db.DateTime(0)
+  consents              consents[]
+  documents             documents[]
+  influencer_profiles   influencer_profiles?
+  intern_profiles       intern_profiles?
+  nutritionist_profiles nutritionist_profiles?
+  personal_profiles     personal_profiles?
+  profiles              profiles?
+  student_profiles      student_profiles?
+  user_interests        user_interests[]
+  user_objectives       user_objectives[]
+
+  @@index([account_status], map: "idx_users_account_status")
+  @@index([email_verified], map: "idx_users_email_verified")
+}
+
+model usuario_selos {
+  id            String      @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  user_id       String      @db.VarChar(36)
+  comunidade_id String      @db.VarChar(36)
+  selo_id       String      @db.VarChar(36)
+  semana_ref    DateTime?   @db.Date
+  concedido_em  DateTime    @default(now()) @db.DateTime(0)
+  selos         selos       @relation(fields: [selo_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "usuario_selos_ibfk_1")
+  comunidades   comunidades @relation(fields: [comunidade_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "usuario_selos_ibfk_2")
+
+  @@index([comunidade_id], map: "idx_comunidade")
+  @@index([user_id], map: "idx_user")
+  @@index([selo_id], map: "selo_id")
+}
+
+model usuarios {
+  id                                                Int            @id @default(autoincrement())
+  nickname                                          String         @unique(map: "nickname") @db.VarChar(50)
+  bio                                               String?        @db.VarChar(255)
+  descricao                                         String?        @db.Text
+  foto_url                                          String?        @db.Text
+  data_criacao                                      DateTime?      @default(now()) @db.Timestamp(0)
+  role                                              usuarios_role? @default(aluno)
+  is_verified                                       Boolean?       @default(false)
+  external_link                                     String?        @db.VarChar(255)
+  current_streak                                    Int?           @default(0)
+  last_post_date                                    DateTime?      @db.Date
+  longest_streak                                    Int?           @default(0)
+  xp                                                Int?           @default(0)
+  nivel                                             Int?           @default(1)
+  is_private                                        Boolean?       @default(false)
+  streak                                            Int?           @default(0)
+  ultima_atividade                                  DateTime?      @db.Date
+  seguidores_seguidores_seguidor_nicknameTousuarios seguidores[]   @relation("seguidores_seguidor_nicknameTousuarios")
+  seguidores_seguidores_seguido_nicknameTousuarios  seguidores[]   @relation("seguidores_seguido_nicknameTousuarios")
+
+  @@index([nickname], map: "nickname_2")
+}
+
+model weekly_progress {
+  id                    String   @id @db.VarChar(36)
+  user_id               String   @db.VarChar(36)
+  community_id          String   @db.VarChar(36)
+  week_start_date       DateTime @db.Date
+  workouts_completed    Int?     @default(0)
+  total_workouts        Int?     @default(5)
+  completion_percentage Decimal? @default(0.00) @db.Decimal(5, 2)
+
+  @@unique([user_id, week_start_date], map: "user_week_unique")
+  @@index([user_id, community_id, week_start_date], map: "idx_weekly_progress")
+}
+
+model workout_exercises {
+  id          String   @id @db.VarChar(36)
+  workout_id  String   @db.VarChar(36)
+  name        String   @db.VarChar(255)
+  sets        Int
+  reps        String   @db.VarChar(50)
+  rest_time   String?  @db.VarChar(50)
+  notes       String?  @db.Text
+  media_url   String?  @db.Text
+  order_index Int
+  workouts    workouts @relation(fields: [workout_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_exercise_workout")
+
+  @@index([workout_id], map: "fk_exercise_workout")
+}
+
+model workout_requests {
+  id            String    @id @db.VarChar(36)
+  community_id  String    @db.VarChar(36)
+  user_id       String    @db.VarChar(36)
+  focus         String    @db.VarChar(100)
+  notes         String?   @db.Text
+  ai_draft_json String?   @db.LongText
+  status        String?   @default("pending") @db.VarChar(20)
+  handled_by    String?   @db.VarChar(36)
+  created_at    DateTime? @default(now()) @db.Timestamp(0)
+}
+
+model workout_sessions {
+  id                String              @id @db.VarChar(36)
+  workout_id        String              @db.VarChar(36)
+  user_id           String              @db.VarChar(36)
+  status            String?             @default("in_progress") @db.VarChar(20)
+  started_at        DateTime?           @default(now()) @db.Timestamp(0)
+  completed_at      DateTime?           @db.Timestamp(0)
+  feedback_rating   Int?
+  feedback_notes    String?             @db.Text
+  session_exercises session_exercises[]
+  workouts          workouts            @relation(fields: [workout_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_session_workout")
+
+  @@index([workout_id], map: "fk_session_workout")
+  @@index([user_id, status], map: "idx_sessions_user")
+}
+
+model workouts {
+  id                  String              @id @db.VarChar(36)
+  community_id        String              @db.VarChar(36)
+  assigned_to_user_id String?             @db.VarChar(36)
+  target_group        String?             @db.VarChar(50)
+  title               String              @db.VarChar(255)
+  focus               String              @db.VarChar(100)
+  description         String?             @db.Text
+  day_of_week         String?             @db.VarChar(15)
+  estimated_minutes   Int?
+  created_by          String              @db.VarChar(36)
+  status              String?             @default("published") @db.VarChar(20)
+  created_at          DateTime?           @default(now()) @db.Timestamp(0)
+  plan_id             String?             @db.VarChar(36)
+  order_in_week       Int?                @default(0)
+  sessao_numero       Int?                @default(1)
+  request_id          String?             @db.VarChar(36)
+  workout_exercises   workout_exercises[]
+  workout_sessions    workout_sessions[]
+  communities         communities         @relation(fields: [community_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_workout_community")
+
+  @@index([assigned_to_user_id, community_id], map: "idx_workout_assignment")
+  @@index([community_id, day_of_week], map: "idx_workouts_community")
+}
+
+enum refeicoes_cardapio_dia_semana {
+  Segunda
+  Ter_a   @map("Terça")
+  Quarta
+  Quinta
+  Sexta
+  S_bado  @map("Sábado")
+  Domingo
+}
+
+enum notificacoes_tipo {
+  follow
+  like
+  comment
+  message
+  xp_award
+}
+
+enum ativora_members_role {
+  DONO
+  ADM
+  PERSONAL
+  NUTRI
+  INSTRUTOR
+  ALUNO
+}
+
+enum comunidade_membros_status {
+  pendente
+  aprovado
+  recusado
+  removido
+  banido
+}
+
+enum stories_media_type {
+  image
+  video
+}
+
+enum denuncias_status {
+  pendente
+  revisado
+  arquivado
+}
+
+enum seguidores_status {
+  pendente
+  aceito
+}
+
+enum solicitacoes_entrada_status {
+  pendente
+  aprovado
+  recusado
+}
+
+enum ativora_communities_privacy {
+  public
+  private
+}
+
+enum entregas_desafios_status {
+  pendente
+  em_analise
+  aprovado
+  reprovado
+  reenvio
+}
+
+enum ativora_announcements_importance {
+  normal
+  high
+  critical
+}
+
+enum treinos_dia_semana {
+  Segunda
+  Ter_a   @map("Terça")
+  Quarta
+  Quinta
+  Sexta
+  S_bado  @map("Sábado")
+  Domingo
+  Livre
+}
+
+enum selos_tipo {
+  automatico
+  manual
+}
+
+enum comunidades_privacidade {
+  public
+  private
+}
+
+enum usuarios_role {
+  aluno
+  personal
+  nutri
+  estagiario
+  influencer
+}
+
+enum desafios_tipo_envio {
+  foto
+  video
+  texto
+  link
+  arquivo
+  check
+}
+
+enum comunidades_status {
+  ativa
+  pausada
+  encerrada
+}
+
+enum treinos_status {
+  draft
+  published
+  arquivado
+}
+
+enum desafios_dia_semana {
+  Segunda
+  Ter_a   @map("Terça")
+  Quarta
+  Quinta
+  Sexta
+  S_bado  @map("Sábado")
+  Domingo
+  Livre
+}
+
+enum treinos_alvo {
+  todos
+  individual
+}
+
+enum posts_post_type {
+  normal
+  tecnico
+  anuncio
+}
+
+enum solicitacoes_treino_status {
+  pendente
+  em_andamento
+  concluida
+  rejeitada
+}
+
+enum solicitacoes_nutricionais_status {
+  pendente
+  em_andamento
+  concluida
+  rejeitada
+}
+
+enum cardapios_status {
+  draft
+  published
+  arquivado
+}
+
+enum desafios_status {
+  ativo
+  encerrado
+  rascunho
+}
+
+enum cardapios_alvo {
+  todos
+  individual
+}
+
+enum medidas_corporais_sexo {
+  masculino
+  feminino
+  outro
+}
+
+enum ativora_users_role {
+  aluno
+  personal
+  instrutor
+  nutri
+  influencer
+  adm
+}

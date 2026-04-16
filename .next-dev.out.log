@@ -1,0 +1,112 @@
+
+> ativora-fit@0.1.0 dev
+> next dev --hostname 127.0.0.1 --port 3000
+
+  ▲ Next.js 14.2.3
+  - Local:        http://127.0.0.1:3000
+  - Network:      http://127.0.0.1:3000
+  - Environments: .env.local, .env
+
+ ✓ Starting...
+ ✓ Ready in 2s
+ ○ Compiling /api/social/search ...
+ ✓ Compiled /api/social/search in 1224ms (368 modules)
+ GET /api/social/search?q=an&type=users 200 in 1558ms
+ GET /api/social/stories?nickname=visitante 200 in 1691ms
+ GET /api/posts/listar?currentUser=visitante 200 in 1698ms
+ ○ Compiling /api/auth/[...nextauth] ...
+ ✓ Compiled /api/auth/[...nextauth] in 738ms (426 modules)
+ GET /api/auth/signin?callbackUrl=%2Fdashboard 302 in 1197ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 4.5s (1722 modules)
+ GET /login?callbackUrl=http%3A%2F%2Flocalhost%3A3000%2Fdashboard 200 in 4727ms
+ ✓ Compiled in 352ms (652 modules)
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 1841ms (1744 modules)
+ GET /dashboard 200 in 2057ms
+ ✓ Compiled /favicon.ico in 161ms (1122 modules)
+ ✓ Compiled (1150 modules)
+ GET /favicon.ico 200 in 719ms
+ GET /api/auth/session 200 in 729ms
+ GET /api/auth/session 200 in 18ms
+ ✓ Compiled /api/treinos/dashboard in 233ms (1180 modules)
+ GET /api/treinos/dashboard?userId=user_1775871083270 500 in 415ms
+ GET /api/treinos/dashboard?userId=000 500 in 782ms
+ GET /api/treinos/dashboard?userId=000 500 in 12ms
+ ✓ Compiled /api/posts/listar_salvos in 297ms (1311 modules)
+ ✓ Compiled (1322 modules)
+ GET /api/social/suggestions?currentUser=Guest 200 in 887ms
+ GET /api/posts/listar_salvos?nickname=Guest 200 in 1018ms
+ GET /api/social/following?nickname=Guest 200 in 1020ms
+ GET /api/social/stories?nickname=Guest 200 in 1064ms
+ GET /api/social/trending 200 in 1069ms
+ GET /api/posts/listar?currentUser=Guest 200 in 1075ms
+ GET /api/posts/listar_salvos?nickname=Guest 200 in 91ms
+ GET /api/posts/listar?currentUser=Guest 200 in 258ms
+ GET /api/social/suggestions?currentUser=Guest 200 in 74ms
+ GET /api/social/trending 200 in 121ms
+ ✓ Compiled /api/perfil in 188ms (1324 modules)
+ GET /api/social/stories?nickname=Guest 200 in 390ms
+ GET /api/social/following?nickname=Guest 200 in 402ms
+ GET /api/perfil 200 in 542ms
+ GET /api/posts/listar_salvos?nickname=teteuziin55 200 in 83ms
+ GET /api/social/suggestions?currentUser=teteuziin55 200 in 85ms
+ GET /api/social/trending 200 in 89ms
+ GET /api/posts/listar?currentUser=teteuziin55 200 in 120ms
+ GET /api/social/stories?nickname=teteuziin55 200 in 120ms
+ GET /api/social/following?nickname=teteuziin55 200 in 57ms
+ GET /api/perfil 200 in 332ms
+ GET /api/posts/listar?nickname=cbum 200 in 199ms
+ ✓ Compiled /_not-found in 480ms (2189 modules)
+ GET /api/perfil/buscar?username=cbum 404 in 710ms
+ GET /api/posts/listar?nickname=cbum 200 in 563ms
+ GET /api/perfil/buscar?username=cbum 404 in 31ms
+ GET /api/social/conquistas?username=cbum 200 in 803ms
+ GET /api/social/conquistas?username=cbum 200 in 89ms
+ GET /api/posts/listar?currentUser=teteuziin55 200 in 72ms
+ GET /api/posts/listar_salvos?nickname=teteuziin55 200 in 82ms
+ GET /api/social/trending 200 in 130ms
+ GET /api/social/following?nickname=teteuziin55 200 in 74ms
+ GET /api/social/stories?nickname=teteuziin55 200 in 165ms
+ GET /api/social/suggestions?currentUser=teteuziin55 200 in 166ms
+ GET /api/posts/listar?currentUser=teteuziin55 200 in 84ms
+ GET /api/posts/listar_salvos?nickname=teteuziin55 200 in 47ms
+ GET /api/social/stories?nickname=teteuziin55 200 in 48ms
+ GET /api/social/suggestions?currentUser=teteuziin55 200 in 71ms
+ GET /api/social/trending 200 in 99ms
+ GET /api/social/following?nickname=teteuziin55 200 in 105ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 45ms
+ GET /api/posts/listar?nickname=teteuziin55 200 in 305ms
+ GET /api/posts/listar?nickname=teteuziin55 200 in 65ms
+ GET /api/perfil/buscar?username=teteuziin55 404 in 50ms
+ GET /api/perfil/buscar?username=teteuziin55 404 in 51ms
+ GET /api/social/conquistas?username=teteuziin55 200 in 251ms
+ GET /api/social/conquistas?username=teteuziin55 200 in 70ms
+ ✓ Compiled /api/social/solicitacoes in 200ms (1329 modules)
+ GET /api/social/solicitacoes?username=teteuziin55 500 in 340ms
+ GET /api/social/solicitacoes?username=teteuziin55 500 in 69ms
+ GET /api/posts/listar?currentUser=teteuziin55 200 in 145ms
+ GET /api/posts/listar_salvos?nickname=teteuziin55 200 in 146ms
+ GET /api/posts/listar?currentUser=teteuziin55 200 in 75ms
+ GET /api/social/following?nickname=teteuziin55 200 in 144ms
+ GET /api/social/suggestions?currentUser=teteuziin55 200 in 359ms
+ GET /api/social/stories?nickname=teteuziin55 200 in 368ms
+ GET /api/social/trending 200 in 368ms
+ GET /api/social/stories?nickname=teteuziin55 200 in 100ms
+ GET /api/social/following?nickname=teteuziin55 200 in 65ms
+ GET /api/social/suggestions?currentUser=teteuziin55 200 in 74ms
+ GET /api/posts/listar_salvos?nickname=teteuziin55 200 in 271ms
+ GET /api/social/trending 200 in 413ms
+ ✓ Compiled in 466ms (874 modules)
+ ✓ Compiled in 507ms (1758 modules)
+ ✓ Compiled /api/auth/[...nextauth] in 172ms (1122 modules)
+ GET /api/auth/session 200 in 321ms
+ ✓ Compiled /api/treinos/dashboard in 416ms (1153 modules)
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 1956ms (2236 modules)
+ GET /api/treinos/dashboard?userId=user_1775871083270 500 in 2734ms
+ GET /api/treinos/dashboard?userId=user_1775871083270 500 in 36ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 584ms (2239 modules)
+ GET /_next/static/css/app/layout.css?v=1776204588527 404 in 703ms
+[?25h

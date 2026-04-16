@@ -77,6 +77,7 @@ export function AlunoNutricao({ currentUser, communityId, hook }: Props) {
   const [aba,           setAba]           = useState<Aba>("medidas");
   const [showForm,      setShowForm]      = useState(false);
   const [medidasAoVivo, setMedidasAoVivo] = useState<any>(null);
+  const cardapioPdfUrl = `/api/communities/${communityId}/offline-pdf?type=cardapio&userId=${encodeURIComponent(currentUser?.id ?? "")}`;
 
   useEffect(() => { sincronizar(); }, [sincronizar]);
 
@@ -142,7 +143,7 @@ export function AlunoNutricao({ currentUser, communityId, hook }: Props) {
         border border-white/5 p-5 sm:p-6">
         <div className="absolute -top-8 -right-8 w-36 h-36
           bg-emerald-500/8 blur-[50px] rounded-full pointer-events-none" />
-        <div className="relative z-10 flex items-start justify-between gap-3">
+        <div className="relative z-10 flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
             <p className="text-[8px] font-black uppercase tracking-widest
               text-white/20 flex items-center gap-2">
@@ -169,7 +170,7 @@ export function AlunoNutricao({ currentUser, communityId, hook }: Props) {
           {!minhaSolicitacao && !meuCardapio && (
             <button
               onClick={() => { setShowForm(true); setAba("solicitar"); }}
-              className="shrink-0 flex items-center gap-2 px-4 py-2.5
+              className="shrink-0 flex w-full items-center justify-center gap-2 px-4 py-2.5 sm:w-auto
                 bg-emerald-500 text-black rounded-xl text-[9px] font-black
                 uppercase tracking-widest hover:bg-emerald-400
                 active:scale-95 transition-all"
@@ -194,7 +195,7 @@ export function AlunoNutricao({ currentUser, communityId, hook }: Props) {
               return (
                 <div className={`rounded-[20px] border p-5 space-y-4
                   ${sv.bg} ${sv.border}`}>
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex items-center gap-3">
                       <sv.icon
                         size={18}
@@ -290,12 +291,12 @@ export function AlunoNutricao({ currentUser, communityId, hook }: Props) {
 
       {/* ── Abas — sempre visíveis (>= 1 item) ──────────────────── */}
       {abas.length >= 1 && (
-        <div className="flex gap-2 flex-wrap">
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
           {abas.map(tab => (
             <button
               key={tab.id}
               onClick={() => setAba(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl
+              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
                 text-[9px] font-black uppercase tracking-widest transition-all
                 ${aba === tab.id
                   ? "bg-white/10 text-white border border-white/10"
@@ -322,6 +323,7 @@ export function AlunoNutricao({ currentUser, communityId, hook }: Props) {
             <CardapioViewer
               cardapio={meuCardapio}
               onToggleConcluida={handleToggle}
+              pdfUrl={cardapioPdfUrl}
             />
           </motion.div>
         )}
@@ -413,7 +415,7 @@ export function AlunoNutricao({ currentUser, communityId, hook }: Props) {
                   Minhas <span className="text-emerald-500">Medidas</span>
                 </h3>
                 <p className="text-[10px] text-white/25">
-                  Registre suas medidas para acompanhar sua evolução.
+                  Informe peso, altura e cintura para calcular a estimativa RFM e apoiar seu cardápio.
                 </p>
               </div>
 
@@ -458,7 +460,7 @@ export function AlunoNutricao({ currentUser, communityId, hook }: Props) {
               {[
                 { l: "Peso",    v: `${ultimaMedida.peso}kg` },
                 { l: "IMC",     v: ultimaMedida.imc?.toFixed(1) ?? "—" },
-                { l: "Gordura", v: ultimaMedida.gorduraEst
+                { l: "RFM", v: ultimaMedida.gorduraEst
                     ? `~${ultimaMedida.gorduraEst.toFixed(1)}%` : "—" },
               ].map(item => (
                 <div key={item.l} className="flex items-center gap-1">

@@ -1,43 +1,38 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { WelcomeSlide } from "../components/dashboard/WelcomeSlide";
-import { FitaoOnboarding } from "../components/dashboard/FitaoOnboarding";
-
-// IMPORTAÇÃO PADRÃO (SEM CHAVES)
-import MainDashboard from "../components/dashboard/MainDashboard"; 
+import MainDashboard from "../components/dashboard/MainDashboard";
 
 export default function DashboardPage() {
-  const [stage, setStage] = useState<'welcome' | 'onboarding' | 'main'>('welcome');
+  const { data: session, status } = useSession();
+  const [stage, setStage] = useState<"welcome" | "main">("welcome");
+
+  const user = session?.user as
+    | (NonNullable<typeof session>["user"] & {
+        nickname?: string | null;
+        role?: string | null;
+      })
+    | undefined;
+
+  const displayName = user?.name || user?.nickname || "";
+  const userRole = user?.role || "";
 
   useEffect(() => {
-    const hasSeenOnboarding = localStorage.getItem('@ativora_onboarding_done');
-    
-    const timer = setTimeout(() => {
-      if (hasSeenOnboarding) {
-        setStage('main');
-      } else {
-        setStage('onboarding');
-      }
-    }, 3500);
+    if (status === "loading") return;
 
-    return () => clearTimeout(timer);
-  }, []);
+    const timer = window.setTimeout(() => {
+      setStage("main");
+    }, 2200);
 
-  const handleOnboardingComplete = () => {
-    localStorage.setItem('@ativora_onboarding_done', 'true');
-    setStage('main');
-  };
+    return () => window.clearTimeout(timer);
+  }, [status]);
 
   return (
     <div className="min-h-screen bg-[#010307]">
-      {stage === 'welcome' && <WelcomeSlide />}
-      
-      {stage === 'onboarding' && (
-        <FitaoOnboarding onComplete={handleOnboardingComplete} />
-      )}
-      
-      {stage === 'main' && <MainDashboard />}
+      {stage === "welcome" && <WelcomeSlide userName={displayName} role={userRole} />}
+      {stage === "main" && <MainDashboard />}
     </div>
   );
 }

@@ -1,22 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList, UtensilsCrossed, Users,
   Sparkles, Plus, Loader2, RefreshCw,
   AlertTriangle, ChevronRight, Search,
   BookOpen, Archive, Ruler,
-  UserSearch, ChevronDown, Lock,
+  UserSearch, ChevronDown, Lock, X,
+  UploadCloud,
 } from "lucide-react";
 import type { SolicitacaoCardapio, Cardapio, MedidasCorporais } from "../types";
-import { FOCOS_NUTRICAO } from "../constants";
-import { novoCardapio } from "../utils";
+import { DIAS_SEMANA, FOCOS_NUTRICAO } from "../constants";
+import { novoCardapio, uid, now } from "../utils";
 import { SolicitacaoCard    } from "./SolicitacaoCard";
 import { CardapioEditor     } from "./CardapioEditor";
 import { CardapioViewer     } from "./CardapioViewer";
 import { FormDadosCorporais } from "./FormDadosCorporais";
 import { EstimativaCorpo    } from "./EstimativaCorpo";
+import { FoodManualView     } from "./FoodManualView";
 import type { useNutricao } from "../hooks/useNutricao";
 
 interface Props {
@@ -26,7 +28,7 @@ interface Props {
   userTags:       string[];
 }
 
-type Aba = "solicitacoes" | "cardapios" | "editor" | "avaliacoes";
+type Aba = "solicitacoes" | "cardapios" | "editor" | "avaliacoes" | "manual";
 
 export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props) {
   const {
@@ -49,11 +51,18 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
 
   // true para DONO, ADMIN, PERSONAL, NUTRI — podem ver/editar/gerar IA
   const podeGerenciar = userTags.some(t =>
-  [
-    "owner",  "admin",        "nutritionist", "trainer",
-    "dono",   "adm",          "nutri",        "instrutor",
-  ].includes(t)
-);
+    [
+      "owner",  "admin",        "nutritionist", "trainer",
+      "dono",   "adm",          "nutri",        "instrutor",
+      "personal", "nutricionista",
+    ].includes(t)
+  );
+  const podeUsarManual = userTags.some(t =>
+    [
+      "owner", "admin", "nutritionist",
+      "dono", "adm", "nutri", "nutricionista",
+    ].includes(t)
+  ) || ["nutricionista", "nutri", "nutritionist"].includes(String(currentUser?.role ?? "").toLowerCase());
 
 
   const [aba,               setAba]               = useState<Aba>("solicitacoes");
@@ -66,6 +75,9 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
   const [buscaMembro,       setBuscaMembro]        = useState("");
   const [medidasAoVivo,     setMedidasAoVivo]      = useState<MedidasCorporais | null>(null);
   const [dropdownAberto,    setDropdownAberto]     = useState(false);
+  const [importandoDoc,     setImportandoDoc]       = useState(false);
+  const [erroImportacao,    setErroImportacao]      = useState<string | null>(null);
+  const importInputRef                              = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => { sincronizar(); }, [sincronizar]);
 
@@ -93,6 +105,109 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
     setCardapioEdit(c);
     setSolAtiva(null);
     setAba("editor");
+  };
+
+  const normalizarTexto = (value: unknown) =>
+    String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
+  const resolverFoco = (value: unknown) => {
+    const texto = normalizarTexto(value);
+    const match = FOCOS_NUTRICAO.find((foco) =>
+      texto.includes(normalizarTexto(foco.id)) || texto.includes(normalizarTexto(foco.label))
+    );
+    return match?.id ?? "manutencao";
+  };
+
+  const resolverDia = (value: unknown) => {
+    const original = String(value || "").trim();
+    const texto = normalizarTexto(value);
+    const match = DIAS_SEMANA.find((dia) => texto.includes(normalizarTexto(dia).slice(0, 3)));
+    return match ?? (original || "Livre");
+  };
+
+  const montarCardapioImportado = (payload: any, warnings: string[] = []): Cardapio => {
+    const alunoNome = String(payload?.alunoNome || "Aluno");
+    const membro = membros.find((m) => normalizarTexto(m.nome) === normalizarTexto(alunoNome));
+    const base = novoCardapio(communityId, membro?.id ?? "", membro?.nome ?? alunoNome);
+    const diasImportados = (Array.isArray(payload?.dias) ? payload.dias : [])
+      .map((dia: any) => ({
+        dia: resolverDia(dia?.dia),
+        refeicoes: (Array.isArray(dia?.refeicoes) ? dia.refeicoes : [])
+          .map((ref: any) => ({
+            id: uid(),
+            nome: String(ref?.nome || "Refeicao"),
+            horario: String(ref?.horario || "").slice(0, 5),
+            alimentos: (Array.isArray(ref?.alimentos) ? ref.alimentos : [])
+              .map((al: any) => ({
+                id: uid(),
+                nome: String(al?.nome || "").trim(),
+                quantidade: String(al?.quantidade || ""),
+                calorias: al?.calorias === null || al?.calorias === undefined || al?.calorias === "" ? undefined : Number(al.calorias),
+                proteinas: al?.proteinas === null || al?.proteinas === undefined || al?.proteinas === "" ? undefined : Number(al.proteinas),
+                carbos: al?.carbos === null || al?.carbos === undefined || al?.carbos === "" ? undefined : Number(al.carbos),
+                gorduras: al?.gorduras === null || al?.gorduras === undefined || al?.gorduras === "" ? undefined : Number(al.gorduras),
+              }))
+              .filter((al: any) => al.nome),
+            calorias: ref?.calorias === null || ref?.calorias === undefined ? undefined : Number(ref.calorias),
+            obs: String(ref?.obs || ""),
+            concluida: false,
+          }))
+          .filter((ref: any) => ref.alimentos.length > 0 || ref.obs),
+      }))
+      .filter((dia: any) => dia.refeicoes.length > 0);
+
+    return {
+      ...base,
+      id: uid(),
+      titulo: String(payload?.titulo || "Cardápio importado"),
+      alunoNome: membro?.nome ?? alunoNome,
+      alunoId: membro?.id ?? "",
+      foco: resolverFoco(payload?.foco),
+      semana: String(payload?.semana || ""),
+      dias: diasImportados.length ? diasImportados : [],
+      calorias_dia: payload?.calorias_dia === null || payload?.calorias_dia === undefined || payload?.calorias_dia === "" ? undefined : Number(payload.calorias_dia),
+      proteinas_dia: payload?.proteinas_dia === null || payload?.proteinas_dia === undefined || payload?.proteinas_dia === "" ? undefined : Number(payload.proteinas_dia),
+      obs: [payload?.obs, ...warnings].filter(Boolean).join("\n"),
+      status: "draft",
+      geradoPorIA: true,
+      criadoEm: now(),
+      atualizadoEm: now(),
+    };
+  };
+
+  const handleImportarDocumento = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || importandoDoc || !podeGerenciar) return;
+
+    setImportandoDoc(true);
+    setErroImportacao(null);
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("target", "nutricao");
+      form.append("userId", currentUser?.id ?? "");
+
+      const response = await fetch(`/api/communities/${communityId}/document-import`, {
+        method: "POST",
+        body: form,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Não foi possível ler o documento.");
+
+      const cardapio = montarCardapioImportado(data.result?.nutricao, data.result?.warnings);
+      setCardapioEdit(cardapio);
+      setSolAtiva(null);
+      setAba("editor");
+    } catch (error: any) {
+      setErroImportacao(error?.message || "Não foi possível importar o documento.");
+    } finally {
+      setImportandoDoc(false);
+    }
   };
 
   const handleSave = async (c: Cardapio) => {
@@ -216,10 +331,35 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
         </div>
       )}
 
+      {podeUsarManual && aba !== "editor" && aba !== "manual" && (
+        <button
+          type="button"
+          onClick={() => setAba("manual")}
+          className="group w-full rounded-[20px] border border-emerald-500/18 bg-emerald-500/8 p-4 text-left transition-all hover:border-emerald-500/35 hover:bg-emerald-500/12"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-black">
+                <BookOpen size={18} />
+              </div>
+              <div>
+                <p className="text-sm font-black italic uppercase tracking-tight text-white">
+                  Manual de alimentos
+                </p>
+                <p className="mt-1 text-[10px] leading-relaxed text-white/35">
+                  Consulte macros por porção, filtre por objetivo e use os alimentos no cardápio do aluno.
+                </p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="hidden text-emerald-300 transition-transform group-hover:translate-x-1 sm:block" />
+          </div>
+        </button>
+      )}
+
       {/* ── Abas ─────────────────────────────────────────────────── */}
       {aba !== "editor" && (
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex gap-2 flex-wrap">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             {(
               [
                 {
@@ -240,6 +380,12 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
                   icon:  Ruler,
                   badge: 0 as number,
                 },
+                {
+                  id:    "manual" as Aba,
+                  label: "Manual",
+                  icon:  BookOpen,
+                  badge: 0 as number,
+                },
               ] satisfies { id: Aba; label: string; icon: any; badge: number }[]
             ).map(tab => (
               <button
@@ -249,7 +395,7 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
                   setBusca("");
                   setFiltroStatus("todos");
                 }}
-                className={`relative flex items-center gap-2 px-4 py-2.5
+                className={`relative flex items-center justify-center gap-2 px-3 py-2.5 sm:px-4
                   rounded-xl text-[9px] font-black uppercase tracking-widest
                   transition-all
                   ${aba === tab.id
@@ -270,22 +416,61 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
           </div>
 
           {/* Botão novo cardápio — só para quem pode gerenciar */}
-          {aba !== "avaliacoes" && podeGerenciar && (
-            <button
-              onClick={handleNovoLivre}
-              className="flex items-center gap-2 px-4 py-2.5 bg-sky-500/10
-                border border-sky-500/20 rounded-xl text-[9px] font-black
-                uppercase tracking-widest text-sky-400
-                hover:bg-sky-500/20 transition-all"
-            >
-              <Plus size={11} /> Novo cardápio
-            </button>
+          {aba !== "avaliacoes" && aba !== "manual" && podeGerenciar && (
+            <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="image/*,application/pdf"
+                className="hidden"
+                onChange={handleImportarDocumento}
+              />
+              <button
+                onClick={() => importInputRef.current?.click()}
+                disabled={importandoDoc}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-500/10
+                  border border-emerald-500/20 rounded-xl text-[9px] font-black
+                  uppercase tracking-widest text-emerald-400
+                  hover:bg-emerald-500/20 transition-all disabled:opacity-50
+                  disabled:cursor-not-allowed"
+              >
+                {importandoDoc ? (
+                  <Loader2 size={11} className="animate-spin" />
+                ) : (
+                  <UploadCloud size={11} />
+                )}
+                Importar PDF/Imagem
+              </button>
+              <button
+                onClick={handleNovoLivre}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-sky-500/10
+                  border border-sky-500/20 rounded-xl text-[9px] font-black
+                  uppercase tracking-widest text-sky-400
+                  hover:bg-sky-500/20 transition-all"
+              >
+                <Plus size={11} /> Novo cardápio
+              </button>
+            </div>
           )}
         </div>
       )}
       {/* ── Barra de busca ───────────────────────────────────────── */}
-      {aba !== "editor" && aba !== "avaliacoes" && (
-        <div className="flex gap-2">
+      {erroImportacao && aba !== "editor" && (
+        <div className="flex items-center gap-3 bg-rose-500/8
+          border border-rose-500/15 rounded-[18px] p-4">
+          <AlertTriangle size={14} className="text-rose-400 shrink-0" />
+          <p className="text-xs text-rose-400/70 italic flex-1">{erroImportacao}</p>
+          <button
+            onClick={() => setErroImportacao(null)}
+            className="p-1.5 text-white/20 hover:text-white/50 transition-all"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
+
+      {aba !== "editor" && aba !== "avaliacoes" && aba !== "manual" && (
+        <div className="flex flex-col gap-2 sm:flex-row">
           <div className="relative flex-1">
             <Search size={12} className="absolute left-3 top-1/2
               -translate-y-1/2 text-white/20 pointer-events-none" />
@@ -301,9 +486,9 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
           <select
             value={filtroStatus}
             onChange={e => setFiltroStatus(e.target.value)}
-            className="bg-white/5 border border-white/5 rounded-xl px-3 py-2.5
+            className="w-full bg-white/5 border border-white/5 rounded-xl px-3 py-2.5
               text-[10px] text-white/40 outline-none focus:border-white/15
-              transition-all"
+              transition-all sm:w-auto"
           >
             <option value="todos">Todos</option>
             {aba === "solicitacoes" ? (
@@ -340,6 +525,22 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
       )}
 
       <AnimatePresence mode="wait">
+
+        {aba === "manual" && (
+          <motion.div
+            key="manual"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+          >
+            <FoodManualView
+              allowAccess={podeUsarManual}
+              embedded
+              onBack={() => setAba("solicitacoes")}
+              title="Manual de alimentos da comunidade"
+            />
+          </motion.div>
+        )}
 
         {/* ── Aba: Solicitações ─────────────────────────────────── */}
         {aba === "solicitacoes" && (
@@ -527,6 +728,7 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
             <CardapioViewer
               cardapio={cardapioView}
               onToggleConcluida={() => {}}
+              pdfUrl={`/api/communities/${communityId}/offline-pdf?type=cardapio&userId=${encodeURIComponent(cardapioView.alunoId || currentUser?.id || "")}`}
             />
           </motion.div>
         )}
@@ -571,6 +773,7 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
               onSave={handleSave}
               onPublish={handlePublish}
               onGerarIA={solAtiva ? () => handleGerarIA(solAtiva) : undefined}
+              manualDisponivel={podeUsarManual}
               onCancel={() => {
                 setAba(solAtiva ? "solicitacoes" : "cardapios");
                 setCardapioEdit(null);

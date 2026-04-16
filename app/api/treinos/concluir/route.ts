@@ -63,12 +63,12 @@ export async function POST(request: Request) {
     // 5. Retornar Sucesso para o Frontend
     return NextResponse.json({ 
       success: true, 
-      message: 'Sessão de treino forjada com sucesso!',
+      message: 'Treino concluído com sucesso!',
       xpEarned: 50 
     }, { status: 200 });
 
   } catch (error) {
-    console.error('Erro Crítico ao concluir treino:', error);
-    return NextResponse.json({ error: 'Falha na conexão com a Matriz.' }, { status: 500 });
+    console.error('Erro ao concluir treino:', error);
+    return NextResponse.json({ error: 'Falha ao concluir treino.' }, { status: 500 });
   }
 }
