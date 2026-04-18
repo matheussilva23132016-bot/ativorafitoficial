@@ -5,6 +5,7 @@ import {
   Crown,
   HelpCircle,
   LayoutDashboard,
+  LogOut,
   Menu,
   MessageSquarePlus,
   Settings,
@@ -22,11 +23,25 @@ interface DashboardBottomNavProps {
   currentView: string;
   setCurrentView: (view: any) => void;
   setDeepLink: (link: any) => void;
+  onLogout: () => void;
   canBossPanel?: boolean;
 }
 
 type BottomMainView = "home" | "comunidades" | "treinos" | "nutricao";
 type ExtraView = "social" | "perfil" | "metricas" | "ajuda" | "sugestoes" | "config" | "boss";
+type ExtraItem =
+  | {
+      id: ExtraView;
+      label: string;
+      icon: React.ElementType;
+      action: "view";
+    }
+  | {
+      id: "logout";
+      label: string;
+      icon: React.ElementType;
+      action: "logout";
+    };
 
 const mainItems: Array<{ id: BottomMainView; label: string; icon: React.ElementType }> = [
   { id: "home", label: "Início", icon: LayoutDashboard },
@@ -41,6 +56,7 @@ export const DashboardBottomNav = ({
   currentView,
   setCurrentView,
   setDeepLink,
+  onLogout,
   canBossPanel = false,
 }: DashboardBottomNavProps) => {
   const [showMore, setShowMore] = useState(false);
@@ -49,17 +65,18 @@ export const DashboardBottomNav = ({
     setShowMore(false);
   }, [currentView]);
 
-  const extraItems = useMemo(
+  const extraItems = useMemo<ExtraItem[]>(
     () =>
       [
-        { id: "social" as ExtraView, label: "Social", icon: Users },
-        { id: "perfil" as ExtraView, label: "Perfil", icon: UserRound },
-        { id: "metricas" as ExtraView, label: "Evolução", icon: TrendingUp },
-        { id: "ajuda" as ExtraView, label: "Ajuda", icon: HelpCircle },
-        { id: "sugestoes" as ExtraView, label: "Sugestões", icon: MessageSquarePlus },
-        { id: "config" as ExtraView, label: "Ajustes", icon: Settings },
-        ...(canBossPanel ? [{ id: "boss" as ExtraView, label: "Boss", icon: Crown }] : []),
-      ] as Array<{ id: ExtraView; label: string; icon: React.ElementType }>,
+        { id: "social", label: "Social", icon: Users, action: "view" },
+        { id: "perfil", label: "Perfil", icon: UserRound, action: "view" },
+        { id: "metricas", label: "Evolução", icon: TrendingUp, action: "view" },
+        { id: "ajuda", label: "Ajuda", icon: HelpCircle, action: "view" },
+        { id: "sugestoes", label: "Sugestões", icon: MessageSquarePlus, action: "view" },
+        { id: "config", label: "Ajustes", icon: Settings, action: "view" },
+        ...(canBossPanel ? [{ id: "boss", label: "Boss", icon: Crown, action: "view" } as const] : []),
+        { id: "logout", label: "Sair", icon: LogOut, action: "logout" },
+      ],
     [canBossPanel],
   );
 
@@ -116,16 +133,26 @@ export const DashboardBottomNav = ({
               <div className="grid grid-cols-2 gap-2">
                 {extraItems.map(item => {
                   const Icon = item.icon;
-                  const active = currentView === item.id;
+                  const active = item.action === "view" && currentView === item.id;
+                  const isDanger = item.action === "logout";
                   return (
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => handleExtraNav(item.id)}
+                      onClick={() => {
+                        if (item.action === "logout") {
+                          setShowMore(false);
+                          onLogout();
+                          return;
+                        }
+                        handleExtraNav(item.id);
+                      }}
                       className={`flex min-h-12 items-center gap-2 rounded-lg border px-3 text-left transition-all ${
                         active
                           ? "border-sky-500/35 bg-sky-500/15 text-sky-200"
-                          : "border-white/10 bg-white/5 text-white/65 hover:bg-white/10"
+                          : isDanger
+                            ? "border-rose-400/30 bg-rose-500/10 text-rose-200 hover:bg-rose-500/15"
+                            : "border-white/10 bg-white/5 text-white/65 hover:bg-white/10"
                       }`}
                     >
                       <Icon size={15} />

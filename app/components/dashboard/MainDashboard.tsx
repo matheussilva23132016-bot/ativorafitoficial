@@ -698,6 +698,7 @@ export default function MainDashboard() {
             currentView={currentView}
             setCurrentView={setCurrentView}
             setDeepLink={setDeepLink}
+            onLogout={handleLogout}
             canBossPanel={canUseBossPanel}
           />
         )}

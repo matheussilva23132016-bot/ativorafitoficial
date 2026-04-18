@@ -50,6 +50,7 @@ interface CommunityHubProps {
     name: string;
     description?: string;
     cover_url?: string | null;
+    owner_id?: string;
     role?: string;
     userTags?: string[];
   } | null;
@@ -123,10 +124,19 @@ export function CommunityHub({
     setCover(safeInitialCover);
   }, [safeInitialCover]);
 
-  const userTags: string[] = resolvedData?.userTags ?? [resolvedData?.role ?? "Participante"];
+  const isOwner = String(resolvedData?.owner_id ?? "") === String(currentUser?.id ?? "");
+  const userTags: string[] = useMemo(() => {
+    const fromCommunity = Array.isArray(resolvedData?.userTags) ? resolvedData.userTags : [];
+    const baseTags = fromCommunity.length > 0 ? fromCommunity : [resolvedData?.role ?? "Participante"];
+
+    if (isOwner && !baseTags.includes("Dono")) {
+      return ["Dono", ...baseTags.filter(tag => tag !== "Dono")];
+    }
+    return baseTags;
+  }, [isOwner, resolvedData?.role, resolvedData?.userTags]);
   const highestTag = getHighestTag(userTags);
-  const canManage = canDo(userTags, "member:approve");
-  const canDelete = canDo(userTags, "community:delete");
+  const canManage = isOwner || canDo(userTags, "member:approve");
+  const canDelete = isOwner || canDo(userTags, "community:delete");
 
   const treinoRole = ((): CommunityTreinosProps["userRole"] => {
     if (userTags.includes("Dono")) return "owner";
@@ -145,9 +155,9 @@ export function CommunityHub({
   const visibleTabs = useMemo(() => {
     return TABS.filter(tab => {
       if (!tab.minTag) return true;
-      return canDo(userTags, "member:approve");
+      return canManage;
     });
-  }, [userTags]);
+  }, [canManage]);
 
   useEffect(() => {
     if (visibleTabs.length === 0) return;
@@ -307,6 +317,7 @@ export function CommunityHub({
               communityId={communityId}
               currentUser={currentUser}
               userTags={userTags}
+              isOwner={isOwner}
               canDelete={canDelete}
               onNotify={onNotify}
               onGroupDeleted={onBack}

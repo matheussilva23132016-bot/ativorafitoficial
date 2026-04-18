@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useRef } from "react";
-import { Loader2, PlusCircle } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { Loader2, Play, PlusCircle } from "lucide-react";
 
 interface Story {
   id: string;
@@ -19,6 +19,62 @@ interface StoriesProps {
   canStory?: boolean;
   isGuest?: boolean;
   isCreating?: boolean;
+}
+
+function StoryPreview({ story }: { story: Story }) {
+  const [fallbackToAvatar, setFallbackToAvatar] = useState(false);
+  const [fallbackToInitial, setFallbackToInitial] = useState(false);
+
+  const mediaUrl = String(story.mediaUrl || "").trim();
+  const avatarUrl = String(story.avatar || "").trim();
+  const mediaType = String(story.mediaType || "image").toLowerCase();
+  const isVideoStory = mediaType === "video";
+
+  if (mediaUrl && !fallbackToAvatar) {
+    if (isVideoStory) {
+      return (
+        <div className="relative h-full w-full overflow-hidden">
+          <video
+            src={mediaUrl}
+            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+            muted
+            autoPlay
+            loop
+            playsInline
+            preload="metadata"
+            onError={() => setFallbackToAvatar(true)}
+          />
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="rounded-full border border-white/20 bg-black/45 p-1.5">
+              <Play size={10} className="fill-white text-white" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <img
+        src={mediaUrl}
+        alt={story.user}
+        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+        onError={() => setFallbackToAvatar(true)}
+      />
+    );
+  }
+
+  if (avatarUrl && !fallbackToInitial) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={story.user}
+        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+        onError={() => setFallbackToInitial(true)}
+      />
+    );
+  }
+
+  return <span className="text-xl font-bold capitalize text-white/10">{story.user?.[0] || "@"}</span>;
 }
 
 export const Stories = ({
@@ -84,18 +140,12 @@ export const Stories = ({
                 ? "bg-white/[0.08]"
                 : "bg-gradient-to-tr from-sky-400 via-emerald-500 to-rose-500 shadow-[0_0_25px_rgba(56,189,248,0.18)] group-hover:shadow-[0_0_35px_rgba(56,189,248,0.3)]"}`}
             >
-              <div className="h-full w-full overflow-hidden rounded-[7px] bg-[#010307] p-[2px]">
-                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[6px] bg-white/[0.03]">
-                  {s.avatar ? (
-                    <img src={s.avatar} alt={s.user} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                  ) : s.mediaUrl && s.mediaType !== "video" ? (
-                    <img src={s.mediaUrl} alt={s.user} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                  ) : (
-                    <span className="text-xl font-bold capitalize text-white/10">{s.user?.[0] || "@"}</span>
-                  )}
+                <div className="h-full w-full overflow-hidden rounded-[7px] bg-[#010307] p-[2px]">
+                  <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[6px] bg-white/[0.03]">
+                    <StoryPreview story={s} />
+                  </div>
                 </div>
               </div>
-            </div>
 
             {!s.seen && (
               <div className="absolute right-0 top-0 flex h-4 w-4 translate-x-1 -translate-y-1 items-center justify-center rounded-full border-2 border-[#010307] bg-[#010307]">

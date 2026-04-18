@@ -50,6 +50,7 @@ interface CommunityGestaoProps {
   communityId: string;
   currentUser: any;
   userTags: string[];
+  isOwner?: boolean;
   canDelete?: boolean;
   onNotify?: (n: any) => void;
   onGroupDeleted?: () => void;
@@ -59,6 +60,15 @@ type Section = "membros" | "solicitacoes" | "config";
 type MemberFilter = "todos" | "lideranca" | "profissionais" | "participantes";
 
 const TAGS_DISPONIVEIS = [
+  "Participante",
+  "Instrutor",
+  "Personal",
+  "Nutri",
+  "Nutricionista",
+  "ADM",
+];
+
+const CARGOS_DISPONIVEIS = [
   "Participante",
   "Instrutor",
   "Personal",
@@ -94,6 +104,16 @@ const hasLeadershipTag = (tags: string[]) => tags.includes("Dono") || tags.inclu
 const hasProfessionalTag = (tags: string[]) =>
   tags.some(tag => ["Nutri", "Nutricionista", "Instrutor", "Personal"].includes(tag));
 
+const getCargoPrincipal = (tags: string[]) => {
+  if (tags.includes("Dono")) return "Dono";
+  if (tags.includes("ADM")) return "ADM";
+  if (tags.includes("Nutri")) return "Nutri";
+  if (tags.includes("Nutricionista")) return "Nutricionista";
+  if (tags.includes("Instrutor")) return "Instrutor";
+  if (tags.includes("Personal")) return "Personal";
+  return "Participante";
+};
+
 const rolePriority = (tags: string[]) => {
   if (tags.includes("Dono")) return 0;
   if (tags.includes("ADM")) return 1;
@@ -124,6 +144,7 @@ export function CommunityGestao({
   communityId,
   currentUser,
   userTags,
+  isOwner = false,
   canDelete = false,
   onNotify,
   onGroupDeleted,
@@ -136,6 +157,7 @@ export function CommunityGestao({
   const [memberFilter, setMemberFilter] = useState<MemberFilter>("todos");
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [tagMenuId, setTagMenuId] = useState<string | null>(null);
+  const [cargoMenuId, setCargoMenuId] = useState<string | null>(null);
   const [deletingGroup, setDeletingGroup] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [recusaAlvo, setRecusaAlvo] = useState<Solicitacao | null>(null);
@@ -148,6 +170,7 @@ export function CommunityGestao({
   const canApprove = canDo(userTags, "member:approve");
   const canRemove = canDo(userTags, "member:remove");
   const canTag = canDo(userTags, "tag:assign");
+  const canSetRole = isOwner;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -358,6 +381,7 @@ export function CommunityGestao({
 
   const handleAlterarTag = async (membro: Membro, novaTag: string) => {
     setTagMenuId(null);
+    setCargoMenuId(null);
 
     const alreadyHas = membro.tags.includes(novaTag);
     if (novaTag === "Participante" && alreadyHas) {
@@ -416,8 +440,81 @@ export function CommunityGestao({
     }
   };
 
+  const handleDefinirCargo = async (membro: Membro, novoCargo: string) => {
+    setTagMenuId(null);
+    setCargoMenuId(null);
+
+    if (!canSetRole) {
+      toast.error("Somente o Dono pode definir cargos.");
+      return;
+    }
+
+    if (membro.tags.includes("Dono")) {
+      toast.info("O cargo do Dono não pode ser alterado.");
+      return;
+    }
+
+    if (getCargoPrincipal(membro.tags) === novoCargo) {
+      toast.info(`${displayName(membro)} já está como ${novoCargo}.`);
+      return;
+    }
+
+    setProcessingId(membro.membro_id);
+    try {
+      const res = await fetch(`/api/communities/${communityId}/members`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          membroId: membro.membro_id,
+          roleNome: novoCargo,
+          acao: "set_role",
+          requesterId: currentUser?.id,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error ?? "Falha ao definir cargo");
+      }
+
+      const nextTags = Array.isArray(data?.tags) && data.tags.length > 0
+        ? data.tags
+        : novoCargo === "Participante"
+          ? ["Participante"]
+          : ["Participante", novoCargo];
+
+      setMembros(current =>
+        current.map(item =>
+          item.membro_id === membro.membro_id
+            ? {
+                ...item,
+                tags: nextTags,
+              }
+            : item,
+        ),
+      );
+
+      onNotify?.({
+        title: "Cargo atualizado",
+        message: `${displayName(membro)} agora está como ${novoCargo}.`,
+        type: "social",
+      });
+      toast.success(`Cargo de ${displayName(membro)} definido para ${novoCargo}.`);
+    } catch (err: any) {
+      toast.error(`Erro ao definir cargo: ${err.message}`);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   return (
-    <div className="space-y-4 text-left sm:space-y-5" onClick={() => setTagMenuId(null)}>
+    <div
+      className="space-y-4 text-left sm:space-y-5"
+      onClick={() => {
+        setTagMenuId(null);
+        setCargoMenuId(null);
+      }}
+    >
       <section className="rounded-[24px] border border-white/10 bg-[#06101D] p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
@@ -621,15 +718,69 @@ export function CommunityGestao({
                         className="flex w-full flex-wrap gap-2 lg:w-auto lg:justify-end"
                         onClick={event => event.stopPropagation()}
                       >
+                        {canSetRole && !membro.tags.includes("Dono") && (
+                          <div className="relative flex-1 sm:flex-none">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTagMenuId(null);
+                                setCargoMenuId(current =>
+                                  current === membro.membro_id ? null : membro.membro_id,
+                                );
+                              }}
+                              disabled={processingId === membro.membro_id}
+                              className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-sky-500/25 bg-sky-500/10 px-3 text-[9px] font-black uppercase tracking-widest text-sky-200 transition hover:bg-sky-500/15 disabled:opacity-45 sm:w-auto"
+                            >
+                              <Crown size={12} />
+                              Cargo
+                              <ChevronDown
+                                size={11}
+                                className={`transition-transform ${cargoMenuId === membro.membro_id ? "rotate-180" : ""}`}
+                              />
+                            </button>
+
+                            <AnimatePresence>
+                              {cargoMenuId === membro.membro_id && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: 4 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: 4 }}
+                                  className="absolute right-0 top-full z-50 mt-2 w-[min(18rem,calc(100vw-3rem))] min-w-[190px] rounded-2xl border border-white/10 bg-[#0A1222] p-2 shadow-2xl"
+                                >
+                                  {CARGOS_DISPONIVEIS.map(cargo => (
+                                    <button
+                                      key={`${membro.membro_id}-cargo-${cargo}`}
+                                      type="button"
+                                      onClick={() => handleDefinirCargo(membro, cargo)}
+                                      className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[9px] font-black uppercase tracking-widest transition ${
+                                        getCargoPrincipal(membro.tags) === cargo
+                                          ? "bg-sky-500/10 text-sky-300"
+                                          : "text-white/50 hover:bg-white/5 hover:text-white"
+                                      }`}
+                                    >
+                                      {TAG_ICONS[cargo]}
+                                      {cargo}
+                                      {getCargoPrincipal(membro.tags) === cargo && (
+                                        <CheckCircle2 size={11} className="ml-auto text-sky-300" />
+                                      )}
+                                    </button>
+                                  ))}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        )}
+
                         {canTag && !membro.tags.includes("Dono") && (
                           <div className="relative flex-1 sm:flex-none">
                             <button
                               type="button"
-                              onClick={() =>
+                              onClick={() => {
+                                setCargoMenuId(null);
                                 setTagMenuId(current =>
                                   current === membro.membro_id ? null : membro.membro_id,
-                                )
-                              }
+                                );
+                              }}
                               disabled={processingId === membro.membro_id}
                               className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-[9px] font-black uppercase tracking-widest text-white/50 transition hover:text-white disabled:opacity-45 sm:w-auto"
                             >
@@ -838,7 +989,7 @@ export function CommunityGestao({
             <CommunitySettingsPanel
               communityId={communityId}
               currentUser={currentUser}
-              canEdit={userTags.includes("Dono")}
+              canEdit={isOwner || userTags.includes("Dono")}
             />
           </motion.section>
         )}

@@ -87,11 +87,46 @@ export async function ensureCommunityPermission(
   permission: string,
 ): Promise<string[]> {
   const tags = await getCommunityUserTags(communityId, userId);
+  if (tags.includes("Dono")) return tags;
+
+  let overrideAllowed: boolean | null = null;
+  if (tags.length > 0) {
+    try {
+      const placeholders = tags.map(() => "?").join(",");
+      const [overrideRows] = await db.query(
+        `
+          SELECT ct.nome, ct.nivel_poder, cpt.permitido
+          FROM comunidade_permissoes_tag cpt
+          INNER JOIN comunidade_tags ct ON ct.id = cpt.tag_id
+          WHERE cpt.comunidade_id = ?
+            AND cpt.permissao = ?
+            AND ct.nome IN (${placeholders})
+          ORDER BY ct.nivel_poder DESC
+          LIMIT 1
+        `,
+        [communityId, permission, ...tags],
+      );
+      const override = (overrideRows as any[])[0];
+      if (override) {
+        overrideAllowed = Number(override.permitido) === 1;
+      }
+    } catch (err: any) {
+      if (err?.code !== "ER_NO_SUCH_TABLE" && err?.errno !== 1146) {
+        throw err;
+      }
+    }
+  }
+
+  if (overrideAllowed !== null) {
+    if (!overrideAllowed) {
+      throw new CommunityAccessError("Permissão desativada para seu cargo nesta comunidade.");
+    }
+    return tags;
+  }
+
   if (!canDo(tags, permission)) {
     throw new CommunityAccessError();
   }
-
-  if (tags.includes("Dono")) return tags;
 
   const admRule = ADM_CONFIG_PERMISSIONS[permission];
   const usesAdmPermission =

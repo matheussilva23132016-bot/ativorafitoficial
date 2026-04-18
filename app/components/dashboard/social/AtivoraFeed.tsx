@@ -262,9 +262,9 @@ const normalizeStory = (story: any) => ({
   ...story,
   id: String(story.id),
   user: story.user || story.username || story.nickname || "",
-  avatar: story.avatar || story.avatar_url || null,
-  mediaUrl: story.mediaUrl || story.media_url || "",
-  mediaType: story.mediaType || story.media_type || "image",
+  avatar: String(story.avatar || story.avatar_url || "").trim() || null,
+  mediaUrl: String(story.mediaUrl || story.media_url || "").trim(),
+  mediaType: String(story.mediaType || story.media_type || "image").toLowerCase().includes("video") ? "video" : "image",
   seen: toBoolean(story.seen),
 });
 

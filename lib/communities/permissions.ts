@@ -19,7 +19,7 @@
  *  - community:delete → Dono
  */
 
-const PERMISSION_MAP: Record<string, string[]> = {
+export const COMMUNITY_PERMISSION_MAP: Record<string, string[]> = {
   "desafio:create":   ["Dono", "ADM"],
   "desafio:evaluate": ["Dono", "ADM"],
   "desafio:submit":   ["Dono", "ADM", "Nutri", "Nutricionista", "Instrutor", "Personal", "Participante"],
@@ -40,7 +40,7 @@ const PERMISSION_MAP: Record<string, string[]> = {
 };
 
 // Hierarquia de tags — quanto menor o índice, maior a autoridade
-const TAG_HIERARCHY = [
+export const COMMUNITY_ROLE_HIERARCHY = [
   "Dono",
   "ADM",
   "Personal",
@@ -51,7 +51,7 @@ const TAG_HIERARCHY = [
 ];
 
 export function canDo(userTags: string[], permission: string): boolean {
-  const allowed = PERMISSION_MAP[permission];
+  const allowed = COMMUNITY_PERMISSION_MAP[permission];
   if (!allowed) return false;
   return userTags.some(tag => allowed.includes(tag));
 }
@@ -61,7 +61,7 @@ export function canDo(userTags: string[], permission: string): boolean {
  * Ex: ["Participante", "ADM"] → "ADM"
  */
 export function getHighestTag(userTags: string[]): string {
-  for (const tag of TAG_HIERARCHY) {
+  for (const tag of COMMUNITY_ROLE_HIERARCHY) {
     if (userTags.includes(tag)) return tag;
   }
   return userTags[0] ?? "Participante";

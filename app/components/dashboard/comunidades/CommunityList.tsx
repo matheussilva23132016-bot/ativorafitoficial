@@ -45,6 +45,25 @@ const FORM_INITIAL = {
   theme:       "sky",
 };
 
+type SafeJsonResult<T = any> = { ok: true; data: T } | { ok: false; rawText: string };
+
+async function readJsonSafe<T = any>(res: Response): Promise<SafeJsonResult<T>> {
+  const contentType = (res.headers.get("content-type") || "").toLowerCase();
+  if (!contentType.includes("application/json")) {
+    const rawText = await res.text().catch(() => "");
+    return { ok: false, rawText };
+  }
+
+  const text = await res.text();
+  if (!text) return { ok: true, data: {} as T };
+
+  try {
+    return { ok: true, data: JSON.parse(text) as T };
+  } catch {
+    return { ok: false, rawText: text };
+  }
+}
+
 export function CommunityList({
   currentUser, initialDeepLink, onClearDeepLink, onNotify, triggerXP,
 }: CommunityListProps) {
@@ -81,7 +100,17 @@ export function CommunityList({
     if (!uid) { setComunidades([]); setLoading(false); return []; }
     try {
       const res  = await fetch(`/api/communities?userId=${uid}`);
-      const data = res.ok ? await res.json() : {};
+      const parsed = await readJsonSafe<{ communities?: any[] }>(res);
+      if (res.status === 401) {
+        toast.error("Sessao expirada. Faca login novamente.");
+        setComunidades([]);
+        return [];
+      }
+      if (!parsed.ok) {
+        setComunidades([]);
+        return [];
+      }
+      const data = res.ok ? parsed.data : {};
       const next = Array.isArray(data.communities) ? data.communities : [];
       setComunidades(next);
       return next;
@@ -128,9 +157,16 @@ export function CommunityList({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: uid }),
         });
-        const result = await res.json().catch(() => ({}));
+        const parsed = await readJsonSafe<any>(res);
+        const result = parsed.ok ? parsed.data : {};
 
         if (!res.ok) {
+          if (res.status === 401) {
+            throw new Error("Sua sessao expirou. Faca login novamente.");
+          }
+          if (!parsed.ok) {
+            throw new Error("Resposta invalida do servidor.");
+          }
           if (res.status === 409 && result?.requestStatus === "pendente") {
             toast.info("Sua solicitação já está pendente de aprovação.");
             await loadCommunities();
@@ -204,8 +240,9 @@ export function CommunityList({
           method: "POST",
           body: uploadFormData,
         });
-        const uploadJson = await uploadRes.json();
-        if (!uploadRes.ok || !uploadJson?.url) {
+        const uploadParsed = await readJsonSafe<{ url?: string; error?: string }>(uploadRes);
+        const uploadJson = uploadParsed.ok ? uploadParsed.data : {};
+        if (!uploadRes.ok || !uploadParsed.ok || !uploadJson?.url) {
           throw new Error(uploadJson?.error ?? "Falha ao enviar a capa do grupo.");
         }
         coverUrl = String(uploadJson.url);
@@ -230,7 +267,14 @@ export function CommunityList({
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify(groupData),
       });
-      const result = await res.json();
+      const parsed = await readJsonSafe<{ error?: string; communityId?: string }>(res);
+      if (!parsed.ok) {
+        if (res.status === 401) {
+          throw new Error("Sua sessao expirou. Faca login novamente.");
+        }
+        throw new Error("Resposta invalida do servidor ao criar o grupo.");
+      }
+      const result = parsed.data;
       if (!res.ok) throw new Error(result.error ?? "Falha na criação");
 
       // Recarrega do banco para garantir dados completos (corrige bug 3)
