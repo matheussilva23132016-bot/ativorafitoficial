@@ -25,7 +25,7 @@ function mapApiTreino(row: any): Treino {
         series: Number(ex.series ?? 0),
         repeticoes: ex.reps ?? "",
         descanso: ex.descanso ?? "",
-        obs: [ex.obs, ex.cadencia ? `Cadencia: ${ex.cadencia}` : "", ex.rpe ? `RPE: ${ex.rpe}` : ""]
+        obs: [ex.obs, ex.cadencia ? `Cadência: ${ex.cadencia}` : "", ex.rpe ? `RPE: ${ex.rpe}` : ""]
           .filter(Boolean)
           .join(" | "),
         videoUrl: ex.video_url ?? undefined,
@@ -39,6 +39,14 @@ function mapApiTreino(row: any): Treino {
     solicitacaoId: row.solicitacao_id ?? undefined,
   };
 }
+
+const mapRequestStatus = (value: unknown): SolicitacaoTreino["status"] => {
+  const status = String(value || "").toLowerCase();
+  if (status === "em_andamento") return "em_andamento";
+  if (status === "concluida") return "concluida";
+  if (status === "rejeitada") return "rejeitada";
+  return "pendente";
+};
 
 function toApiPayload(t: Treino, communityId: string, userId: string) {
   return {
@@ -87,7 +95,12 @@ export function useTreinos(communityId: string, userId: string) {
         setTreinos(treinosData.treinos.map(mapApiTreino));
       }
       if (Array.isArray(requestsData.solicitacoes)) {
-        setSolicitacoes(requestsData.solicitacoes);
+        setSolicitacoes(
+          requestsData.solicitacoes.map((item: any) => ({
+            ...item,
+            status: mapRequestStatus(item?.status),
+          })),
+        );
       }
     } catch {
       // Mantem a experiencia local se a API nao responder.
@@ -195,11 +208,11 @@ export function useTreinos(communityId: string, userId: string) {
         body: JSON.stringify({
           foco,
           alunoNome: solicitacao?.alunoNome ?? "Atleta",
-          nivel: "Intermediario",
+          nivel: "Intermediário",
           dias: 5,
           obs: [
             solicitacao?.obs,
-            solicitacaoId ? "Solicitacao feita dentro da comunidade." : "",
+            solicitacaoId ? "solicitação feita dentro da comunidade." : "",
           ].filter(Boolean).join("\n"),
         }),
       });
@@ -224,7 +237,7 @@ export function useTreinos(communityId: string, userId: string) {
                   series: Number(ex?.series ?? 0),
                   repeticoes: String(ex?.reps || ""),
                   descanso: String(ex?.descanso || ""),
-                  obs: [ex?.observacao, ex?.cadencia ? `Cadencia: ${ex.cadencia}` : "", ex?.rpe ? `RPE: ${ex.rpe}` : ""]
+                  obs: [ex?.observacao, ex?.cadencia ? `Cadência: ${ex.cadencia}` : "", ex?.rpe ? `RPE: ${ex.rpe}` : ""]
                     .filter(Boolean)
                     .join(" | "),
                 }))

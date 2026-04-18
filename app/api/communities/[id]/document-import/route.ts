@@ -198,7 +198,7 @@ const keepNumber = (value: unknown) => {
 const pickTargetInstructions = (target: string) => {
   if (target === "treino") {
     return `Extraia uma tabela/plano de treino. Converta para:
-- titulo curto e profissional;
+- título curto e profissional;
 - dia da semana se existir, senão "Segunda";
 - letra A/B/C se existir;
 - foco entre emagrecimento, hipertrofia, resistencia, definicao, condicionamento, mobilidade;
@@ -208,7 +208,7 @@ const pickTargetInstructions = (target: string) => {
   }
 
   return `Extraia um cardápio/plano alimentar. Converta para:
-- titulo;
+- título;
 - nome do aluno se aparecer;
 - foco entre emagrecimento, hipertrofia, manutencao, saude_geral, performance, recomposicao;
 - dias da semana;
@@ -220,7 +220,7 @@ const pickTargetInstructions = (target: string) => {
 const pickTruthfulTargetInstructions = (target: string) => {
   if (target === "treino") {
     return `Extraia uma tabela/plano de treino. Converta para:
-- titulo curto e profissional;
+- título curto e profissional;
 - dia exatamente como aparece no documento quando existir: "Segunda", "Terca", "Dia 1", uma data, "Treino A" etc.;
 - se o documento não informar nenhum dia/rótulo, use "Livre" e registre em warnings que o dia não estava no documento;
 - letra A/B/C se existir;
@@ -231,14 +231,14 @@ const pickTruthfulTargetInstructions = (target: string) => {
   }
 
   return `Extraia um cardápio/plano alimentar. Converta para:
-- titulo;
+- título;
 - nome do aluno se aparecer;
 - foco entre emagrecimento, hipertrofia, manutencao, saude_geral, performance, recomposicao;
 - dias exatamente como aparecem no documento, incluindo dias da semana, datas ou rotulos como "Dia 1";
 - se uma refeicao estiver no documento sem dia/rotulo, use "Livre" e registre em warnings;
 - refeicoes com horario somente quando existir;
 - alimentos, quantidades, calorias e macros somente quando existirem;
-- metas diarias e observacoes.`;
+- metas diárias e observações.`;
 };
 
 function normalizeImported(data: any, target: "treino" | "nutricao") {
@@ -331,11 +331,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const userId = String(form.get("userId") || "").trim();
 
     if (!communityId || !userId) {
-      return NextResponse.json({ error: "Comunidade ou usuario ausente." }, { status: 400 });
+      return NextResponse.json({ error: "Comunidade ou usuário ausente." }, { status: 400 });
     }
 
     if (target !== "treino" && target !== "nutricao") {
-      return NextResponse.json({ error: "Tipo de importacao invalido." }, { status: 400 });
+      return NextResponse.json({ error: "Tipo de importação inválido." }, { status: 400 });
     }
 
     if (!(file instanceof File)) {

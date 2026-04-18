@@ -77,7 +77,7 @@ export interface SolicitacaoTreino {
   foco: FocoTreino;
   obs?: string;
   criadoEm: string;
-  status: "pendente" | "em_andamento" | "concluida";
+  status: "pendente" | "em_andamento" | "concluida" | "rejeitada";
 }
 
 // ── Histórico de execução ─────────────────────────────────────

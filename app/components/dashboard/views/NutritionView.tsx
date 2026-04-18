@@ -81,7 +81,7 @@ export function NutritionView({ onBack, currentUser, onOpenCommunities }: Nutrit
       initial="hidden"
       animate="visible"
       exit={{ opacity: 0, y: -12 }}
-      className="mx-auto w-full max-w-6xl space-y-6 text-left"
+      className="mx-auto w-full max-w-6xl space-y-4 text-left sm:space-y-5"
     >
       <motion.button
         variants={itemVariants}
@@ -95,7 +95,7 @@ export function NutritionView({ onBack, currentUser, onOpenCommunities }: Nutrit
 
       <motion.section
         variants={itemVariants}
-        className="relative overflow-hidden rounded-[28px] border border-sky-500/15 bg-[#06101D] p-5 sm:p-7 lg:p-8"
+        className="relative overflow-hidden rounded-[28px] border border-sky-500/15 bg-[#06101D] p-4 sm:p-6 lg:p-8"
       >
         <div className="absolute right-[-40px] top-[-40px] hidden h-44 w-44 rounded-full border border-sky-500/10 lg:block" />
         <div className="relative grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
@@ -104,10 +104,10 @@ export function NutritionView({ onBack, currentUser, onOpenCommunities }: Nutrit
               <UtensilsCrossed size={12} />
               Nutrição
             </div>
-            <h1 className="mt-5 text-4xl font-black italic leading-none tracking-tighter text-white sm:text-5xl">
+            <h1 className="mt-4 text-[1.9rem] font-black italic leading-none tracking-tighter text-white sm:text-5xl">
               Cardápios, medidas e <span className="text-sky-400">manual</span>
             </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/45">
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/45">
               Abra cardápios vindos das comunidades, registre RFM/IMC/RCQ e, se for nutricionista, consulte o manual A-Z sem sair do app.
             </p>
           </div>
@@ -118,7 +118,7 @@ export function NutritionView({ onBack, currentUser, onOpenCommunities }: Nutrit
               { label: "Publicação", value: "Comunidades", icon: Sparkles },
               { label: "Manual", value: isNutritionist ? "Liberado" : "Restrito", icon: ShieldCheck },
             ].map(item => (
-              <div key={item.label} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div key={item.label} className="rounded-2xl border border-white/10 bg-black/20 p-3 sm:p-4">
                 <item.icon className="text-sky-300" size={18} />
                 <p className="mt-3 text-[9px] font-black uppercase tracking-widest text-white/25">
                   {item.label}
@@ -130,7 +130,7 @@ export function NutritionView({ onBack, currentUser, onOpenCommunities }: Nutrit
         </div>
       </motion.section>
 
-      <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
         <motion.section variants={itemVariants} className="space-y-3">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">
@@ -148,7 +148,7 @@ export function NutritionView({ onBack, currentUser, onOpenCommunities }: Nutrit
                 type="button"
                 disabled={!item.enabled}
                 onClick={item.enabled ? item.onClick : undefined}
-                className={`group w-full rounded-2xl border p-4 text-left transition-all ${
+                className={`group w-full rounded-2xl border p-3.5 sm:p-4 text-left transition-all ${
                   item.enabled
                     ? "border-sky-500/20 bg-sky-500/10 hover:border-sky-500/40 hover:bg-sky-500/20 active:scale-[0.99]"
                     : "cursor-not-allowed border-white/10 bg-white/5 opacity-55"
@@ -184,7 +184,7 @@ export function NutritionView({ onBack, currentUser, onOpenCommunities }: Nutrit
           variants={itemVariants}
           className="rounded-[28px] border border-white/10 bg-white/5 p-4 sm:p-5"
         >
-          <div className="mb-5">
+          <div className="mb-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">
               Avaliação rápida
             </p>

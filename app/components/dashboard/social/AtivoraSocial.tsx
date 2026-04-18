@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AtivoraFeed } from "./AtivoraFeed";
 import { SocialProfile } from "./SocialProfile";
@@ -53,11 +53,22 @@ export const AtivoraSocial = ({
   const [selectedNickname, setSelectedNickname] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const resolveEntryView = useCallback(
+    (hasSocialAccount: boolean): SocialView => {
+      if (!hasSocialAccount) return "onboarding";
+      if (initialRoute === "messages" || initialRoute === "profile") {
+        return initialRoute as SocialView;
+      }
+      return "onboarding";
+    },
+    [initialRoute],
+  );
+
   useEffect(() => {
     const fetchProfile = async () => {
       if (isGuest) {
         setHasAccount(false);
-        setCurrentView("feed");
+        setCurrentView("onboarding");
         return;
       }
 
@@ -81,19 +92,20 @@ export const AtivoraSocial = ({
           };
           setUser(mappedUser);
           setHasAccount(true);
-          setCurrentView(initialRoute);
+          setCurrentView(resolveEntryView(true));
         } else {
           setHasAccount(false);
-          setCurrentView("onboarding");
+          setCurrentView(resolveEntryView(false));
         }
       } catch (error) {
         console.error("Erro ao carregar perfil:", error);
+        setHasAccount(false);
         setCurrentView("onboarding");
       }
     };
 
     fetchProfile();
-  }, [initialRoute, isGuest]);
+  }, [isGuest, resolveEntryView]);
 
   const safeUser: UserProfile = user ?? {
     username: "Guest",
@@ -195,6 +207,17 @@ export const AtivoraSocial = ({
         </div>
 
         <div className="relative z-10 flex flex-col h-full px-6 pt-10 pb-10 max-w-md">
+          <button
+            type="button"
+            onClick={onBack}
+            className="mb-6 inline-flex min-h-10 items-center gap-2 self-start rounded-lg border border-white/10 bg-white/5 px-3 text-[10px] font-black uppercase tracking-widest text-white/50 transition hover:text-white"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Voltar
+          </button>
+
           <div className="inline-flex items-center gap-2 bg-sky-500/10 border border-sky-500/30 text-sky-400 text-[10px] font-black uppercase tracking-[0.25em] px-4 py-2 rounded-full w-fit mb-8">
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
               <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />

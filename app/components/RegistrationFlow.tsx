@@ -59,6 +59,7 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
   const normalizedRole = role === "nutricionista" ? "nutri" : role;
   const isTrainerRole = normalizedRole === "personal" || normalizedRole === "instrutor";
   const isProfessionalRole = isTrainerRole || normalizedRole === "nutri";
+  const requiresRegistro = normalizedRole === "nutri";
   const registroLabel =
     normalizedRole === "personal"
       ? "Nº CREF"
@@ -134,7 +135,7 @@ export const RegistrationFlow = ({ role, onBack, onComplete }: RegistrationProps
       if (!formData.cidadeEstado.trim()) newErrors.cidadeEstado = "Informe sua localização";
     }
     if (step === 3 && isProfessionalRole) {
-      if (!formData.registro.trim()) newErrors.registro = registroError;
+      if (requiresRegistro && !formData.registro.trim()) newErrors.registro = registroError;
       if (!formData.especialidade.trim()) newErrors.especialidade = "Informe seu foco principal";
     }
     if (step === 3 && normalizedRole === "influencer") {

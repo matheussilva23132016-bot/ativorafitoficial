@@ -74,7 +74,7 @@ export async function GET(req: Request) {
           ) conversa
           ORDER BY created_at DESC, id DESC
           LIMIT 200
-        ) ultimas
+        ) ?ltimas
         ORDER BY created_at ASC, id ASC`,
         [user, target, target, user]
       );

@@ -67,6 +67,8 @@ interface PostData {
   nivel?: number;
 }
 
+const MAX_POLL_OPTIONS = 6;
+
 const parseMediaValue = (value: unknown): string[] => {
   if (!value) return [];
 
@@ -159,22 +161,58 @@ const parsePollData = (value: unknown) => {
 };
 
 const normalizePollData = (row: any) => {
+  const getVotesForOption = (optionId: number) => toNumber(row[`enquete_op${optionId}_votos`]);
+  const userVote = toOptionalNumber(row.enquete_voto_usuario) || null;
   const parsed = parsePollData(row.poll_data);
-  if (parsed && typeof parsed === "object") return parsed;
+  if (parsed && typeof parsed === "object") {
+    const question = repairText(parsed.question || row.enquete_pergunta || "") as string;
+    const parsedOptions = Array.isArray(parsed.options) ? parsed.options : [];
+    const options = parsedOptions
+      .map((option: any, index: number) => {
+        const optionId = Math.max(1, toNumber(option?.id, index + 1));
+        const votesFromRow = getVotesForOption(optionId);
+        const rawVotes = toNumber(option?.votes);
+        return {
+          id: optionId,
+          text: repairText(option?.text || "") as string,
+          votes: votesFromRow || rawVotes,
+        };
+      })
+      .filter((option: any) => option.text)
+      .slice(0, MAX_POLL_OPTIONS);
 
-  if (!row.enquete_pergunta || !row.enquete_op1 || !row.enquete_op2) return null;
+    if (options.length >= 2) {
+      const summedVotes = options.reduce((sum: number, option: any) => sum + toNumber(option.votes), 0);
+      const totalVotes = toNumber(row.enquete_total_votos, summedVotes);
+      return {
+        question,
+        userVote,
+        totalVotes,
+        options,
+      };
+    }
+  }
 
-  const op1Votes = toNumber(row.enquete_op1_votos);
-  const op2Votes = toNumber(row.enquete_op2_votos);
+  const legacyOptions = Array.from({ length: MAX_POLL_OPTIONS }, (_, index) => index + 1)
+    .map((optionId) => ({
+      id: optionId,
+      text: repairText(row[`enquete_op${optionId}`]) as string,
+      votes: getVotesForOption(optionId),
+    }))
+    .filter((option) => option.text);
+
+  if (!row.enquete_pergunta || legacyOptions.length < 2) return null;
+
+  const totalVotes = toNumber(
+    row.enquete_total_votos,
+    legacyOptions.reduce((sum, option) => sum + toNumber(option.votes), 0),
+  );
 
   return {
     question: repairText(row.enquete_pergunta),
-    userVote: toOptionalNumber(row.enquete_voto_usuario) || null,
-    totalVotes: op1Votes + op2Votes,
-    options: [
-      { id: 1, text: repairText(row.enquete_op1), votes: op1Votes },
-      { id: 2, text: repairText(row.enquete_op2), votes: op2Votes },
-    ],
+    userVote,
+    totalVotes,
+    options: legacyOptions,
   };
 };
 
@@ -420,6 +458,14 @@ export const AtivoraFeed = ({
           enquete_pergunta: poll?.question,
           enquete_op1: poll?.options?.[0],
           enquete_op2: poll?.options?.[1],
+          poll_data: poll
+            ? JSON.stringify({
+                question: poll.question,
+                options: poll.options
+                  .slice(0, MAX_POLL_OPTIONS)
+                  .map((text: string, index: number) => ({ id: index + 1, text, votes: 0 })),
+              })
+            : null,
         }),
       });
 
@@ -445,10 +491,9 @@ export const AtivoraFeed = ({
               question: poll.question,
               userVote: null,
               totalVotes: 0,
-              options: [
-                { id: 1, text: poll.options[0], votes: 0 },
-                { id: 2, text: poll.options[1], votes: 0 },
-              ],
+              options: poll.options
+                .slice(0, MAX_POLL_OPTIONS)
+                .map((text: string, index: number) => ({ id: index + 1, text, votes: 0 })),
             }
           : null,
       };
@@ -546,7 +591,7 @@ export const AtivoraFeed = ({
       });
 
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Falha ao salvar comentario");
+      if (!response.ok) throw new Error(data.error || "Falha ao salvar comentário");
 
       const newComment = {
         id: String(data.id || Date.now()),
@@ -575,7 +620,7 @@ export const AtivoraFeed = ({
         { method: "DELETE" }
       );
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Falha ao apagar comentario");
+      if (!response.ok) throw new Error(data.error || "Falha ao apagar comentário");
 
       setCommentsList((current) => current.filter((comment) => comment.id !== commentId));
       setPosts((current) =>
@@ -585,9 +630,9 @@ export const AtivoraFeed = ({
             : post
         )
       );
-      toast.success("Comentario apagado.");
+      toast.success("Comentário apagado.");
     } catch (error: any) {
-      toast.error(error.message || "Nao foi possivel apagar o comentario.");
+      toast.error(error.message || "Não foi possível apagar o comentário.");
     }
   };
 
@@ -611,7 +656,7 @@ export const AtivoraFeed = ({
       setSavedPosts(prev => prev.filter(p => p.id !== id));
       toast.success("Post apagado do Ativora Social.");
     } catch (error: any) {
-      toast.error(error.message || "Nao foi possivel apagar o post.");
+      toast.error(error.message || "Não foi possível apagar o post.");
       throw error;
     }
   };

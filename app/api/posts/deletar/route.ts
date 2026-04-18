@@ -17,7 +17,7 @@ export async function DELETE(req: Request) {
     );
 
     if (!posts.length) {
-      return NextResponse.json({ error: "Post nao encontrado" }, { status: 404 });
+      return NextResponse.json({ error: "Post não encontrado" }, { status: 404 });
     }
 
     if (posts[0].nickname !== nickname) {

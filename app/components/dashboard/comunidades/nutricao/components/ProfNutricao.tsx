@@ -20,6 +20,8 @@ import { FormDadosCorporais } from "./FormDadosCorporais";
 import { EstimativaCorpo    } from "./EstimativaCorpo";
 import { FoodManualView     } from "./FoodManualView";
 import type { useNutricao } from "../hooks/useNutricao";
+import { RequestMiniChat } from "../../shared/RequestMiniChat";
+import { useRequestMiniChat } from "../../shared/useRequestMiniChat";
 
 interface Props {
   currentUser:    any;
@@ -78,8 +80,32 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
   const [importandoDoc,     setImportandoDoc]       = useState(false);
   const [erroImportacao,    setErroImportacao]      = useState<string | null>(null);
   const importInputRef                              = useRef<HTMLInputElement | null>(null);
+  const {
+    activeRequestId: activeNutriChatId,
+    chatEnabled: nutriChatEnabled,
+    chatStatus: nutriChatStatus,
+    chatLoading: nutriChatLoading,
+    chatSending: nutriChatSending,
+    chatError: nutriChatError,
+    chatMessages: nutriChatMessages,
+    openChat: openNutriChat,
+    closeChat: closeNutriChat,
+    refreshChat: refreshNutriChat,
+    sendChatMessage: sendNutriChatMessage,
+  } = useRequestMiniChat({
+    communityId,
+    requestScopePath: "nutrition/solicitacoes",
+    userId: currentUser?.id ?? "",
+    userName: currentUser?.name ?? currentUser?.full_name ?? currentUser?.nickname ?? "Equipe",
+  });
 
   useEffect(() => { sincronizar(); }, [sincronizar]);
+
+  useEffect(() => {
+    if (aba !== "solicitacoes" && activeNutriChatId) {
+      closeNutriChat();
+    }
+  }, [aba, activeNutriChatId, closeNutriChat]);
 
   const handleGerarIA = async (sol: SolicitacaoCardapio) => {
     if (!podeGerenciar) return;
@@ -241,10 +267,21 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
     return matchBusca && matchStatus;
   });
 
+  const chatSolicitacaoAtiva =
+    solicitacoes.find(solicitacao => solicitacao.id === activeNutriChatId) ?? null;
+
   const membrosFiltrados = membros.filter(m =>
     buscaMembro.trim() === "" ||
     m.nome.toLowerCase().includes(buscaMembro.toLowerCase())
   );
+
+  const filtrosAtivos = busca.trim() !== "" || filtroStatus !== "todos";
+  const itensVisiveis =
+    aba === "solicitacoes"
+      ? solicitacoesFiltradas.length
+      : aba === "cardapios"
+        ? cardapiosFiltrados.length
+        : 0;
 
   if (loadingSync && solicitacoes.length === 0) {
     return (
@@ -454,6 +491,35 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
           )}
         </div>
       )}
+
+      {aba !== "editor" && aba !== "avaliacoes" && aba !== "manual" && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+          <p className="text-[10px] font-black uppercase tracking-widest text-white/35">
+            {itensVisiveis} registro(s) visível(is)
+          </p>
+          <div className="flex items-center gap-3">
+            {filtrosAtivos && (
+              <button
+                type="button"
+                onClick={() => {
+                  setBusca("");
+                  setFiltroStatus("todos");
+                }}
+                className="text-[9px] font-black uppercase tracking-widest text-sky-300 transition hover:text-sky-200"
+              >
+                Limpar filtros
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={sincronizar}
+              className="text-[9px] font-black uppercase tracking-widest text-white/45 transition hover:text-white"
+            >
+              Atualizar
+            </button>
+          </div>
+        </div>
+      )}
       {/* ── Barra de busca ───────────────────────────────────────── */}
       {erroImportacao && aba !== "editor" && (
         <div className="flex items-center gap-3 bg-rose-500/8
@@ -470,7 +536,7 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
       )}
 
       {aba !== "editor" && aba !== "avaliacoes" && aba !== "manual" && (
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
           <div className="relative flex-1">
             <Search size={12} className="absolute left-3 top-1/2
               -translate-y-1/2 text-white/20 pointer-events-none" />
@@ -506,6 +572,14 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
               </>
             )}
           </select>
+          <button
+            type="button"
+            onClick={sincronizar}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-[9px] font-black uppercase tracking-widest text-white/45 transition hover:text-white"
+          >
+            <RefreshCw size={11} />
+            Atualizar
+          </button>
         </div>
       )}
 
@@ -532,6 +606,7 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 6 }}
+            className="min-w-0"
           >
             <FoodManualView
               allowAccess={podeUsarManual}
@@ -562,6 +637,14 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
                   onRejeitar={(id, obs) =>
                     atualizarStatusSolicitacao(id, "rejeitada", obs)
                   }
+                  onAbrirChat={
+                    podeGerenciar
+                      ? (solicitacao) => {
+                          if (solicitacao.status !== "concluida") return;
+                          void openNutriChat(solicitacao.id);
+                        }
+                      : undefined
+                  }
                 />
               ))
             ) : (
@@ -581,6 +664,43 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
                       : "Quando alunos solicitarem cardápios, aparecerão aqui"}
                   </p>
                 </div>
+              </div>
+            )}
+
+            {activeNutriChatId && chatSolicitacaoAtiva && (
+              <div className="space-y-2">
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={closeNutriChat}
+                    className="text-[9px] font-black uppercase tracking-widest text-white/40 transition hover:text-white"
+                  >
+                    Fechar chat
+                  </button>
+                </div>
+                {nutriChatError ? (
+                  <p className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                    {nutriChatError}
+                  </p>
+                ) : null}
+
+                <RequestMiniChat
+                  title={`Mini chat • ${chatSolicitacaoAtiva.alunoNome}`}
+                  subtitle="Canal rapido para ajustes do cardapio publicado."
+                  currentUserId={currentUser?.id ?? ""}
+                  enabled={nutriChatEnabled}
+                  loading={nutriChatLoading}
+                  sending={nutriChatSending}
+                  messages={nutriChatMessages}
+                  disabledReason={
+                    nutriChatStatus && nutriChatStatus !== "concluida"
+                      ? "Este mini chat sera liberado apos a conclusao da solicitacao."
+                      : null
+                  }
+                  placeholder="Escreva um ajuste para o aluno..."
+                  onSend={sendNutriChatMessage}
+                  onRefresh={refreshNutriChat}
+                />
               </div>
             )}
           </motion.div>
@@ -728,7 +848,7 @@ export function ProfNutricao({ currentUser, communityId, hook, userTags }: Props
             <CardapioViewer
               cardapio={cardapioView}
               onToggleConcluida={() => {}}
-              pdfUrl={`/api/communities/${communityId}/offline-pdf?type=cardapio&userId=${encodeURIComponent(cardapioView.alunoId || currentUser?.id || "")}`}
+                pdfUrl={`/api/communities/${communityId}/offline-pdf?type=cardapio&userId=${encodeURIComponent(cardapioView.alunoId || currentUser?.id || "")}`}
             />
           </motion.div>
         )}

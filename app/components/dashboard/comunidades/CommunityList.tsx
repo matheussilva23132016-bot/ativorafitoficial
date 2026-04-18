@@ -9,6 +9,10 @@ import { CommunityCard } from "./CommunityCard";
 import { motion, AnimatePresence } from "framer-motion";
 import { CommunityHub } from "./CommunityHub";
 import { toast } from "sonner";
+import {
+  appendCommunityCoverFocus,
+  DEFAULT_COVER_POSITION,
+} from "./cover-utils";
 
 interface CommunityListProps {
   currentUser:       any;
@@ -49,12 +53,24 @@ export function CommunityList({
   );
   const [comunidades,   setComunidades]   = useState<any[]>([]);
   const [loading,       setLoading]       = useState(true);
+  const [joiningId,     setJoiningId]     = useState<string | null>(null);
   const [isCreating,    setIsCreating]    = useState(false);
   const [isSubmitting,  setIsSubmitting]  = useState(false);
   const [newGroup,      setNewGroup]      = useState(FORM_INITIAL);
+  const [coverFile,     setCoverFile]     = useState<File | null>(null);
+  const [coverPosition, setCoverPosition] = useState<{ x: number; y: number }>({
+    ...DEFAULT_COVER_POSITION,
+  });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeTheme  = ELITE_THEMES.find(t => t.id === newGroup.theme) ?? ELITE_THEMES[0];
+
+  const closeCreateModal = () => {
+    setIsCreating(false);
+    setNewGroup(FORM_INITIAL);
+    setCoverFile(null);
+    setCoverPosition({ ...DEFAULT_COVER_POSITION });
+  };
 
   const getUserId = useCallback((): string | null => {
     return currentUser?.id ?? null;
@@ -62,13 +78,16 @@ export function CommunityList({
 
   const loadCommunities = useCallback(async () => {
     const uid = getUserId();
-    if (!uid) { setLoading(false); return; }
+    if (!uid) { setComunidades([]); setLoading(false); return []; }
     try {
       const res  = await fetch(`/api/communities?userId=${uid}`);
       const data = res.ok ? await res.json() : {};
-      setComunidades(data.communities ?? []);
+      const next = Array.isArray(data.communities) ? data.communities : [];
+      setComunidades(next);
+      return next;
     } catch {
       setComunidades([]);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -82,9 +101,83 @@ export function CommunityList({
     }
   }, [initialDeepLink?.communityId, initialDeepLink?.tab]);
 
+  const handleOpenCommunity = useCallback(
+    async (community: any) => {
+      const uid = getUserId();
+      if (!uid) {
+        toast.error("Faca login para acessar as comunidades.");
+        return;
+      }
+
+      if (joiningId) return;
+
+      if (community.isMember || community.owner_id === uid) {
+        setActiveCommunityId(community.id);
+        return;
+      }
+
+      if (community.privacidade === "private" && community.request_status === "pendente") {
+        toast.info("Sua solicitação já está pendente de aprovação.");
+        return;
+      }
+
+      setJoiningId(community.id);
+      try {
+        const res = await fetch(`/api/communities/${community.id}/requests`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: uid }),
+        });
+        const result = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          if (res.status === 409 && result?.requestStatus === "pendente") {
+            toast.info("Sua solicitação já está pendente de aprovação.");
+            await loadCommunities();
+            return;
+          }
+          throw new Error(result?.error ?? "Não foi possível entrar no grupo.");
+        }
+
+        await loadCommunities();
+
+        if (result?.joined) {
+          setActiveCommunityId(community.id);
+          toast.success("Você entrou no grupo.");
+          onNotify?.({
+            title: "Entrada confirmada",
+            message: "Você agora faz parte da comunidade.",
+            type: "comunidade",
+            targetId: community.id,
+            targetTab: "geral",
+          });
+          triggerXP?.(40);
+          return;
+        }
+
+        if (result?.requested) {
+          toast.success("Solicitação enviada. Aguarde a aprovação do dono ou ADM.");
+          onNotify?.({
+            title: "Solicitação enviada",
+            message: "Você será avisado quando o pedido for analisado.",
+            type: "comunidade",
+          });
+          return;
+        }
+      } catch (err: any) {
+        toast.error(`Erro ao entrar no grupo: ${err.message}`);
+      } finally {
+        setJoiningId(null);
+      }
+    },
+    [getUserId, joiningId, loadCommunities, onNotify, triggerXP],
+  );
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setCoverFile(file);
+    setCoverPosition({ ...DEFAULT_COVER_POSITION });
     const reader = new FileReader();
     reader.onloadend = () =>
       setNewGroup(prev => ({ ...prev, cover_url: reader.result as string }));
@@ -100,9 +193,33 @@ export function CommunityList({
     }
     setIsSubmitting(true);
 
+    let coverUrl = newGroup.cover_url;
+
+    try {
+      if (coverFile) {
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", coverFile);
+
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: uploadFormData,
+        });
+        const uploadJson = await uploadRes.json();
+        if (!uploadRes.ok || !uploadJson?.url) {
+          throw new Error(uploadJson?.error ?? "Falha ao enviar a capa do grupo.");
+        }
+        coverUrl = String(uploadJson.url);
+      }
+    } catch (uploadError: any) {
+      toast.error("Erro no upload da capa: " + (uploadError?.message || "Falha desconhecida."));
+      setIsSubmitting(false);
+      return;
+    }
+
     const groupData = {
       id:       `group-${Date.now()}`,
       ...newGroup,
+      cover_url: appendCommunityCoverFocus(coverUrl, coverPosition.x, coverPosition.y),
       name:     newGroup.name.toUpperCase(),
       owner_id: uid,
     };
@@ -119,12 +236,13 @@ export function CommunityList({
       // Recarrega do banco para garantir dados completos (corrige bug 3)
       await loadCommunities();
 
-      setIsCreating(false);
-      setNewGroup(FORM_INITIAL);
+      closeCreateModal();
       onNotify?.({
         title:   "Base Operacional",
         message: "Esquadrão forjado com sucesso.",
-        type:    "social",
+        type:    "comunidade",
+        targetId: String(result?.communityId || ""),
+        targetTab: "geral",
       });
       toast.success("Esquadrão forjado com sucesso!");
       triggerXP?.(250);
@@ -159,12 +277,12 @@ export function CommunityList({
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="w-full max-w-6xl mx-auto p-3 sm:p-8 pb-32 text-left selection:bg-sky-500/30"
+      className="w-full max-w-6xl mx-auto px-0 pb-6 text-left selection:bg-sky-500/30 sm:pb-8"
     >
       {/* Header */}
-      <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 sm:gap-6 mb-8 sm:mb-12 border-b border-white/5 pb-6 sm:pb-8">
+      <header className="flex flex-col items-start justify-between gap-4 border-b border-white/5 pb-4 sm:flex-row sm:items-center sm:gap-6 sm:pb-6 mb-5 sm:mb-8">
         <div>
-          <h1 className="text-3xl sm:text-6xl font-black italic uppercase tracking-tighter text-white leading-none">
+          <h1 className="text-[1.9rem] sm:text-6xl font-black italic uppercase tracking-tighter text-white leading-none">
             COMUNIDADES <span className="text-sky-500">ELITE</span>
           </h1>
           <p className="text-white/20 text-[10px] font-black uppercase tracking-widest mt-2 italic">
@@ -173,7 +291,7 @@ export function CommunityList({
         </div>
         <button
           onClick={() => setIsCreating(true)}
-          className="flex w-full sm:w-auto items-center justify-center gap-3 bg-white text-black px-8 py-4 rounded-2xl font-black uppercase text-xs hover:bg-sky-500 transition-all active:scale-95 shadow-lg shrink-0"
+          className="flex min-h-11 w-full sm:w-auto items-center justify-center gap-2.5 rounded-lg bg-white px-5 py-3 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:bg-sky-500 active:scale-95 shadow-lg shrink-0 sm:min-h-12 sm:rounded-2xl sm:px-8 sm:py-4 sm:text-xs"
         >
           <Plus size={16} /> CRIAR GRUPO
         </button>
@@ -181,21 +299,22 @@ export function CommunityList({
 
       {/* Lista */}
       {loading ? (
-        <div className="py-20 flex justify-center opacity-20">
+        <div className="py-14 sm:py-20 flex justify-center opacity-20">
           <RefreshCw className="animate-spin" size={28} />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
           {comunidades.length > 0 ? (
             comunidades.map(com => (
               <CommunityCard
                 key={com.id}
                 com={com}
-                onClick={() => setActiveCommunityId(com.id)}
+                onClick={() => handleOpenCommunity(com)}
+                actionLoading={joiningId === com.id}
               />
             ))
           ) : (
-            <div className="col-span-full py-24 text-center opacity-20">
+            <div className="col-span-full py-16 sm:py-24 text-center opacity-20">
               <Users size={40} className="mx-auto mb-4" />
               <p className="text-[10px] font-black uppercase tracking-[0.3em]">
                 Nenhuma base operacional encontrada
@@ -227,7 +346,7 @@ export function CommunityList({
                   </p>
                 </div>
                 <button
-                  onClick={() => setIsCreating(false)}
+                  onClick={closeCreateModal}
                   className="p-3 bg-white/5 rounded-xl text-white/40 hover:text-rose-500 hover:bg-rose-500/10 transition-all"
                 >
                   <X size={22} />
@@ -244,7 +363,7 @@ export function CommunityList({
                     </label>
                     <div
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-full h-44 rounded-3xl border-2 border-dashed border-white/10 bg-black/40 cursor-pointer overflow-hidden flex flex-col items-center justify-center group transition-all hover:border-sky-500/40 relative"
+                      className="relative flex h-64 w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-white/10 bg-black/40 transition-all hover:border-sky-500/40 sm:h-72"
                     >
                       <input
                         type="file"
@@ -257,6 +376,7 @@ export function CommunityList({
                         <img
                           src={newGroup.cover_url}
                           className="w-full h-full object-cover opacity-70 group-hover:opacity-50 transition-all"
+                          style={{ objectPosition: `${coverPosition.x}% ${coverPosition.y}%` }}
                           alt="Preview"
                         />
                       ) : (
@@ -268,6 +388,47 @@ export function CommunityList({
                         </div>
                       )}
                     </div>
+                    {newGroup.cover_url && (
+                      <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-white/50">
+                          posição da capa
+                        </p>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-white/35">
+                            <span>Horizontal</span>
+                            <span>{coverPosition.x}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={coverPosition.x}
+                            onChange={(e) =>
+                              setCoverPosition((prev) => ({ ...prev, x: Number(e.target.value) }))
+                            }
+                            className="h-1.5 w-full cursor-pointer accent-sky-500"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-white/35">
+                            <span>Vertical</span>
+                            <span>{coverPosition.y}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={coverPosition.y}
+                            onChange={(e) =>
+                              setCoverPosition((prev) => ({ ...prev, y: Number(e.target.value) }))
+                            }
+                            className="h-1.5 w-full cursor-pointer accent-sky-500"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Nome */}

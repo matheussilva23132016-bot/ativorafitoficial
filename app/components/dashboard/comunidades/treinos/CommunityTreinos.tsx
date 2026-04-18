@@ -1,37 +1,59 @@
 // app/components/dashboard/comunidades/treinos/CommunityTreinos.tsx
 "use client";
 
-import { useRef, useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  LayoutGrid, Settings2, BrainCircuit, RefreshCw,
-  Plus, Search, Filter, Database, History,
-  UploadCloud, Loader2, AlertTriangle, Download,
+  AlertTriangle,
+  BrainCircuit,
+  ClipboardList,
+  Download,
+  Dumbbell,
+  History,
+  LayoutGrid,
+  Loader2,
+  MessageCircle,
+  Plus,
+  RefreshCw,
+  Search,
+  Settings2,
+  Sparkles,
+  Target,
+  UploadCloud,
+  Users,
 } from "lucide-react";
-
-import type { Treino, FocoTreino, SolicitacaoTreino } from "./types";
-import type { CommunityTreinosProps } from "./types";
+import type { CommunityTreinosProps, FocoTreino, SolicitacaoTreino, Treino } from "./types";
 import { DIAS, FOCOS_LIST, ROLES_GESTAO } from "./constants";
-import { novoTreino, uid, now } from "./utils";
+import { now, novoTreino, totalExercicios, uid } from "./utils";
 import { useTreinos } from "./hooks/useTreinos";
+import { WorkoutCard } from "./components/WorkoutCard";
+import { WorkoutEditor } from "./components/WorkoutEditor";
+import { WorkoutExecution } from "./components/WorkoutExecution";
+import { WorkoutViewer } from "./components/WorkoutViewer";
+import { SolicitacaoCard } from "./components/SolicitacaoCard";
+import { IAAssistente } from "./components/IAAssistente";
+import { RequestMiniChat } from "../shared/RequestMiniChat";
+import { useRequestMiniChat } from "../shared/useRequestMiniChat";
 
-import { FocoBadge }          from "./components/FocoBadge";
-import { WorkoutCard }         from "./components/WorkoutCard";
-import { WorkoutViewer }       from "./components/WorkoutViewer";
-import { WorkoutEditor }       from "./components/WorkoutEditor";
-import { WorkoutExecution }    from "./components/WorkoutExecution";
-import { SolicitacaoCard }     from "./components/SolicitacaoCard";
-import { IAAssistente }        from "./components/IAAssistente";
-
-// ── Tipos de view ─────────────────────────────────────────────
-type View =
-  | "dashboard"
-  | "gestao"
-  | "visualizar"
+type Screen =
+  | "resumo"
+  | "treinos"
+  | "solicitacoes"
+  | "biblioteca"
+  | "histórico"
   | "editor"
+  | "visualizar"
   | "execucao"
-  | "historico"
   | "ia";
+
+const statusText: Partial<Record<SolicitacaoTreino["status"], string>> = {
+  pendente: "Aguardando profissional",
+  em_andamento: "Em andamento",
+  concluida: "Concluída",
+};
+
+const pluralizar = (valor: number, singular: string, plural: string) =>
+  `${valor} ${valor === 1 ? singular : plural}`;
 
 export default function CommunityTreinos({
   communityId,
@@ -39,8 +61,7 @@ export default function CommunityTreinos({
   userRole,
   userName,
 }: CommunityTreinosProps) {
-
-  const isGestao = ROLES_GESTAO.includes(userRole as typeof ROLES_GESTAO[number]);
+  const isGestao = ROLES_GESTAO.includes(userRole as (typeof ROLES_GESTAO)[number]);
 
   const {
     treinos,
@@ -58,38 +79,178 @@ export default function CommunityTreinos({
     gerarComIA,
     marcarExercicioConcluido,
     concluirTreino,
+    sincronizar,
   } = useTreinos(communityId, userId);
 
-  // ── State de navegação ────────────────────────────────────────
-  const [view, setView]                         = useState<View>(isGestao ? "gestao" : "dashboard");
-  const [treinoAtivo, setTreinoAtivo]           = useState<Treino | null>(null);
-  const [solAtiva, setSolAtiva]                 = useState<SolicitacaoTreino | null>(null);
-  const [importandoDoc, setImportandoDoc]       = useState(false);
-  const [erroImportacao, setErroImportacao]     = useState<string | null>(null);
-  const importInputRef                          = useRef<HTMLInputElement | null>(null);
-
-  // ── Filtros (gestão) ──────────────────────────────────────────
-  const [busca, setBusca]         = useState("");
+  const [screen, setScreen] = useState<Screen>("resumo");
+  const [treinoAtivo, setTreinoAtivo] = useState<Treino | null>(null);
+  const [solAtiva, setSolAtiva] = useState<SolicitacaoTreino | null>(null);
+  const [busca, setBusca] = useState("");
   const [filtroFoco, setFiltroFoco] = useState<FocoTreino | "todos">("todos");
+  const [focosSelecionados, setFocosSelecionados] = useState<FocoTreino[]>([]);
+  const [obsAluno, setObsAluno] = useState("");
+  const [importandoDoc, setImportandoDoc] = useState(false);
+  const [erroImportacao, setErroImportacao] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [mobileTreinoLimit, setMobileTreinoLimit] = useState(4);
+  const [mobileHistoricoLimit, setMobileHistoricoLimit] = useState(6);
+  const [mobileSolicitacoesView, setMobileSolicitacoesView] = useState<"novo" | "acompanhamento">(
+    "novo",
+  );
+
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const treinoPdfUrl = `/api/communities/${communityId}/offline-pdf?type=treino&userId=${encodeURIComponent(userId)}`;
 
-  // ── Solicitação (aluno) ───────────────────────────────────────
-  const [focosSelecionados, setFocosSelecionados] = useState<FocoTreino[]>([]);
-  const [obsAluno, setObsAluno]                   = useState("");
+  const minhasSolicitacoes = useMemo(
+    () => solicitacoes.filter(item => item.alunoId === userId),
+    [solicitacoes, userId],
+  );
 
-  // ── Treinos filtrados ─────────────────────────────────────────
-  const treinosFiltrados = useMemo(() => {
-    return treinos.filter(t => {
-      const matchBusca = t.titulo.toLowerCase().includes(busca.toLowerCase());
-      const matchFoco  = filtroFoco === "todos" || t.foco === filtroFoco;
-      return matchBusca && matchFoco;
+  const solicitacoesConcluidas = useMemo(
+    () => solicitacoes.filter(item => item.status === "concluida"),
+    [solicitacoes],
+  );
+
+  const {
+    activeRequestId: activeTreinoChatId,
+    chatEnabled: treinoChatEnabled,
+    chatStatus: treinoChatStatus,
+    chatLoading: treinoChatLoading,
+    chatSending: treinoChatSending,
+    chatError: treinoChatError,
+    chatMessages: treinoChatMessages,
+    openChat: openTreinoChat,
+    closeChat: closeTreinoChat,
+    refreshChat: refreshTreinoChat,
+    sendChatMessage: sendTreinoChatMessage,
+  } = useRequestMiniChat({
+    communityId,
+    requestScopePath: "treinos/requests",
+    userId,
+    userName,
+  });
+
+  const treinoPrincipal = treinosPublicados[0] ?? null;
+
+  const treinosFiltradosGestao = useMemo(() => {
+    return treinos.filter(item => {
+      const byBusca = item.titulo.toLowerCase().includes(busca.toLowerCase());
+      const byFoco = filtroFoco === "todos" || item.foco === filtroFoco;
+      return byBusca && byFoco;
     });
   }, [treinos, busca, filtroFoco]);
 
-  // ── Handlers ──────────────────────────────────────────────────
-  const abrirEditor = (t?: Treino) => {
-    setTreinoAtivo(t ? JSON.parse(JSON.stringify(t)) : novoTreino());
-    setView("editor");
+  const treinosFiltradosAluno = useMemo(() => {
+    return treinosPublicados.filter(item => {
+      const byBusca = item.titulo.toLowerCase().includes(busca.toLowerCase());
+      const byFoco = filtroFoco === "todos" || item.foco === filtroFoco;
+      return byBusca && byFoco;
+    });
+  }, [treinosPublicados, busca, filtroFoco]);
+
+  const pendentesAluno = useMemo(
+    () => minhasSolicitacoes.filter(item => item.status === "pendente").length,
+    [minhasSolicitacoes],
+  );
+
+  const emAndamentoAluno = useMemo(
+    () => minhasSolicitacoes.filter(item => item.status === "em_andamento").length,
+    [minhasSolicitacoes],
+  );
+
+  const historicoHoje = useMemo(() => {
+    const hoje = new Date().toLocaleDateString("pt-BR");
+    return historico.filter(item => new Date(item.concluidoEm).toLocaleDateString("pt-BR") === hoje).length;
+  }, [historico]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const updateViewport = () => setIsMobile(window.innerWidth < 640);
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (busca.trim() || filtroFoco !== "todos") {
+      setShowMobileFilters(true);
+    }
+  }, [busca, filtroFoco]);
+
+  useEffect(() => {
+    if (screen !== "treinos" && screen !== "biblioteca") {
+      setShowMobileFilters(false);
+    }
+  }, [screen]);
+
+  useEffect(() => {
+    setMobileTreinoLimit(4);
+  }, [screen, busca, filtroFoco, isGestao]);
+
+  useEffect(() => {
+    setMobileHistoricoLimit(6);
+  }, [screen, historico.length]);
+
+  useEffect(() => {
+    if (screen === "solicitacoes") {
+      setMobileSolicitacoesView("novo");
+    }
+  }, [screen]);
+
+  useEffect(() => {
+    if (screen !== "solicitacoes" && activeTreinoChatId) {
+      closeTreinoChat();
+    }
+  }, [activeTreinoChatId, closeTreinoChat, screen]);
+
+  const chatSolicitacaoAtiva = useMemo(
+    () => solicitacoes.find(item => item.id === activeTreinoChatId) ?? null,
+    [activeTreinoChatId, solicitacoes],
+  );
+
+  const abrirEditor = (treino?: Treino) => {
+    setTreinoAtivo(treino ? JSON.parse(JSON.stringify(treino)) : novoTreino());
+    setScreen("editor");
+  };
+
+  const abrirVisualizador = (treino: Treino) => {
+    setTreinoAtivo(treino);
+    setScreen("visualizar");
+  };
+
+  const abrirExecucao = (treino: Treino) => {
+    setTreinoAtivo(JSON.parse(JSON.stringify(treino)));
+    setScreen("execucao");
+  };
+
+  const handleSalvar = (treino: Treino) => {
+    salvarTreino(treino);
+    setTreinoAtivo(null);
+    setSolAtiva(null);
+    setScreen(isGestao ? "biblioteca" : "treinos");
+  };
+
+  const handlePublicar = (treino: Treino) => {
+    salvarTreino(treino);
+    publicarTreino(treino.id);
+    setTreinoAtivo(null);
+    setSolAtiva(null);
+    setScreen(isGestao ? "biblioteca" : "treinos");
+  };
+
+  const handleGerarIA = async (foco: FocoTreino, solicitacaoId?: string) => {
+    const solicitacao = solicitacaoId ? solicitacoes.find(item => item.id === solicitacaoId) ?? null : null;
+    const treino = await gerarComIA(foco, solicitacaoId);
+
+    setTreinoAtivo({
+      ...treino,
+      paraTodos: !solicitacao,
+      paraAluno: solicitacao?.alunoId,
+      solicitacaoId: solicitacao?.id,
+    });
+    setSolAtiva(solicitacao);
+    setScreen("editor");
   };
 
   const normalizarTexto = (value: unknown) =>
@@ -101,42 +262,43 @@ export default function CommunityTreinos({
   const resolverDia = (value: unknown): Treino["dia"] => {
     const original = String(value || "").trim();
     const texto = normalizarTexto(value);
-    const match = DIAS.find((dia) => texto.includes(normalizarTexto(dia).slice(0, 3)));
+    const match = DIAS.find(dia => texto.includes(normalizarTexto(dia).slice(0, 3)));
     return match ?? (original || "Livre");
   };
 
   const resolverFoco = (value: unknown): FocoTreino => {
     const texto = normalizarTexto(value);
-    const match = FOCOS_LIST.find((foco) =>
-      texto.includes(normalizarTexto(foco.id)) || texto.includes(normalizarTexto(foco.label))
+    const match = FOCOS_LIST.find(
+      foco => texto.includes(normalizarTexto(foco.id)) || texto.includes(normalizarTexto(foco.label)),
     );
     return match?.id ?? "hipertrofia";
   };
 
   const montarTreinoImportado = (payload: any, warnings: string[] = []): Treino => {
-    const foco = resolverFoco(payload?.foco);
     const grupos = (Array.isArray(payload?.grupos) ? payload.grupos : [])
       .map((grupo: any) => ({
         id: uid(),
         nome: String(grupo?.nome || "Grupo"),
         exercicios: (Array.isArray(grupo?.exercicios) ? grupo.exercicios : [])
-          .map((ex: any) => {
+          .map((exercicio: any) => {
             const obs = [
-              ex?.obs,
-              ex?.cadencia ? `Cadencia: ${ex.cadencia}` : "",
-              ex?.rpe ? `RPE: ${ex.rpe}` : "",
-            ].filter(Boolean).join(" | ");
+              exercicio?.obs,
+              exercicio?.cadencia ? `Cadência: ${exercicio.cadencia}` : "",
+              exercicio?.rpe ? `RPE: ${exercicio.rpe}` : "",
+            ]
+              .filter(Boolean)
+              .join(" | ");
 
             return {
               id: uid(),
-              nome: String(ex?.nome || "").trim(),
-              series: ex?.series === null || ex?.series === undefined || ex?.series === "" ? 0 : Number(ex.series),
-              repeticoes: String(ex?.repeticoes || ""),
-              descanso: String(ex?.descanso || ""),
+              nome: String(exercicio?.nome || "").trim(),
+              series: exercicio?.series === null || exercicio?.series === undefined || exercicio?.series === "" ? 0 : Number(exercicio.series),
+              repeticoes: String(exercicio?.repeticoes || exercicio?.reps || ""),
+              descanso: String(exercicio?.descanso || ""),
               obs,
             };
           })
-          .filter((ex: any) => ex.nome),
+          .filter((exercicio: any) => exercicio.nome),
       }))
       .filter((grupo: any) => grupo.exercicios.length > 0);
 
@@ -154,7 +316,7 @@ export default function CommunityTreinos({
       titulo: String(payload?.titulo || "Treino importado"),
       dia: resolverDia(payload?.dia),
       letra: payload?.letra ? String(payload.letra).slice(0, 2).toUpperCase() : undefined,
-      foco,
+      foco: resolverFoco(payload?.foco),
       status: "draft",
       grupos: grupos.length ? grupos : [],
       cardio,
@@ -188,7 +350,8 @@ export default function CommunityTreinos({
 
       const treino = montarTreinoImportado(data.result?.treino, data.result?.warnings);
       setTreinoAtivo(treino);
-      setView("editor");
+      setSolAtiva(null);
+      setScreen("editor");
     } catch (error: any) {
       setErroImportacao(error?.message || "Não foi possível importar o documento.");
     } finally {
@@ -196,63 +359,27 @@ export default function CommunityTreinos({
     }
   };
 
-  const abrirVisualizador = (t: Treino) => {
-    setTreinoAtivo(t);
-    setView("visualizar");
-  };
-
-  const abrirExecucao = (t: Treino) => {
-    setTreinoAtivo(JSON.parse(JSON.stringify(t)));
-    setView("execucao");
-  };
-
-  const handleSalvar = (t: Treino) => {
-    salvarTreino(t);
-    setView(isGestao ? "gestao" : "dashboard");
-    setTreinoAtivo(null);
-  };
-
-  const handlePublicar = (t: Treino) => {
-    salvarTreino(t);
-    publicarTreino(t.id);
-    setView(isGestao ? "gestao" : "dashboard");
-    setTreinoAtivo(null);
-  };
-
-  const handleGerarIA = async (foco: FocoTreino, solicitacaoId?: string) => {
-    const solicitacao = solicitacoes.find(s => s.id === solicitacaoId) ?? null;
-    const treino = await gerarComIA(foco, solicitacaoId);
-    setTreinoAtivo({
-      ...treino,
-      paraTodos: !solicitacao,
-      paraAluno: solicitacao?.alunoId,
-      solicitacaoId: solicitacao?.id,
-    });
-    setSolAtiva(solicitacao);
-    setView("editor");
-  };
-
   const handleSolicitarTreino = () => {
     if (focosSelecionados.length === 0) return;
-    focosSelecionados.forEach(foco =>
-      solicitarTreino(userId, userName, foco, obsAluno || undefined)
-    );
+    focosSelecionados.forEach(foco => {
+      solicitarTreino(userId, userName, foco, obsAluno || undefined);
+    });
     setFocosSelecionados([]);
     setObsAluno("");
+    setScreen("solicitacoes");
   };
 
   const handleToggleExercicio = (exercicioId: string) => {
     if (!treinoAtivo) return;
     marcarExercicioConcluido(treinoAtivo.id, exercicioId);
-    // Atualiza o estado local também
     setTreinoAtivo(prev => {
       if (!prev) return prev;
       return {
         ...prev,
-        grupos: prev.grupos.map(g => ({
-          ...g,
-          exercicios: g.exercicios.map(e =>
-            e.id === exercicioId ? { ...e, concluido: !e.concluido } : e
+        grupos: prev.grupos.map(grupo => ({
+          ...grupo,
+          exercicios: grupo.exercicios.map(exercicio =>
+            exercicio.id === exercicioId ? { ...exercicio, concluido: !exercicio.concluido } : exercicio,
           ),
         })),
       };
@@ -264,72 +391,114 @@ export default function CommunityTreinos({
     concluirTreino(treinoAtivo.id);
   };
 
-  // ── Overlay IA ────────────────────────────────────────────────
-  const OverlayIA = () => (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-[#010307]/98 backdrop-blur-3xl z-[9999]
-        flex flex-col items-center justify-center p-8">
-      <div className="flex flex-col items-center gap-10 max-w-sm text-center">
-        <div className="relative">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-            className="w-48 h-48 border-2 border-purple-500/20 border-dashed rounded-full"
-          />
-          <motion.div
-            animate={{ rotate: -360 }}
-            transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-4 border border-sky-500/10 rounded-full"
-          />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <motion.div
-              animate={{ scale: [1, 1.15, 1], opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className="bg-purple-500/10 p-10 rounded-full border border-purple-500/20">
-              <BrainCircuit size={52} className="text-purple-400" />
-            </motion.div>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <h4 className="text-4xl font-black italic uppercase text-white tracking-tighter">
-            GERANDO TREINO
-          </h4>
-          <p className="text-[10px] font-black uppercase text-purple-400/60 tracking-[0.6em]">
-            IA montando sugestão base...
-          </p>
-        </div>
-      </div>
-    </motion.div>
+  const abrirMiniChat = (solicitacao: SolicitacaoTreino) => {
+    if (solicitacao.status !== "concluida") return;
+    void openTreinoChat(solicitacao.id);
+    if (!isGestao) setMobileSolicitacoesView("acompanhamento");
+  };
+
+  const tabs = isGestao
+    ? [
+        { id: "resumo" as Screen, label: "Resumo", icon: LayoutGrid },
+        { id: "solicitacoes" as Screen, label: "Pedidos", icon: ClipboardList, badge: solicitacoesPendentes.length },
+        { id: "biblioteca" as Screen, label: "Biblioteca", icon: Settings2 },
+        { id: "histórico" as Screen, label: "Histórico", icon: History },
+      ]
+    : [
+        { id: "resumo" as Screen, label: "Resumo", icon: LayoutGrid },
+        { id: "treinos" as Screen, label: "Treinos", icon: Dumbbell },
+        { id: "solicitacoes" as Screen, label: "Pedidos", icon: ClipboardList, badge: pendentesAluno },
+        { id: "histórico" as Screen, label: "Histórico", icon: History },
+      ];
+
+  const quickActions = isGestao
+    ? [
+        { id: "novo", label: "Novo treino", detail: "Abrir editor", icon: Plus, action: () => abrirEditor() },
+        {
+          id: "pedidos",
+          label: "Fila de pedidos",
+          detail: `${solicitacoesPendentes.length} pendente(s)`,
+          icon: ClipboardList,
+          action: () => setScreen("solicitacoes"),
+        },
+        { id: "ia", label: "Assistente IA", detail: "Gerar base rápida", icon: Sparkles, action: () => setScreen("ia") },
+      ]
+    : [
+        {
+          id: "start",
+          label: "Treino principal",
+          detail: treinoPrincipal ? "Iniciar agora" : "Aguardar publicação",
+          icon: Dumbbell,
+          action: () => treinoPrincipal && abrirExecucao(treinoPrincipal),
+          disabled: !treinoPrincipal,
+        },
+        { id: "request", label: "Pedir treino", detail: "Abrir solicitações", icon: Target, action: () => setScreen("solicitacoes") },
+        {
+          id: "history",
+          label: "Histórico",
+          detail: pluralizar(historico.length, "sessão", "sessões"),
+          icon: History,
+          action: () => setScreen("histórico"),
+        },
+      ];
+
+  const treinosVisiveis = isGestao ? treinosFiltradosGestao : treinosFiltradosAluno;
+  const filtrosAtivos = busca.trim().length > 0 || filtroFoco !== "todos";
+  const treinosRenderizados = useMemo(() => {
+    if (!isMobile || filtrosAtivos) return treinosVisiveis;
+    return treinosVisiveis.slice(0, mobileTreinoLimit);
+  }, [filtrosAtivos, isMobile, mobileTreinoLimit, treinosVisiveis]);
+  const hasMoreTreinosMobile =
+    isMobile && !filtrosAtivos && treinosRenderizados.length < treinosVisiveis.length;
+  const historicoRenderizado = useMemo(
+    () => (isMobile ? historico.slice(0, mobileHistoricoLimit) : historico),
+    [historico, isMobile, mobileHistoricoLimit],
   );
+  const hasMoreHistoricoMobile = isMobile && historicoRenderizado.length < historico.length;
 
-  // ══════════════════════════════════════════════════════════════
-  // VIEWS FULL-PAGE
-  // ══════════════════════════════════════════════════════════════
-
-  if (view === "editor" && treinoAtivo) {
+  if (screen === "editor" && treinoAtivo) {
     return (
-      <div className="w-full max-w-4xl mx-auto text-white pb-20 px-4">
+      <div className="mx-auto w-full max-w-4xl px-4 pb-20 text-left text-white">
         <WorkoutEditor
           treino={treinoAtivo}
           onSave={handleSalvar}
           onPublish={handlePublicar}
-          onClose={() => { setView(isGestao ? "gestao" : "dashboard"); setTreinoAtivo(null); }}
+          onClose={() => {
+            setTreinoAtivo(null);
+            setScreen(isGestao ? "biblioteca" : "treinos");
+          }}
         />
-        <AnimatePresence>{gerandoIA && <OverlayIA />}</AnimatePresence>
+        <AnimatePresence>
+          {gerandoIA && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#010307]/95 backdrop-blur-2xl"
+            >
+              <div className="flex flex-col items-center gap-4 text-center">
+                <Loader2 size={34} className="animate-spin text-sky-400" />
+                <p className="text-xs font-black uppercase tracking-widest text-white/40">Gerando base do treino</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
 
-  if (view === "visualizar" && treinoAtivo) {
+  if (screen === "visualizar" && treinoAtivo) {
     return (
-      <div className="w-full max-w-4xl mx-auto text-white pb-20 px-4">
+      <div className="mx-auto w-full max-w-4xl px-4 pb-20 text-left text-white">
         <WorkoutViewer
           treino={treinoAtivo}
           isGestao={isGestao}
-          onClose={() => { setView(isGestao ? "gestao" : "dashboard"); setTreinoAtivo(null); }}
-          onEdit={() => setView("editor")}
-          onIniciar={() => abrirExecucao(treinoAtivo)}
+          onClose={() => {
+            setTreinoAtivo(null);
+            setScreen(isGestao ? "biblioteca" : "treinos");
+          }}
+          onEdit={isGestao ? () => setScreen("editor") : undefined}
+          onIniciar={!isGestao ? () => abrirExecucao(treinoAtivo) : undefined}
           onToggleExercicio={!isGestao ? handleToggleExercicio : undefined}
           pdfUrl={!isGestao ? treinoPdfUrl : undefined}
         />
@@ -337,12 +506,15 @@ export default function CommunityTreinos({
     );
   }
 
-  if (view === "execucao" && treinoAtivo) {
+  if (screen === "execucao" && treinoAtivo) {
     return (
-      <div className="w-full max-w-2xl mx-auto text-white pb-20 px-4">
+      <div className="mx-auto w-full max-w-2xl px-4 pb-20 text-left text-white">
         <WorkoutExecution
           treino={treinoAtivo}
-          onClose={() => { setView("dashboard"); setTreinoAtivo(null); }}
+          onClose={() => {
+            setTreinoAtivo(null);
+            setScreen("treinos");
+          }}
           onConcluir={handleConcluirTreino}
           onToggleExercicio={handleToggleExercicio}
         />
@@ -350,554 +522,747 @@ export default function CommunityTreinos({
     );
   }
 
-  if (view === "ia") {
+  if (screen === "ia") {
     return (
-      <div className="w-full max-w-xl mx-auto text-white pb-20 px-4">
+      <div className="mx-auto w-full max-w-xl px-4 pb-20 text-left text-white">
         <IAAssistente
           gerandoIA={gerandoIA}
           onGerar={handleGerarIA}
           solicitacao={solAtiva ?? undefined}
-          onClose={() => { setView("gestao"); setSolAtiva(null); }}
+          onClose={() => {
+            setSolAtiva(null);
+            setScreen(isGestao ? "solicitacoes" : "resumo");
+          }}
         />
-        <AnimatePresence>{gerandoIA && <OverlayIA />}</AnimatePresence>
       </div>
     );
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // RENDER PRINCIPAL
-  // ══════════════════════════════════════════════════════════════
   return (
-    <div className="w-full max-w-6xl mx-auto pb-40 text-white text-left
-      selection:bg-sky-500/30">
+    <div className="mx-auto w-full max-w-6xl space-y-3 px-2 pb-10 text-left text-white sm:space-y-5 sm:px-1">
+      <section className="rounded-[24px] border border-sky-500/15 bg-[#06101D] p-4 sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">Treinos da comunidade</p>
+            <h2 className="mt-2 break-words text-2xl font-black italic leading-none tracking-tighter text-white sm:text-3xl">
+              Visão prática para treinar com consistência
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-white/45">
+              {isGestao
+                ? "Gerencie pedidos, biblioteca e histórico com foco no que precisa de decisão."
+                : "Acompanhe treino, pedidos e histórico sem excesso de informação na tela."}
+            </p>
+          </div>
 
-      {/* ── HEADER ────────────────────────────────────────────── */}
-      <header className="flex flex-col sm:flex-row justify-between items-start
-        sm:items-end gap-6 mb-10 px-1">
-        <div>
-          <h1 className="text-4xl sm:text-7xl font-black italic uppercase
-            tracking-tighter leading-none text-white">
-            TREI<span className="text-sky-500">NOS</span>
-          </h1>
-          <p className="text-[9px] font-black uppercase tracking-[0.5em]
-            text-white/15 mt-2 italic">
-            PLATAFORMA DE TREINAMENTO PERSONALIZADO
-          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={sincronizar}
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 text-[10px] font-black uppercase tracking-widest text-white/55 transition hover:text-white"
+            >
+              <RefreshCw size={13} />
+              Atualizar
+            </button>
+            {isGestao ? (
+              <button
+                type="button"
+                onClick={() => abrirEditor()}
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-sky-500/20 bg-sky-500/10 px-4 text-[10px] font-black uppercase tracking-widest text-sky-200 transition hover:bg-sky-500/20"
+              >
+                <Plus size={13} />
+                Novo treino
+              </button>
+            ) : (
+              <a
+                href={treinoPdfUrl}
+                download
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 text-[10px] font-black uppercase tracking-widest text-emerald-300 transition hover:bg-emerald-500/20"
+              >
+                <Download size={13} />
+                PDF
+              </a>
+            )}
+          </div>
         </div>
 
-        {/* Nav */}
-        <nav className="flex bg-white/5 backdrop-blur-xl p-1.5 rounded-2xl
-          border border-white/10 shadow-xl w-full sm:w-auto">
-          {isGestao && (
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          {[
+            {
+              label: "Publicados",
+              value: String(treinosPublicados.length),
+              detail: "treinos ativos",
+              tone: "text-sky-300",
+            },
+            {
+              label: "Pendentes",
+              value: String(isGestao ? solicitacoesPendentes.length : pendentesAluno),
+              detail: isGestao ? "pedidos para revisar" : "pedidos aguardando",
+              tone: "text-amber-300",
+            },
+            {
+              label: isGestao ? "Biblioteca" : "Em andamento",
+              value: String(isGestao ? treinos.length : emAndamentoAluno),
+              detail: isGestao ? "treinos totais" : "solicitações abertas",
+              tone: "text-white/70",
+            },
+            {
+              label: "Hoje",
+              value: String(historicoHoje),
+              detail: "sessões concluídas",
+              tone: "text-emerald-300",
+            },
+          ].map(card => (
+            <article key={card.label} className="rounded-2xl border border-white/10 bg-black/20 p-3 sm:p-4">
+              <p className="text-[8px] font-black uppercase tracking-widest text-white/30">{card.label}</p>
+              <p className={`mt-1 text-lg font-black ${card.tone}`}>{card.value}</p>
+              <p className="text-[10px] text-white/35">{card.detail}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        {tabs.map(tab => {
+          const Icon = tab.icon;
+          const active = screen === tab.id;
+          return (
             <button
-              onClick={() => setView("gestao")}
-              className={`flex-1 sm:flex-none p-3.5 rounded-xl transition-all
-                flex items-center justify-center gap-2
-                ${view === "gestao"
-                  ? "bg-white/10 text-white font-black"
-                  : "text-white/30 hover:text-white/60"}`}>
-              <Settings2 size={18} />
-              <span className="text-[9px] font-black uppercase tracking-widest hidden sm:block">
-                Gestão
-              </span>
+              key={tab.id}
+              type="button"
+              onClick={() => setScreen(tab.id)}
+              className={`relative inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest transition-all sm:px-4 ${
+                active
+                  ? "border border-sky-500/30 bg-sky-500/15 text-sky-200"
+                  : "border border-white/10 bg-white/5 text-white/45 hover:text-white"
+              }`}
+            >
+              <Icon size={12} />
+              <span className="truncate">{tab.label}</span>
+              {"badge" in tab && tab.badge && tab.badge > 0 ? (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-400 px-1 text-[8px] font-black text-black">
+                  {tab.badge}
+                </span>
+              ) : null}
             </button>
-          )}
-          <button
-            onClick={() => setView("dashboard")}
-            className={`flex-1 sm:flex-none p-3.5 rounded-xl transition-all
-              flex items-center justify-center gap-2
-              ${view === "dashboard"
-                ? "bg-sky-500 text-black font-black shadow-lg"
-                : "text-white/30 hover:text-white/60"}`}>
-            <LayoutGrid size={18} />
-            <span className="text-[9px] font-black uppercase tracking-widest hidden sm:block">
-              Meus Treinos
-            </span>
-          </button>
-          <button
-            onClick={() => setView("historico")}
-            className={`flex-1 sm:flex-none p-3.5 rounded-xl transition-all
-              flex items-center justify-center gap-2
-              ${view === "historico"
-                ? "bg-sky-500 text-black font-black shadow-lg"
-                : "text-white/30 hover:text-white/60"}`}>
-            <History size={18} />
-            <span className="text-[9px] font-black uppercase tracking-widest hidden sm:block">
-              Histórico
-            </span>
-          </button>
-        </nav>
-      </header>
+          );
+        })}
+      </section>
 
       <AnimatePresence mode="wait">
+        <motion.div
+          key={screen}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          className="space-y-4"
+        >
+          {screen === "resumo" && (
+            <div className="space-y-4">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <section className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">
+                    {isGestao ? "Treino em destaque" : "Próximo treino"}
+                  </p>
+                  <h3 className="mt-2 text-xl font-black italic text-white">
+                    {treinoPrincipal?.titulo || "Nenhum treino publicado"}
+                  </h3>
+                  <p className="mt-2 text-xs leading-relaxed text-white/40">
+                    {treinoPrincipal
+                      ? `${treinoPrincipal.dia} - foco em ${FOCOS_LIST.find(item => item.id === treinoPrincipal.foco)?.label || treinoPrincipal.foco}.`
+                      : "Publique um treino para liberar início rápido e acompanhamento no resumo."}
+                  </p>
 
-        {/* ════════════════════════════════════════════════════
-            DASHBOARD — ALUNO
-            ════════════════════════════════════════════════════ */}
-        {view === "dashboard" && (
-          <motion.div key="dashboard"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="space-y-8">
-
-            {/* Card principal — iniciar treino */}
-            <div className="relative overflow-hidden bg-gradient-to-br
-              from-[#0a0c10] to-[#010307] border border-white/5
-              rounded-[32px] p-8 sm:p-14 shadow-2xl">
-              <div className="absolute inset-0 bg-gradient-to-bl
-                from-sky-500/5 to-transparent pointer-events-none" />
-
-              <div className="relative z-10 flex flex-col lg:flex-row
-                justify-between items-center gap-10">
-                <div className="flex-1 space-y-5 text-left w-full">
-                  <div className="inline-flex items-center gap-2 px-4 py-2
-                    bg-sky-500/10 border border-sky-500/20 rounded-full
-                    text-[9px] font-black text-sky-400 uppercase tracking-widest italic">
-                    <span className={`w-1.5 h-1.5 rounded-full ${
-                      treinosPublicados.length > 0 ? "bg-sky-400 animate-pulse" : "bg-white/20"
-                    }`} />
-                    {treinosPublicados.length > 0 ? "Treino disponível" : "Nenhum treino publicado"}
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <article className="rounded-xl border border-white/10 bg-black/20 p-2.5">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-white/30">Exercicios</p>
+                      <p className="mt-1 text-sm font-black text-white">
+                        {treinoPrincipal ? totalExercicios(treinoPrincipal) : 0}
+                      </p>
+                    </article>
+                    <article className="rounded-xl border border-white/10 bg-black/20 p-2.5">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-white/30">Dia</p>
+                      <p className="mt-1 text-sm font-black text-white">{treinoPrincipal?.dia || "-"}</p>
+                    </article>
                   </div>
 
-                  {treinosPublicados.length > 0 ? (
-                    <div className="space-y-3">
-                      <h3 className="text-4xl sm:text-6xl font-black italic uppercase
-                        leading-[0.85] tracking-tighter text-white">
-                        {treinosPublicados[0].titulo}
-                      </h3>
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <FocoBadge foco={treinosPublicados[0].foco} size="md" />
-                        <span className="text-white/20 font-bold uppercase text-xs
-                          tracking-[0.2em] border-l border-white/10 pl-3">
-                          {treinosPublicados[0].grupos.reduce(
-                            (a, g) => a + g.exercicios.length, 0
-                          )} exercícios
-                          {treinosPublicados[0].cardio
-                            ? ` + ${treinosPublicados[0].cardio.tipo}`
-                            : ""}
-                        </span>
-                      </div>
-                      {treinosPublicados[0].obs && (
-                        <p className="text-xs text-white/25 italic
-                          border-l-2 border-sky-500/20 pl-4">
-                          {treinosPublicados[0].obs}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <h3 className="text-3xl sm:text-5xl font-black italic uppercase
-                        text-white/10 leading-none tracking-tighter">
-                        AGUARDANDO<br />TREINO
-                      </h3>
-                      <p className="text-[10px] text-white/10 font-black uppercase
-                        tracking-widest italic">
-                        Solicite um treino ao seu personal abaixo
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex w-full flex-col gap-3 lg:w-auto">
-                  <button
-                    disabled={treinosPublicados.length === 0}
-                    onClick={() => treinosPublicados[0] && abrirExecucao(treinosPublicados[0])}
-                    className={`w-full h-16 sm:h-24 px-8 sm:px-14 rounded-[24px]
-                      font-black uppercase italic text-base sm:text-xl transition-all
-                      flex items-center justify-center gap-4 shrink-0
-                      ${treinosPublicados.length > 0
-                        ? "bg-sky-500 text-black hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(14,165,233,0.4)]"
-                        : "bg-white/5 text-white/10 border border-white/5 cursor-not-allowed"}`}>
-                    {treinosPublicados.length > 0 ? "INICIAR" : "OFFLINE"}
-                  </button>
-                  <a
-                    href={treinoPdfUrl}
-                    download
-                    aria-disabled={treinosPublicados.length === 0}
-                    className={`w-full rounded-2xl border px-5 py-3 text-center text-[10px]
-                      font-black uppercase tracking-widest transition-all flex items-center
-                      justify-center gap-2
-                      ${treinosPublicados.length > 0
-                        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
-                        : "pointer-events-none border-white/5 bg-white/3 text-white/10"}`}
-                  >
-                    <Download size={13} /> Baixar semana em PDF
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            {/* Grade de treinos publicados */}
-            {treinosPublicados.length > 1 && (
-              <div className="space-y-4">
-                <p className="text-[9px] font-black uppercase tracking-[0.4em]
-                  text-white/20 italic px-1">
-                  Todos os treinos — {treinosPublicados.length}
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {treinosPublicados.map(t => (
-                    <WorkoutCard
-                      key={t.id}
-                      treino={t}
-                      isGestao={false}
-                      onView={() => abrirVisualizador(t)}
-                      onIniciar={() => abrirExecucao(t)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Solicitar treino */}
-            <div className="space-y-6 bg-[#0a0e18] border border-white/5
-              rounded-[28px] p-6 sm:p-10">
-              <div>
-                <h4 className="text-lg font-black uppercase italic text-white
-                  leading-none mb-1">
-                  Solicitar Treino
-                </h4>
-                <p className="text-[9px] font-bold uppercase tracking-[0.4em]
-                  text-white/20 italic">
-                  Escolha o foco e envie para o seu personal
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {FOCOS_LIST.map(f => {
-                  const ativo = focosSelecionados.includes(f.id);
-                  return (
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
                     <button
-                      key={f.id}
-                      onClick={() => setFocosSelecionados(prev =>
-                        prev.includes(f.id)
-                          ? prev.filter(x => x !== f.id)
-                          : [...prev, f.id]
-                      )}
-                      className={`p-4 rounded-[18px] border transition-all text-left
-                        relative overflow-hidden
-                        ${ativo
-                          ? `${f.bg} ${f.border} shadow-lg`
-                          : "bg-white/5 border-white/5 hover:border-white/10"}`}>
-                      <div className={`p-2 rounded-xl mb-2.5 inline-block
-                        ${ativo ? "bg-black/20" : "bg-white/5"}`}>
-                        <f.icon size={16} className={ativo ? f.cor : "text-white/20"} />
-                      </div>
-                      <h5 className={`text-xs font-black uppercase italic leading-tight
-                        ${ativo ? f.cor : "text-white/50"}`}>
-                        {f.label}
-                      </h5>
-                      <p className={`text-[8px] mt-1 leading-tight
-                        ${ativo ? "text-white/40" : "text-white/15"}`}>
-                        {f.descricao}
-                      </p>
-                      {ativo && (
-                        <div className="absolute top-2.5 right-2.5">
-                          <div className={`w-4 h-4 rounded-full flex items-center
-                            justify-center ${f.bg} border ${f.border}`}>
-                            <span className={`text-[8px] font-black ${f.cor}`}>✓</span>
-                          </div>
-                        </div>
-                      )}
+                      type="button"
+                      disabled={!treinoPrincipal}
+                      onClick={() => treinoPrincipal && abrirVisualizador(treinoPrincipal)}
+                      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-4 text-[10px] font-black uppercase tracking-widest transition ${
+                        treinoPrincipal
+                          ? "border-white/10 bg-white/10 text-white hover:bg-white/15"
+                          : "cursor-not-allowed border-white/10 bg-white/5 text-white/25"
+                      }`}
+                    >
+                      <LayoutGrid size={13} />
+                      Ver treino
                     </button>
-                  );
-                })}
+
+                    <button
+                      type="button"
+                      disabled={!treinoPrincipal}
+                      onClick={() => treinoPrincipal && abrirExecucao(treinoPrincipal)}
+                      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-[10px] font-black uppercase tracking-widest transition ${
+                        treinoPrincipal
+                          ? "bg-sky-500 text-black hover:bg-sky-400"
+                          : "cursor-not-allowed bg-white/5 text-white/25"
+                      }`}
+                    >
+                      <Dumbbell size={13} />
+                      Iniciar
+                    </button>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">
+                    {isGestao ? "Fila de pedidos" : "Minhas solicitações"}
+                  </p>
+                  <h3 className="mt-2 text-xl font-black italic text-white">
+                    {isGestao ? `${solicitacoesPendentes.length} aguardando resposta` : `${minhasSolicitacoes.length} registradas`}
+                  </h3>
+                  <p className="mt-2 text-xs leading-relaxed text-white/40">
+                    {isGestao
+                      ? "Priorize as pendentes e monte treinos manualmente ou com apoio da IA."
+                      : "Envie foco, acompanhe status e receba atualizações sem precisar procurar em várias telas."}
+                  </p>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <article className="rounded-xl border border-white/10 bg-black/20 p-2.5">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-white/30">Pendentes</p>
+                      <p className="mt-1 text-sm font-black text-white">{isGestao ? solicitacoesPendentes.length : pendentesAluno}</p>
+                    </article>
+                    <article className="rounded-xl border border-white/10 bg-black/20 p-2.5">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-white/30">Em andamento</p>
+                      <p className="mt-1 text-sm font-black text-white">{isGestao ? "-" : emAndamentoAluno}</p>
+                    </article>
+                  </div>
+
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setScreen("solicitacoes")}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/10 px-4 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-white/15"
+                    >
+                      <ClipboardList size={13} />
+                      Abrir pedidos
+                    </button>
+                    {isGestao ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSolAtiva(null);
+                          setScreen("ia");
+                        }}
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-sky-500/20 bg-sky-500/10 px-4 text-[10px] font-black uppercase tracking-widest text-sky-200 transition hover:bg-sky-500/20"
+                      >
+                        <Sparkles size={13} />
+                        Assistente IA
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setScreen("solicitacoes")}
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 text-[10px] font-black uppercase tracking-widest text-emerald-200 transition hover:bg-emerald-500/20"
+                      >
+                        <Target size={13} />
+                        Pedir treino
+                      </button>
+                    )}
+                  </div>
+                </section>
               </div>
 
-              <textarea
-                value={obsAluno}
-                onChange={e => setObsAluno(e.target.value)}
-                rows={2}
-                className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3
-                  text-sm text-white/50 outline-none focus:border-sky-500/30
-                  transition-all placeholder:text-white/15 resize-none"
-                placeholder="Observações para o personal (lesões, restrições, preferências)..."
-              />
-
-              <AnimatePresence>
-                {focosSelecionados.length > 0 && (
-                  <motion.button
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 8 }}
-                    onClick={handleSolicitarTreino}
-                    className="w-full py-5 bg-white text-black rounded-2xl font-black
-                      uppercase text-xs shadow-lg hover:bg-sky-500 transition-all
-                      flex items-center justify-center gap-3">
-                    SOLICITAR TREINO ({focosSelecionados.length} foco
-                    {focosSelecionados.length > 1 ? "s" : ""})
-                  </motion.button>
-                )}
-              </AnimatePresence>
-            </div>
-          </motion.div>
-        )}
-
-        {/* ════════════════════════════════════════════════════
-            GESTÃO — PROFISSIONAL
-            ════════════════════════════════════════════════════ */}
-        {view === "gestao" && isGestao && (
-          <motion.div key="gestao"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="space-y-8">
-
-            {/* Solicitações pendentes */}
-            {solicitacoesPendentes.length > 0 && (
-              <section className="space-y-4">
-                <div className="flex items-center gap-3 px-1">
-                  <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
-                  <p className="text-[9px] font-black uppercase tracking-[0.4em]
-                    text-purple-400 italic">
-                    Solicitações Pendentes — {solicitacoesPendentes.length}
-                  </p>
+              <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/35">Fluxo rápido</p>
+                  <button
+                    type="button"
+                    onClick={() => setScreen(isGestao ? "biblioteca" : "treinos")}
+                    className="text-[9px] font-black uppercase tracking-widest text-sky-300 transition hover:text-sky-200"
+                  >
+                    Abrir lista completa
+                  </button>
                 </div>
-                <div className="space-y-3">
-                  {solicitacoesPendentes.map(sol => (
-                    <SolicitacaoCard
-                      key={sol.id}
-                      solicitacao={sol}
-                      gerandoIA={gerandoIA}
-                      onGerarIA={() => {
-                        setSolAtiva(sol);
-                        setView("ia");
-                      }}
-                      onMontarManual={() => {
-                        setTreinoAtivo({
-                          ...novoTreino(sol.foco),
-                          titulo: `TREINO · ${sol.foco.toUpperCase()}`,
-                          paraTodos: false,
-                          paraAluno: sol.alunoId,
-                          solicitacaoId: sol.id,
-                        });
-                        setView("editor");
-                      }}
-                      onDescartar={() => removerSolicitacao(sol.id)}
-                    />
-                  ))}
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {quickActions.map(action => {
+                    const Icon = action.icon;
+                    return (
+                      <button
+                        key={action.id}
+                        type="button"
+                        onClick={action.action}
+                        disabled={"disabled" in action && action.disabled}
+                        className={`rounded-xl border p-3 text-left transition ${
+                          "disabled" in action && action.disabled
+                            ? "cursor-not-allowed border-white/10 bg-black/20 text-white/25"
+                            : "border-white/10 bg-black/20 text-white hover:bg-white/10"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Icon size={13} className={"disabled" in action && action.disabled ? "text-white/25" : "text-sky-300"} />
+                          <p className="text-[10px] font-black uppercase tracking-widest">{action.label}</p>
+                        </div>
+                        <p className="mt-2 text-xs text-white/40">{action.detail}</p>
+                      </button>
+                    );
+                  })}
                 </div>
               </section>
-            )}
+            </div>
+          )}
 
-            {/* Ações rápidas */}
-            <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <button
-                onClick={() => abrirEditor()}
-                className="flex items-center gap-4 p-5 bg-[#0a0e18] border border-white/5
-                  rounded-[22px] hover:border-sky-500/30 transition-all group text-left">
-                <div className="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/20
-                  flex items-center justify-center shrink-0 group-hover:bg-sky-500/20
-                  transition-all">
-                  <Plus size={20} className="text-sky-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-black italic uppercase text-white">
-                    Novo Treino
-                  </p>
-                  <p className="text-[9px] text-white/25 font-bold uppercase tracking-widest mt-0.5">
-                    Criar do zero
-                  </p>
-                </div>
-              </button>
+          {(screen === "treinos" || screen === "biblioteca") && (
+            <section className="space-y-4">
+              {isGestao && screen === "biblioteca" && (
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <button
+                    type="button"
+                    onClick={() => abrirEditor()}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-sky-500/20 bg-sky-500/10 px-4 text-[10px] font-black uppercase tracking-widest text-sky-200 transition hover:bg-sky-500/20"
+                  >
+                    <Plus size={13} />
+                    Novo treino
+                  </button>
 
-              <button
-                onClick={() => { setSolAtiva(null); setView("ia"); }}
-                className="flex items-center gap-4 p-5 bg-[#0a0e18] border border-purple-500/20
-                  rounded-[22px] hover:border-purple-500/40 transition-all group text-left">
-                <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20
-                  flex items-center justify-center shrink-0 group-hover:bg-purple-500/20
-                  transition-all">
-                  <BrainCircuit size={20} className="text-purple-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-black italic uppercase text-white">
-                    Assistente IA
-                  </p>
-                  <p className="text-[9px] text-white/25 font-bold uppercase tracking-widest mt-0.5">
-                    Gerar sugestão base
-                  </p>
-                </div>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSolAtiva(null);
+                      setScreen("ia");
+                    }}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/10 px-4 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-white/15"
+                  >
+                    <BrainCircuit size={13} />
+                    IA treino
+                  </button>
 
-              <input
-                ref={importInputRef}
-                type="file"
-                accept="image/*,application/pdf"
-                className="hidden"
-                onChange={handleImportarDocumento}
-              />
-
-              <button
-                onClick={() => importInputRef.current?.click()}
-                disabled={importandoDoc}
-                className="flex items-center gap-4 p-5 bg-[#0a0e18] border border-emerald-500/20
-                  rounded-[22px] hover:border-emerald-500/40 transition-all group text-left
-                  disabled:opacity-50 disabled:cursor-not-allowed">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20
-                  flex items-center justify-center shrink-0 group-hover:bg-emerald-500/20
-                  transition-all">
-                  {importandoDoc ? (
-                    <Loader2 size={20} className="animate-spin text-emerald-400" />
-                  ) : (
-                    <UploadCloud size={20} className="text-emerald-400" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-sm font-black italic uppercase text-white">
-                    Importar Documento
-                  </p>
-                  <p className="text-[9px] text-white/25 font-bold uppercase tracking-widest mt-0.5">
-                    PDF ou imagem
-                  </p>
-                </div>
-              </button>
-            </section>
-
-            {erroImportacao && (
-              <div className="flex items-center gap-3 rounded-[18px] border border-rose-500/20 bg-rose-500/8 p-4">
-                <AlertTriangle size={14} className="shrink-0 text-rose-400" />
-                <p className="text-xs italic text-rose-300/80">{erroImportacao}</p>
-              </div>
-            )}
-
-            {/* Biblioteca */}
-            <section className="space-y-5">
-              <p className="text-[9px] font-black uppercase tracking-[0.4em]
-                text-white/20 italic px-1">
-                Biblioteca — {treinos.length} treino{treinos.length !== 1 ? "s" : ""}
-              </p>
-
-              {/* Filtros */}
-              {treinos.length > 0 && (
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <div className="relative flex-1">
-                    <Search size={14} className="absolute left-4 top-1/2
-                      -translate-y-1/2 text-white/20" />
-                    <input
-                      value={busca}
-                      onChange={e => setBusca(e.target.value)}
-                      className="w-full bg-white/5 border border-white/5 rounded-xl
-                        pl-10 pr-4 py-3 text-sm text-white/60 outline-none
-                        focus:border-sky-500/30 transition-all placeholder:text-white/15"
-                      placeholder="Buscar treino..."
-                    />
-                  </div>
-                  <div className="relative">
-                    <Filter size={14} className="absolute left-4 top-1/2
-                      -translate-y-1/2 text-white/20" />
-                    <select
-                      value={filtroFoco}
-                      onChange={e => setFiltroFoco(e.target.value as FocoTreino | "todos")}
-                      className="bg-white/5 border border-white/5 rounded-xl pl-10 pr-8
-                        py-3 text-sm font-black uppercase text-white/60 outline-none
-                        focus:border-sky-500/30 transition-all appearance-none">
-                      <option value="todos">Todos os focos</option>
-                      {FOCOS_LIST.map(f => (
-                        <option key={f.id} value={f.id}>{f.label}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <input
+                    ref={importInputRef}
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="hidden"
+                    onChange={handleImportarDocumento}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => importInputRef.current?.click()}
+                    disabled={importandoDoc}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 text-[10px] font-black uppercase tracking-widest text-emerald-200 transition hover:bg-emerald-500/20 disabled:opacity-50"
+                  >
+                    {importandoDoc ? <Loader2 size={13} className="animate-spin" /> : <UploadCloud size={13} />}
+                    Importar
+                  </button>
                 </div>
               )}
 
-              {treinosFiltrados.length === 0 ? (
-                <div className="py-20 text-center opacity-20">
-                  <Database size={36} className="mx-auto mb-3" />
-                  <p className="text-[10px] font-black uppercase tracking-widest">
-                    {treinos.length === 0
-                      ? "Nenhum treino criado ainda"
-                      : "Nenhum resultado para essa busca"}
-                  </p>
+              {erroImportacao && (
+                <div className="flex items-center gap-2 rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                  <AlertTriangle size={13} />
+                  {erroImportacao}
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {treinosFiltrados.map(t => (
-                    <WorkoutCard
-                      key={t.id}
-                      treino={t}
-                      isGestao
-                      onView={() => abrirVisualizador(t)}
-                      onEdit={() => abrirEditor(t)}
-                      onDelete={() => removerTreino(t.id)}
-                      onDuplicate={() => duplicarTreino(t)}
-                      onPublish={() => publicarTreino(t.id)}
-                    />
+              )}
+
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                  {pluralizar(treinosVisiveis.length, "treino exibido", "treinos exibidos")}
+                </p>
+                {filtrosAtivos && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBusca("");
+                      setFiltroFoco("todos");
+                    }}
+                    className="text-[9px] font-black uppercase tracking-widest text-sky-300 transition hover:text-sky-200"
+                  >
+                    Limpar filtros
+                  </button>
+                )}
+              </div>
+
+              <div className="sm:hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowMobileFilters(current => !current)}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 text-[10px] font-black uppercase tracking-widest text-white/55 transition hover:text-white"
+                >
+                  <Settings2 size={13} />
+                  {showMobileFilters ? "Ocultar filtros" : "Mostrar filtros"}
+                </button>
+              </div>
+
+              <div className={`${showMobileFilters ? "grid" : "hidden"} gap-2 sm:grid sm:grid-cols-[1fr_auto_auto]`}>
+                <div className="relative">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/25" />
+                  <input
+                    value={busca}
+                    onChange={event => setBusca(event.target.value)}
+                    placeholder="Buscar treino..."
+                    className="min-h-11 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-sky-500/35"
+                  />
+                </div>
+                <select
+                  value={filtroFoco}
+                  onChange={event => setFiltroFoco(event.target.value as FocoTreino | "todos")}
+                  className="min-h-11 rounded-lg border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none transition focus:border-sky-500/35"
+                >
+                  <option value="todos">Todos os focos</option>
+                  {FOCOS_LIST.map(foco => (
+                    <option key={foco.id} value={foco.id}>
+                      {foco.label}
+                    </option>
                   ))}
-                </div>
-              )}
-            </section>
-          </motion.div>
-        )}
-
-        {/* ════════════════════════════════════════════════════
-            HISTÓRICO
-            ════════════════════════════════════════════════════ */}
-        {view === "historico" && (
-          <motion.div key="historico"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="space-y-4">
-
-            <p className="text-[9px] font-black uppercase tracking-[0.4em]
-              text-white/20 italic px-1">
-              Histórico de Treinos — {historico.length} sessão
-              {historico.length !== 1 ? "ões" : ""}
-            </p>
-
-            {historico.length === 0 ? (
-              <div className="py-24 text-center opacity-20">
-                <History size={40} className="mx-auto mb-4" />
-                <p className="text-[10px] font-black uppercase tracking-widest">
-                  Nenhum treino concluído ainda
-                </p>
-                <p className="text-[9px] text-white/30 mt-2">
-                  Complete seu primeiro treino para ver o histórico
-                </p>
+                </select>
+                <button
+                  type="button"
+                  onClick={sincronizar}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 text-[10px] font-black uppercase tracking-widest text-white/45 transition hover:text-white"
+                >
+                  <RefreshCw size={13} />
+                  Atualizar
+                </button>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {historico.map(h => (
-                  <div key={h.id}
-                    className="bg-[#0a0e18] border border-white/5 rounded-[20px]
-                      p-5 flex items-center gap-4">
-                    <div className="w-11 h-11 rounded-2xl bg-emerald-500/10
-                      border border-emerald-500/20 flex items-center justify-center shrink-0">
-                      <span className="text-lg">🏆</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-black italic uppercase text-white truncate">
-                        {h.treinoTitulo}
-                      </p>
-                      <p className="text-[9px] text-white/25 font-bold uppercase
-                        tracking-widest mt-0.5">
-                        {h.exerciciosConcluidos.length} exercícios ·{" "}
-                        {new Date(h.concluidoEm).toLocaleDateString("pt-BR", {
-                          day: "2-digit", month: "short", year: "numeric",
-                          hour: "2-digit", minute: "2-digit",
-                        })}
-                      </p>
-                    </div>
-                    <div className="shrink-0">
-                      <span className="text-[8px] font-black uppercase px-2 py-1
-                        bg-emerald-500/10 border border-emerald-500/20
-                        text-emerald-400 rounded-full">
-                        Concluído
-                      </span>
-                    </div>
-                  </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {treinosRenderizados.map(treino => (
+                  <WorkoutCard
+                    key={treino.id}
+                    treino={treino}
+                    isGestao={isGestao}
+                    onView={() => abrirVisualizador(treino)}
+                    onEdit={isGestao ? () => abrirEditor(treino) : undefined}
+                    onDelete={isGestao ? () => removerTreino(treino.id) : undefined}
+                    onDuplicate={isGestao ? () => duplicarTreino(treino) : undefined}
+                    onPublish={isGestao ? () => publicarTreino(treino.id) : undefined}
+                    onIniciar={!isGestao ? () => abrirExecucao(treino) : undefined}
+                  />
                 ))}
               </div>
-            )}
-          </motion.div>
-        )}
 
+              {hasMoreTreinosMobile && (
+                <button
+                  type="button"
+                  onClick={() => setMobileTreinoLimit(current => current + 4)}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-white/10 bg-white/5 px-4 text-[10px] font-black uppercase tracking-widest text-white/60 transition hover:text-white sm:hidden"
+                >
+                  Mostrar mais treinos
+                </button>
+              )}
+
+              {treinosRenderizados.length === 0 && (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+                  <Dumbbell size={28} className="mx-auto text-white/20" />
+                  <p className="mt-3 text-sm font-black text-white">
+                    {isGestao ? "Nenhum treino encontrado com os filtros atuais." : "Nenhum treino publicado com esses filtros."}
+                  </p>
+                </div>
+              )}
+
+              {activeTreinoChatId && chatSolicitacaoAtiva && (
+                <div className="space-y-2">
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={closeTreinoChat}
+                      className="text-[9px] font-black uppercase tracking-widest text-white/40 transition hover:text-white"
+                    >
+                      Fechar chat
+                    </button>
+                  </div>
+                  {treinoChatError ? (
+                    <p className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                      {treinoChatError}
+                    </p>
+                  ) : null}
+
+                  <RequestMiniChat
+                    title={`Mini chat • ${chatSolicitacaoAtiva.alunoNome}`}
+                    subtitle="Conversa entre aluno e equipe responsavel por este pedido."
+                    currentUserId={userId}
+                    enabled={treinoChatEnabled}
+                    loading={treinoChatLoading}
+                    sending={treinoChatSending}
+                    messages={treinoChatMessages}
+                    disabledReason={
+                      treinoChatStatus && treinoChatStatus !== "concluida"
+                        ? "Este mini chat sera liberado quando o treino for concluido."
+                        : null
+                    }
+                    placeholder="Digite uma mensagem rapida..."
+                    onSend={sendTreinoChatMessage}
+                    onRefresh={refreshTreinoChat}
+                  />
+                </div>
+              )}
+            </section>
+          )}
+
+          {screen === "solicitacoes" && (
+            <section className="space-y-4">
+              {isGestao ? (
+                <>
+                  {solicitacoesPendentes.length > 0 ? (
+                    <div className="space-y-3">
+                      {solicitacoesPendentes.map(solicitacao => (
+                        <SolicitacaoCard
+                          key={solicitacao.id}
+                          solicitacao={solicitacao}
+                          gerandoIA={gerandoIA}
+                          onGerarIA={() => {
+                            setSolAtiva(solicitacao);
+                            setScreen("ia");
+                          }}
+                          onMontarManual={() => {
+                            setTreinoAtivo({
+                              ...novoTreino(solicitacao.foco),
+                              titulo: `Treino ${solicitacao.foco.toUpperCase()}`,
+                              paraTodos: false,
+                              paraAluno: solicitacao.alunoId,
+                              solicitacaoId: solicitacao.id,
+                            });
+                            setScreen("editor");
+                          }}
+                          onDescartar={() => removerSolicitacao(solicitacao.id)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+                      <Users size={28} className="mx-auto text-white/20" />
+                      <p className="mt-3 text-sm font-black text-white">Sem solicitações pendentes no momento.</p>
+                    </div>
+                  )}
+
+                  {solicitacoesConcluidas.length > 0 && (
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">
+                        Pedidos concluídos
+                      </p>
+                      <p className="mt-1 text-xs text-white/40">
+                        Abra o mini chat para alinhar ajustes com o aluno.
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        {solicitacoesConcluidas.map(solicitacao => {
+                          const foco = FOCOS_LIST.find(item => item.id === solicitacao.foco);
+                          const active = activeTreinoChatId === solicitacao.id;
+                          return (
+                            <article
+                              key={`chat-${solicitacao.id}`}
+                              className={`rounded-xl border p-3 ${
+                                active
+                                  ? "border-sky-500/25 bg-sky-500/10"
+                                  : "border-white/10 bg-black/20"
+                              }`}
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-black text-white">
+                                    {solicitacao.alunoNome}
+                                  </p>
+                                  <p className="text-[10px] text-white/35">
+                                    {foco?.label || solicitacao.foco}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => abrirMiniChat(solicitacao)}
+                                  className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-[9px] font-black uppercase tracking-widest transition ${
+                                    active
+                                      ? "border border-sky-500/30 bg-sky-500/15 text-sky-200"
+                                      : "border border-white/10 bg-white/5 text-white/55 hover:text-white"
+                                  }`}
+                                >
+                                  <MessageCircle size={11} />
+                                  {active ? "Chat aberto" : "Abrir mini chat"}
+                                </button>
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+                  <div className="grid grid-cols-2 gap-2 lg:hidden">
+                    <button
+                      type="button"
+                      onClick={() => setMobileSolicitacoesView("novo")}
+                      className={`min-h-11 rounded-xl border px-3 text-[10px] font-black uppercase tracking-widest transition ${
+                        mobileSolicitacoesView === "novo"
+                          ? "border-sky-500/30 bg-sky-500/15 text-sky-200"
+                          : "border-white/10 bg-white/5 text-white/45 hover:text-white"
+                      }`}
+                    >
+                      Novo pedido
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMobileSolicitacoesView("acompanhamento")}
+                      className={`min-h-11 rounded-xl border px-3 text-[10px] font-black uppercase tracking-widest transition ${
+                        mobileSolicitacoesView === "acompanhamento"
+                          ? "border-sky-500/30 bg-sky-500/15 text-sky-200"
+                          : "border-white/10 bg-white/5 text-white/45 hover:text-white"
+                      }`}
+                    >
+                      Acompanhamento
+                    </button>
+                  </div>
+
+                  <section
+                    className={`rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5 ${
+                      mobileSolicitacoesView === "novo" ? "block" : "hidden lg:block"
+                    }`}
+                  >
+                    <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">Novo pedido</p>
+                    <h3 className="mt-2 text-xl font-black italic text-white">Solicitar treino</h3>
+                    <p className="mt-2 text-xs leading-relaxed text-white/40">
+                      Escolha o foco e envie uma observação objetiva para o profissional.
+                    </p>
+
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      {FOCOS_LIST.map(foco => {
+                        const active = focosSelecionados.includes(foco.id);
+                        const Icon = foco.icon as React.ElementType;
+                        return (
+                          <button
+                            key={foco.id}
+                            type="button"
+                            onClick={() =>
+                              setFocosSelecionados(prev =>
+                                prev.includes(foco.id)
+                                  ? prev.filter(item => item !== foco.id)
+                                  : [...prev, foco.id],
+                              )
+                            }
+                            className={`rounded-xl border px-3 py-3 text-left transition-all ${
+                              active
+                                ? `${foco.bg} ${foco.border}`
+                                : "border-white/10 bg-black/20 hover:border-white/20"
+                            }`}
+                          >
+                            <Icon size={14} className={active ? foco.cor : "text-white/25"} />
+                            <p className={`mt-2 text-[10px] font-black uppercase tracking-widest ${active ? foco.cor : "text-white/35"}`}>
+                              {foco.label}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <textarea
+                      value={obsAluno}
+                      onChange={event => setObsAluno(event.target.value)}
+                      rows={3}
+                      className="mt-3 w-full resize-none rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-sky-500/35"
+                      placeholder="observações para o profissional..."
+                    />
+
+                    <button
+                      type="button"
+                      disabled={focosSelecionados.length === 0}
+                      onClick={handleSolicitarTreino}
+                      className={`mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition ${
+                        focosSelecionados.length > 0
+                          ? "bg-sky-500 text-black hover:bg-sky-400"
+                          : "cursor-not-allowed bg-white/5 text-white/25"
+                      }`}
+                    >
+                      <Target size={13} />
+                      Enviar solicitação
+                    </button>
+                  </section>
+
+                  <section
+                    className={`rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5 ${
+                      mobileSolicitacoesView === "acompanhamento" ? "block" : "hidden lg:block"
+                    }`}
+                  >
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">Acompanhamento</p>
+                    <h3 className="mt-2 text-xl font-black italic text-white">Minhas solicitações</h3>
+                    <div className="mt-4 space-y-2">
+                      {minhasSolicitacoes.length > 0 ? (
+                        minhasSolicitacoes.map(solicitacao => {
+                          const foco = FOCOS_LIST.find(item => item.id === solicitacao.foco);
+                          return (
+                            <article key={solicitacao.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-black text-white">{foco?.label || solicitacao.foco}</p>
+                                <span className="rounded-full border border-white/10 bg-white/10 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-white/60">
+                                  {statusText[solicitacao.status] || "Atualizado"}
+                                </span>
+                              </div>
+                              {solicitacao.obs && (
+                                <p className="mt-1 text-xs leading-relaxed text-white/40">{solicitacao.obs}</p>
+                              )}
+                              {solicitacao.status === "concluida" && (
+                                <button
+                                  type="button"
+                                  onClick={() => abrirMiniChat(solicitacao)}
+                                  className={`mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-[9px] font-black uppercase tracking-widest transition ${
+                                    activeTreinoChatId === solicitacao.id
+                                      ? "border-sky-500/30 bg-sky-500/15 text-sky-200"
+                                      : "border-white/10 bg-white/5 text-white/55 hover:text-white"
+                                  }`}
+                                >
+                                  <MessageCircle size={11} />
+                                  {activeTreinoChatId === solicitacao.id ? "Chat aberto" : "Abrir mini chat"}
+                                </button>
+                              )}
+                            </article>
+                          );
+                        })
+                      ) : (
+                        <p className="rounded-xl bg-black/20 p-4 text-sm text-white/35">Nenhuma solicitação enviada ainda.</p>
+                      )}
+                    </div>
+                  </section>
+                </div>
+              )}
+            </section>
+          )}
+
+          {screen === "histórico" && (
+            <section className="space-y-3">
+              {historico.length > 0 ? (
+                historicoRenderizado.map(item => (
+                  <article key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black text-white">{item.treinoTitulo}</p>
+                        <p className="text-xs text-white/35">
+                          {item.exerciciosConcluidos.length} exercícios concluídos
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-300">
+                        {new Date(item.concluidoEm).toLocaleDateString("pt-BR")}
+                      </span>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+                  <History size={28} className="mx-auto text-white/20" />
+                  <p className="mt-3 text-sm font-black text-white">Sem histórico de treinos concluídos.</p>
+                </div>
+              )}
+              {hasMoreHistoricoMobile && (
+                <button
+                  type="button"
+                  onClick={() => setMobileHistoricoLimit(current => current + 6)}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-white/10 bg-white/5 px-4 text-[10px] font-black uppercase tracking-widest text-white/60 transition hover:text-white sm:hidden"
+                >
+                  Mostrar mais histórico
+                </button>
+              )}
+            </section>
+          )}
+        </motion.div>
       </AnimatePresence>
-
-      {/* Overlay IA global */}
-      <AnimatePresence>{gerandoIA && <OverlayIA />}</AnimatePresence>
-
     </div>
   );
 }

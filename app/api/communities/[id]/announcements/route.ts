@@ -104,7 +104,7 @@ function jsonError(err: any) {
   const message =
     err instanceof CommunityAccessError
       ? err.message
-      : err?.message || "Nao foi possivel concluir a acao.";
+      : err?.message || "Não foi possível concluir a ação.";
   return NextResponse.json({ error: message }, { status });
 }
 
@@ -188,18 +188,18 @@ export async function POST(
     const fixado = body.fixado ? 1 : 0;
 
     if (!autorId) {
-      return NextResponse.json({ error: "Autor obrigatorio." }, { status: 400 });
+      return NextResponse.json({ error: "Autor obrigatório." }, { status: 400 });
     }
 
     if (titulo.length < 3 || mensagem.length < 8) {
       return NextResponse.json(
-        { error: "Informe um titulo claro e uma mensagem com contexto." },
+        { error: "Informe um título claro e uma mensagem com contexto." },
         { status: 400 },
       );
     }
 
     if (audience === "aluno" && !targetUserId) {
-      return NextResponse.json({ error: "Selecione o aluno que recebera o aviso." }, { status: 400 });
+      return NextResponse.json({ error: "Selecione o aluno que receberá o aviso." }, { status: 400 });
     }
 
     await ensureCommunityPermission(comunidadeId, autorId, "aviso:create");
@@ -212,7 +212,7 @@ export async function POST(
     );
 
     if (audience === "aluno" && recipients.length === 0) {
-      return NextResponse.json({ error: "Aluno nao encontrado entre os membros aprovados." }, { status: 404 });
+      return NextResponse.json({ error: "Aluno não encontrado entre os membros aprovados." }, { status: 404 });
     }
 
     const avisoId = crypto.randomUUID();
@@ -292,7 +292,7 @@ export async function PATCH(
     const userId = String(body.userId || "").trim();
 
     if (!avisoId || !userId) {
-      return NextResponse.json({ error: "Aviso e usuario sao obrigatorios." }, { status: 400 });
+      return NextResponse.json({ error: "Aviso e usuário são obrigatórios." }, { status: 400 });
     }
 
     await db.query(

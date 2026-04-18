@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const postId = searchParams.get("postId");
 
     if (!postId) {
-      return NextResponse.json({ error: "PostId nao fornecido" }, { status: 400 });
+      return NextResponse.json({ error: "PostId não fornecido" }, { status: 400 });
     }
 
     const [rows]: any = await db.execute(
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(rows || []);
   } catch (error: any) {
-    console.error("ERRO AO LISTAR COMENTARIOS:", error.message);
+    console.error("ERRO AO LISTAR COMENTÁRIOS:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

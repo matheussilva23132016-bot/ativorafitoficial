@@ -25,14 +25,14 @@ export async function DELETE(req: Request) {
     );
 
     if (!rows.length) {
-      return NextResponse.json({ error: "Comentario nao encontrado" }, { status: 404 });
+      return NextResponse.json({ error: "Comentário não encontrado" }, { status: 404 });
     }
 
     const comment = rows[0];
     const canDelete = comment.nickname === nickname || comment.post_owner === nickname;
 
     if (!canDelete) {
-      return NextResponse.json({ error: "Sem permissao para apagar este comentario" }, { status: 403 });
+      return NextResponse.json({ error: "Sem permissão para apagar este comentário" }, { status: 403 });
     }
 
     await db.execute("DELETE FROM posts_comentarios WHERE id = ?", [id]);
@@ -43,7 +43,7 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ success: true, postId: comment.post_id });
   } catch (error: any) {
-    console.error("ERRO AO APAGAR COMENTARIO:", error.message);
+    console.error("ERRO AO APAGAR COMENTÁRIO:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

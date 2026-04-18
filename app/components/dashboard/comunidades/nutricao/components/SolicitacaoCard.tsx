@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   User, Clock, ChevronDown, ChevronUp,
   Sparkles, Pencil, CheckCircle2, XCircle,
-  Activity, Scale, TrendingUp,
+  Activity, Scale, TrendingUp, MessageCircle,
 } from "lucide-react";
 import type { SolicitacaoCardapio } from "../types";
 import { FOCOS_NUTRICAO } from "../constants";
@@ -18,6 +18,7 @@ interface Props {
   onGerarIA:      (s: SolicitacaoCardapio) => void;
   onCriarManual:  (s: SolicitacaoCardapio) => void;
   onRejeitar:     (id: string, obs: string) => void;
+  onAbrirChat?:   (s: SolicitacaoCardapio) => void;
   gerandoIA?:     boolean;
 }
 
@@ -31,7 +32,7 @@ const STATUS_CONFIG = {
 
 // ── Componente ────────────────────────────────────────────────────
 export function SolicitacaoCard({
-  solicitacao, onGerarIA, onCriarManual, onRejeitar, gerandoIA,
+  solicitacao, onGerarIA, onCriarManual, onRejeitar, onAbrirChat, gerandoIA,
 }: Props) {
   const [expandido,    setExpandido]    = useState(false);
   const [rejeitando,   setRejeitando]   = useState(false);
@@ -299,6 +300,17 @@ export function SolicitacaoCard({
                   </span>
                 </div>
               )}
+
+              {solicitacao.status === "concluida" && onAbrirChat ? (
+                <button
+                  type="button"
+                  onClick={() => onAbrirChat(solicitacao)}
+                  className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-sky-500/25 bg-sky-500/10 px-3 text-[9px] font-black uppercase tracking-widest text-sky-200 transition hover:bg-sky-500/20"
+                >
+                  <MessageCircle size={11} />
+                  Abrir mini chat
+                </button>
+              ) : null}
             </div>
           </motion.div>
         )}

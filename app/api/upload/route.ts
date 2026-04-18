@@ -14,7 +14,7 @@ export async function POST(req: Request) {
       || file.type === "application/pdf";
     if (!allowedMime) {
       return NextResponse.json(
-        { error: "Formato nao permitido. Envie imagem, video ou PDF." },
+        { error: "Formato não permitido. Envie imagem, video ou PDF." },
         { status: 415 },
       );
     }

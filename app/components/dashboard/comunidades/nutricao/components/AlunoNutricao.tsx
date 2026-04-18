@@ -7,7 +7,7 @@ import {
   UtensilsCrossed, ClipboardList, Clock,
   CheckCircle2, XCircle, Loader2, Plus,
   ChevronRight, RefreshCw, AlertTriangle,
-  Ruler,
+  Ruler, MessageCircle,
 } from "lucide-react";
 import type { DiaSemana } from "../types";
 import { FOCOS_NUTRICAO } from "../constants";
@@ -16,6 +16,8 @@ import { FormSolicitacao    } from "./FormSolicitacao";
 import { FormDadosCorporais } from "./FormDadosCorporais";
 import { EstimativaCorpo    } from "./EstimativaCorpo";
 import type { useNutricao } from "../hooks/useNutricao";
+import { RequestMiniChat } from "../../shared/RequestMiniChat";
+import { useRequestMiniChat } from "../../shared/useRequestMiniChat";
 
 interface Props {
   currentUser: any;
@@ -51,7 +53,7 @@ const STATUS_VISUAL = {
   rejeitada: {
     icon:   XCircle,
     label:  "Solicitação rejeitada",
-    desc:   "O profissional não pôde atender esta solicitação.",
+    desc:   "O profissional não pôde atender está solicitação.",
     bg:     "bg-rose-500/8",
     border: "border-rose-500/15",
     cor:    "text-rose-400",
@@ -77,7 +79,29 @@ export function AlunoNutricao({ currentUser, communityId, hook }: Props) {
   const [aba,           setAba]           = useState<Aba>("medidas");
   const [showForm,      setShowForm]      = useState(false);
   const [medidasAoVivo, setMedidasAoVivo] = useState<any>(null);
+  const [mostrarChat,   setMostrarChat]   = useState(true);
   const cardapioPdfUrl = `/api/communities/${communityId}/offline-pdf?type=cardapio&userId=${encodeURIComponent(currentUser?.id ?? "")}`;
+  const {
+    activeRequestId: activeNutriChatId,
+    chatEnabled: nutriChatEnabled,
+    chatStatus: nutriChatStatus,
+    chatLoading: nutriChatLoading,
+    chatSending: nutriChatSending,
+    chatError: nutriChatError,
+    chatMessages: nutriChatMessages,
+    openChat: openNutriChat,
+    closeChat: closeNutriChat,
+    refreshChat: refreshNutriChat,
+    sendChatMessage: sendNutriChatMessage,
+  } = useRequestMiniChat({
+    communityId,
+    requestScopePath: "nutrition/solicitacoes",
+    userId: currentUser?.id ?? "",
+    userName: currentUser?.name ?? currentUser?.full_name ?? currentUser?.nickname ?? "Aluno",
+  });
+  const totalRefeicoesHoje = meuCardapio
+    ? meuCardapio.dias.reduce((acc, dia) => acc + dia.refeicoes.length, 0)
+    : 0;
 
   useEffect(() => { sincronizar(); }, [sincronizar]);
 
@@ -89,6 +113,26 @@ export function AlunoNutricao({ currentUser, communityId, hook }: Props) {
       setShowForm(true);
     }
   }, [meuCardapio, minhaSolicitacao]);
+
+  useEffect(() => {
+    if (minhaSolicitacao?.status === "concluida") {
+      setMostrarChat(true);
+    }
+  }, [minhaSolicitacao?.id, minhaSolicitacao?.status]);
+
+  useEffect(() => {
+    if (minhaSolicitacao?.status === "concluida") {
+      if (mostrarChat && activeNutriChatId !== minhaSolicitacao.id) {
+        void openNutriChat(minhaSolicitacao.id);
+      }
+      return;
+    }
+
+    if (activeNutriChatId) {
+      closeNutriChat();
+    }
+    setMostrarChat(false);
+  }, [activeNutriChatId, closeNutriChat, minhaSolicitacao, mostrarChat, openNutriChat]);
 
   const handleToggle = (dia: DiaSemana, refeicaoId: string) => {
     if (!meuCardapio) return;
@@ -178,6 +222,27 @@ export function AlunoNutricao({ currentUser, communityId, hook }: Props) {
               <Plus size={12} /> Solicitar
             </button>
           )}
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <article className="rounded-xl border border-white/10 bg-black/20 p-2.5">
+            <p className="text-[7px] font-black uppercase tracking-widest text-white/30">Status</p>
+            <p className="mt-1 text-[10px] font-black text-white">
+              {minhaSolicitacao ? STATUS_VISUAL[minhaSolicitacao.status].label : "Sem pedido"}
+            </p>
+          </article>
+          <article className="rounded-xl border border-white/10 bg-black/20 p-2.5">
+            <p className="text-[7px] font-black uppercase tracking-widest text-white/30">Cardapio</p>
+            <p className="mt-1 text-[10px] font-black text-white">{meuCardapio ? "Ativo" : "Pendente"}</p>
+          </article>
+          <article className="rounded-xl border border-white/10 bg-black/20 p-2.5">
+            <p className="text-[7px] font-black uppercase tracking-widest text-white/30">Refeicoes</p>
+            <p className="mt-1 text-[10px] font-black text-white">{totalRefeicoesHoje}</p>
+          </article>
+          <article className="rounded-xl border border-white/10 bg-black/20 p-2.5">
+            <p className="text-[7px] font-black uppercase tracking-widest text-white/30">Medidas</p>
+            <p className="mt-1 text-[10px] font-black text-white">{ultimaMedida ? "Atualizadas" : "Não enviadas"}</p>
+          </article>
         </div>
       </div>
 
@@ -289,14 +354,73 @@ export function AlunoNutricao({ currentUser, communityId, hook }: Props) {
         )}
       </AnimatePresence>
 
+      {minhaSolicitacao?.status === "concluida" && mostrarChat && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <p className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-sky-300">
+              <MessageCircle size={12} />
+              Mini chat nutricional
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setMostrarChat(false);
+                closeNutriChat();
+              }}
+              className="text-[9px] font-black uppercase tracking-widest text-white/40 transition hover:text-white"
+            >
+              Fechar chat
+            </button>
+          </div>
+
+          {nutriChatError ? (
+            <p className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+              {nutriChatError}
+            </p>
+          ) : null}
+
+          <RequestMiniChat
+            title="Conversa sobre o seu cardapio"
+            subtitle="Use este mini chat para alinhar ajustes com a equipe da comunidade."
+            currentUserId={currentUser?.id ?? ""}
+            enabled={nutriChatEnabled}
+            loading={nutriChatLoading}
+            sending={nutriChatSending}
+            messages={nutriChatMessages}
+            disabledReason={
+              nutriChatStatus && nutriChatStatus !== "concluida"
+                ? "O mini chat fica disponivel assim que o cardapio for concluido."
+                : null
+            }
+            placeholder="Escreva sua duvida ou ajuste..."
+            onSend={sendNutriChatMessage}
+            onRefresh={refreshNutriChat}
+          />
+        </div>
+      )}
+
+      {minhaSolicitacao?.status === "concluida" && !mostrarChat && (
+        <button
+          type="button"
+          onClick={() => {
+            setMostrarChat(true);
+            void openNutriChat(minhaSolicitacao.id);
+          }}
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-sky-500/25 bg-sky-500/10 px-4 text-[10px] font-black uppercase tracking-widest text-sky-200 transition hover:bg-sky-500/20"
+        >
+          <MessageCircle size={12} />
+          Abrir mini chat nutricional
+        </button>
+      )}
+
       {/* ── Abas — sempre visíveis (>= 1 item) ──────────────────── */}
       {abas.length >= 1 && (
-        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           {abas.map(tab => (
             <button
               key={tab.id}
               onClick={() => setAba(tab.id)}
-              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
+              className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl
                 text-[9px] font-black uppercase tracking-widest transition-all
                 ${aba === tab.id
                   ? "bg-white/10 text-white border border-white/10"
@@ -366,7 +490,7 @@ export function AlunoNutricao({ currentUser, communityId, hook }: Props) {
               </div>
             ) : !minhaSolicitacao ? (
               <div className="flex flex-col items-center justify-center
-                py-16 gap-5 bg-[#050B14] border border-white/5
+                py-12 gap-4 bg-[#050B14] border border-white/5
                 rounded-[22px]">
                 <div className="w-16 h-16 rounded-full bg-white/3
                   border border-white/5 flex items-center justify-center">

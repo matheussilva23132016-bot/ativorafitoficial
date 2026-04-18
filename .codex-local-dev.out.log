@@ -1,0 +1,58 @@
+
+> ativora-fit@0.1.0 dev
+> next dev --hostname 127.0.0.1 --port 3001
+
+  ▲ Next.js 14.2.3
+  - Local:        http://127.0.0.1:3001
+  - Network:      http://127.0.0.1:3001
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 6.2s
+ ○ Compiling /login ...
+ ✓ Compiled /middleware in 4.1s (1545 modules)
+ GET /login 200 in 4572ms
+ ✓ Compiled in 486ms (677 modules)
+ HEAD /login 200 in 47ms
+ ✓ Compiled in 286ms (677 modules)
+ ✓ Compiled in 493ms (839 modules)
+ ✓ Compiled in 772ms (677 modules)
+ ○ Compiling /config-local ...
+ ✓ Compiled /config-local in 2.5s (1903 modules)
+ HEAD /config-local 200 in 2789ms
+ ○ Compiling /api/auth/[...nextauth] ...
+ ✓ Compiled /api/auth/[...nextauth] in 1318ms (1320 modules)
+ GET /api/auth/session 200 in 1840ms
+ ✓ Compiled /login in 251ms (1345 modules)
+ GET /login 200 in 440ms
+ ✓ Compiled in 19ms
+ ✓ Compiled in 373ms (960 modules)
+ ✓ Compiled in 1670ms (960 modules)
+ ✓ Compiled in 369ms (960 modules)
+ ✓ Compiled in 311ms (960 modules)
+ ✓ Compiled in 739ms (960 modules)
+ ✓ Compiled in 411ms (960 modules)
+ ✓ Compiled in 365ms (960 modules)
+ ✓ Compiled in 634ms (960 modules)
+ ✓ Compiled in 264ms (960 modules)
+ ✓ Compiled in 296ms (960 modules)
+ ✓ Compiled in 1204ms (957 modules)
+ ✓ Compiled in 361ms (957 modules)
+ ✓ Compiled in 675ms (957 modules)
+ ✓ Compiled in 278ms (957 modules)
+ ✓ Compiled in 270ms (957 modules)
+ ✓ Compiled in 428ms (957 modules)
+ ✓ Compiled in 408ms (958 modules)
+ ✓ Compiled in 722ms (958 modules)
+ ✓ Compiled in 391ms (958 modules)
+ ✓ Compiled in 367ms (958 modules)
+ ✓ Compiled in 433ms (958 modules)
+ ✓ Compiled in 369ms (958 modules)
+ ✓ Compiled in 781ms (958 modules)
+ ✓ Compiled /config-local in 278ms (951 modules)
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 1187ms (2132 modules)
+ HEAD /config-local 500 in 1850ms
+ ✓ Compiled /login in 144ms (1016 modules)
+ HEAD /login 200 in 281ms
+ ✓ Compiled in 720ms (1188 modules)

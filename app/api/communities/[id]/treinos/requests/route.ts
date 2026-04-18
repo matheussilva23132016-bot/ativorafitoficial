@@ -5,6 +5,7 @@ import { canDo } from "@/lib/communities/permissions";
 import { ensureCommunityPermission, getCommunityUserTags, statusFromCommunityError } from "@/lib/communities/access";
 
 function mapRequest(row: any) {
+  const status = String(row.status || "").toLowerCase();
   return {
     id: row.id,
     alunoId: row.user_id,
@@ -12,7 +13,10 @@ function mapRequest(row: any) {
     foco: row.foco,
     obs: row.obs ?? row.objetivo ?? undefined,
     criadoEm: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
-    status: row.status === "rejeitada" ? "concluida" : row.status,
+    status:
+      status === "concluida" || status === "em_andamento" || status === "rejeitada"
+        ? status
+        : "pendente",
   };
 }
 

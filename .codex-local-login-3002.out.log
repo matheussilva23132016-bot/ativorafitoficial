@@ -1,0 +1,26 @@
+
+> ativora-fit@0.1.0 dev
+> next dev --hostname 127.0.0.1 --port 3002
+
+  ▲ Next.js 14.2.3
+  - Local:        http://127.0.0.1:3002
+  - Network:      http://127.0.0.1:3002
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 3.1s
+ ○ Compiling /api/auth/[...nextauth] ...
+ ✓ Compiled /api/auth/[...nextauth] in 1846ms (393 modules)
+ GET /api/auth/csrf 200 in 2545ms
+ POST /api/auth/callback/local-preview?json=true 200 in 23ms
+ ✓ Compiled in 601ms (201 modules)
+ ✓ Compiled in 113ms (201 modules)
+ ✓ Compiled in 91ms (201 modules)
+ ○ Compiling /login ...
+ ✓ Compiled /login in 4.1s (1378 modules)
+ HEAD /login 200 in 4353ms
+ ✓ Compiled in 375ms (677 modules)
+ ○ Compiling /config-local ...
+ ✓ Compiled /config-local in 2.1s (1920 modules)
+ HEAD /config-local 200 in 2318ms
+ ✓ Compiled in 637ms (958 modules)

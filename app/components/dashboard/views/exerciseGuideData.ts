@@ -36,7 +36,7 @@ export const exerciseGuide: ExerciseGuideItem[] = [
       "Não deixe o quadril dobrar como em um agachamento comum.",
       "Comece com amplitude curta e progrida aos poucos.",
     ],
-    videoId: "pU7XbxvViIY",
+    videoId: "J78f55CdoKk",
   },
   {
     id: "cardio-na-escada",
@@ -387,7 +387,7 @@ export const exerciseGuide: ExerciseGuideItem[] = [
       "Repita até fechar quatro voltas.",
     ],
     posicao: [
-      "Organize estação e equipamentos antes de iniciar.",
+      "Organize estáção e equipamentos antes de iniciar.",
       "Mantenha espaço seguro para transições.",
       "Controle respiração entre exercícios.",
     ],
@@ -612,7 +612,7 @@ export const exerciseGuide: ExerciseGuideItem[] = [
       "Evite rodar o tronco para frente.",
       "Faça os dois lados com o mesmo controle.",
     ],
-    videoId: "1Qo5djpn0pk",
+    videoId: "lpWyu0jI9AU",
   },
   {
     id: "infra-banco",

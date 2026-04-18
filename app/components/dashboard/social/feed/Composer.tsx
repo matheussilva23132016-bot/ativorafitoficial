@@ -23,13 +23,19 @@ interface MediaDraft {
 }
 
 const MAX_MEDIA_ITEMS = 4;
+const MIN_POLL_OPTIONS = 2;
+const MAX_POLL_OPTIONS = 6;
 
 const ComposerToolBtn = ({ icon: Icon, label, onClick, active }: any) => (
   <button
     type="button"
     onClick={onClick}
     className={`group/tool flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2.5 transition-all active:scale-95
-      ${active ? "border-sky-500/25 bg-sky-500/10 text-sky-400" : "border-white/[0.06] bg-white/[0.03] text-white/[0.45] hover:border-white/[0.12] hover:text-white"}`}
+      ${
+        active
+          ? "border-sky-500/25 bg-sky-500/10 text-sky-400"
+          : "border-white/[0.06] bg-white/[0.03] text-white/[0.45] hover:border-white/[0.12] hover:text-white"
+      }`}
   >
     <Icon size={17} className={active ? "" : "transition-transform group-hover/tool:scale-105"} />
     <span className="text-[10px] font-black uppercase tracking-widest sm:text-[11px]">{label}</span>
@@ -47,7 +53,7 @@ const uploadMedia = async (file: File) => {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || "Falha ao enviar mídia");
+    throw new Error(error.error || "Falha ao enviar midia");
   }
 
   const data = await response.json();
@@ -59,8 +65,7 @@ export const Composer = ({ safeUser, onPost, isPosting }: ComposerProps) => {
   const [mediaDrafts, setMediaDrafts] = useState<MediaDraft[]>([]);
   const [showPoll, setShowPoll] = useState(false);
   const [pollQuestion, setPollQuestion] = useState("");
-  const [pollOptionOne, setPollOptionOne] = useState("");
-  const [pollOptionTwo, setPollOptionTwo] = useState("");
+  const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
   const [showLocation, setShowLocation] = useState(false);
   const [location, setLocation] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -77,11 +82,17 @@ export const Composer = ({ safeUser, onPost, isPosting }: ComposerProps) => {
     };
   }, []);
 
+  const normalizedPollOptions = pollOptions
+    .map((option) => option.trim())
+    .filter(Boolean)
+    .slice(0, MAX_POLL_OPTIONS);
+
   const hasValidPoll =
     showPoll &&
     pollQuestion.trim().length > 0 &&
-    pollOptionOne.trim().length > 0 &&
-    pollOptionTwo.trim().length > 0;
+    normalizedPollOptions.length >= MIN_POLL_OPTIONS &&
+    normalizedPollOptions.length <= MAX_POLL_OPTIONS;
+
   const hasContent = text.trim().length > 0 || mediaDrafts.length > 0 || hasValidPoll;
   const isBusy = isPosting || isUploading;
 
@@ -93,7 +104,7 @@ export const Composer = ({ safeUser, onPost, isPosting }: ComposerProps) => {
     const selected = files.slice(0, remainingSlots).map((file) => ({
       file,
       previewUrl: URL.createObjectURL(file),
-      type: file.type.startsWith("video/") ? "video" as const : "image" as const,
+      type: file.type.startsWith("video/") ? ("video" as const) : ("image" as const),
     }));
 
     setMediaDrafts((current) => [...current, ...selected]);
@@ -114,8 +125,7 @@ export const Composer = ({ safeUser, onPost, isPosting }: ComposerProps) => {
     setMediaDrafts([]);
     setShowPoll(false);
     setPollQuestion("");
-    setPollOptionOne("");
-    setPollOptionTwo("");
+    setPollOptions(["", ""]);
     setShowLocation(false);
     setLocation("");
   };
@@ -130,12 +140,16 @@ export const Composer = ({ safeUser, onPost, isPosting }: ComposerProps) => {
       await onPost({
         text: text.trim(),
         mediaPaths: uploadedMedia,
-        mediaType: mediaDrafts.some((media) => media.type === "video") ? "video" : uploadedMedia.length ? "image" : "text",
+        mediaType: mediaDrafts.some((media) => media.type === "video")
+          ? "video"
+          : uploadedMedia.length
+            ? "image"
+            : "text",
         location: showLocation ? location.trim() : "",
         poll: hasValidPoll
           ? {
               question: pollQuestion.trim(),
-              options: [pollOptionOne.trim(), pollOptionTwo.trim()],
+              options: normalizedPollOptions,
             }
           : null,
       });
@@ -198,19 +212,49 @@ export const Composer = ({ safeUser, onPost, isPosting }: ComposerProps) => {
                 placeholder="Pergunta da enquete"
                 className="mb-3 h-11 w-full rounded-lg border border-white/[0.06] bg-[#010307]/70 px-4 text-sm font-bold text-white outline-none placeholder:text-white/20 focus:border-sky-500/40"
               />
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <input
-                  value={pollOptionOne}
-                  onChange={(e) => setPollOptionOne(e.target.value)}
-                  placeholder="Opção 1"
-                  className="h-11 rounded-lg border border-white/[0.06] bg-[#010307]/70 px-4 text-sm font-bold text-white outline-none placeholder:text-white/20 focus:border-sky-500/40"
-                />
-                <input
-                  value={pollOptionTwo}
-                  onChange={(e) => setPollOptionTwo(e.target.value)}
-                  placeholder="Opção 2"
-                  className="h-11 rounded-lg border border-white/[0.06] bg-[#010307]/70 px-4 text-sm font-bold text-white outline-none placeholder:text-white/20 focus:border-sky-500/40"
-                />
+
+              <div className="space-y-2">
+                {pollOptions.map((option, index) => (
+                  <div key={`poll-option-${index}`} className="flex items-center gap-2">
+                    <input
+                      value={option}
+                      onChange={(e) => {
+                        const next = [...pollOptions];
+                        next[index] = e.target.value;
+                        setPollOptions(next);
+                      }}
+                      placeholder={`Opcao ${index + 1}`}
+                      className="h-11 flex-1 rounded-lg border border-white/[0.06] bg-[#010307]/70 px-4 text-sm font-bold text-white outline-none placeholder:text-white/20 focus:border-sky-500/40"
+                    />
+                    {pollOptions.length > MIN_POLL_OPTIONS && (
+                      <button
+                        type="button"
+                        onClick={() => setPollOptions((current) => current.filter((_, idx) => idx !== index))}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-white/[0.06] bg-[#010307]/70 text-white/40 transition hover:text-white"
+                        aria-label={`Remover opcao ${index + 1}`}
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/35">
+                  {normalizedPollOptions.length} de {MAX_POLL_OPTIONS} opções preenchidas
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (pollOptions.length >= MAX_POLL_OPTIONS) return;
+                    setPollOptions((current) => [...current, ""]);
+                  }}
+                  disabled={pollOptions.length >= MAX_POLL_OPTIONS}
+                  className="h-10 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 text-[10px] font-black uppercase tracking-widest text-white/60 transition hover:text-white disabled:opacity-35"
+                >
+                  Adicionar opção
+                </button>
               </div>
             </div>
           )}
@@ -229,7 +273,7 @@ export const Composer = ({ safeUser, onPost, isPosting }: ComposerProps) => {
 
           <div className="mt-4 flex flex-col gap-4 border-t border-white/[0.05] pt-4 md:flex-row md:items-center md:justify-between">
             <div className="scrollbar-none flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
-              <ComposerToolBtn icon={ImageIcon} label="Mídia" onClick={() => fileInputRef.current?.click()} active={mediaDrafts.length > 0} />
+              <ComposerToolBtn icon={ImageIcon} label="Midia" onClick={() => fileInputRef.current?.click()} active={mediaDrafts.length > 0} />
               <ComposerToolBtn icon={BarChart2} label="Enquete" onClick={() => setShowPoll(!showPoll)} active={showPoll} />
               <ComposerToolBtn icon={MapPin} label="Local" onClick={() => setShowLocation(!showLocation)} active={showLocation} />
             </div>

@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import { AnimatePresence, motion } from "framer-motion";
-import { Bell, Crown, HelpCircle, MessageSquarePlus } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Bell, Crown, HelpCircle, MessageSquarePlus, Shield } from "lucide-react";
 import { INotification } from "../MainDashboard";
 
 interface DashboardHeaderProps {
@@ -25,11 +25,24 @@ const roleLabels: Record<string, string> = {
   admin: "Administrador",
 };
 
-const getGreeting = () => {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Bom dia";
-  if (hour < 18) return "Boa tarde";
-  return "Boa noite";
+const fallbackSourceLabel = (notif: INotification) => {
+  if (notif.sourceLabel) return notif.sourceLabel;
+  if (notif.type === "social") return "Social";
+  if (notif.type === "comunidade") return "Comunidades";
+  return notif.targetId ? "Comunidades" : "Treinos";
+};
+
+const formatNotificationTime = (timestamp?: string) => {
+  if (!timestamp) return "";
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 };
 
 export const DashboardHeader = ({
@@ -40,177 +53,174 @@ export const DashboardHeader = ({
   canBossPanel = false,
 }: DashboardHeaderProps) => {
   const [showNotifPanel, setShowNotifPanel] = useState(false);
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
   const roleLabel = roleLabels[String(currentUser?.role || "").toLowerCase()] || "Perfil ativo";
-  const greeting = getGreeting();
 
   return (
-    <header className="h-16 border-b border-white/5 bg-black/20 px-4 backdrop-blur-2xl sm:px-6 lg:h-[72px] lg:px-8">
-      <div className="flex h-full items-center justify-between gap-3">
-        <div className="min-w-0 text-left">
-          <button
-            type="button"
-            onClick={() => setCurrentView("home")}
-            className="min-w-0 text-left lg:hidden"
-            aria-label="Abrir início"
-          >
-            <span className="block truncate text-base font-black italic text-white sm:text-lg">
-              Ativora<span className="text-sky-500">Fit</span>
-            </span>
-          </button>
-
-          <div className="hidden lg:block">
-            <p className="text-[10px] font-black uppercase tracking-widest text-white/30">
-              {greeting}
-            </p>
-            <p className="mt-1 text-sm font-black text-white xl:text-base">
-              {currentUser.nickname}
-            </p>
-          </div>
+    <header className="h-16 sm:h-20 lg:h-24 border-b border-white/5 flex items-center justify-between gap-2.5 sm:gap-3 px-3 sm:px-6 lg:px-10 backdrop-blur-2xl z-40 bg-black/20 shrink-0">
+      <div className="flex min-w-0 items-center gap-2.5 sm:gap-4 lg:gap-6">
+        <div className="min-w-0 cursor-pointer lg:hidden" onClick={() => setCurrentView("home")}>
+          <span className="block truncate text-base font-black italic text-white sm:text-xl">
+            Ativora<span className="text-sky-500">Fit</span>
+          </span>
+          <span className="mt-0.5 hidden truncate text-[8px] font-black uppercase tracking-widest text-white/28 sm:block">
+            Evolução no ritmo da sua rotina
+          </span>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2 lg:gap-3">
-          {canBossPanel && (
-            <button
-              type="button"
-              onClick={() => setCurrentView("boss")}
-              className="hidden min-h-10 items-center justify-center gap-2 rounded-lg border border-sky-400/35 bg-sky-500 px-3 text-[10px] font-black uppercase tracking-widest text-black transition hover:bg-sky-400 xl:inline-flex"
-              aria-label="Abrir Painel Boss"
-              title="Painel Boss"
-            >
-              <Crown size={16} />
-              Boss
-            </button>
-          )}
+        <div className="hidden md:flex items-center gap-3 bg-sky-500/5 px-4 py-2.5 rounded-lg border border-sky-500/10 text-[10px] font-black uppercase tracking-widest text-sky-500 shadow-[inset_0_0_20px_rgba(14,165,233,0.05)]">
+          <Shield size={14} className="animate-pulse" />
+          Painel em operação
+        </div>
+      </div>
 
-          <div className="hidden items-center gap-2 lg:flex">
-            <button
-              type="button"
-              onClick={() => setCurrentView("ajuda")}
-              className="rounded-lg border border-white/10 bg-white/5 p-2.5 text-white/40 transition hover:bg-white/10 hover:text-sky-300"
-              aria-label="Abrir ajuda"
-              title="Ajuda"
-            >
-              <HelpCircle size={18} />
-            </button>
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3 lg:gap-5">
+        {canBossPanel && (
+          <button
+            type="button"
+            onClick={() => setCurrentView("boss")}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-sky-400/40 bg-sky-500 px-3 text-[10px] font-black uppercase tracking-widest text-black shadow-[0_0_18px_rgba(14,165,233,0.22)] transition hover:bg-sky-400 sm:px-4"
+            aria-label="Abrir Painel Boss"
+            title="Painel Boss"
+          >
+            <Crown size={17} />
+            <span className="hidden sm:inline">Boss</span>
+          </button>
+        )}
 
-            <button
-              type="button"
-              onClick={() => setCurrentView("sugestoes")}
-              className="rounded-lg border border-white/10 bg-white/5 p-2.5 text-white/40 transition hover:bg-white/10 hover:text-sky-300"
-              aria-label="Abrir sugestões"
-              title="Sugestões"
-            >
-              <MessageSquarePlus size={18} />
-            </button>
-          </div>
+        <div className="hidden items-center gap-2 sm:flex">
+          <button
+            type="button"
+            onClick={() => setCurrentView("ajuda")}
+            className="rounded-lg border border-white/10 bg-white/5 p-2.5 text-white/40 transition-all hover:bg-white/10 hover:text-sky-300 sm:p-3"
+            aria-label="Abrir ajuda"
+            title="Ajuda"
+          >
+            <HelpCircle size={19} />
+          </button>
 
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowNotifPanel(value => !value)}
-              aria-label="Abrir notificações"
-              className={`relative rounded-lg border p-2.5 transition ${
-                unreadCount > 0
-                  ? "border-sky-500/30 bg-sky-500/10 text-sky-400"
-                  : "border-white/10 bg-white/5 text-white/40 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              <Bell size={18} />
-              {unreadCount > 0 && (
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="absolute right-2 top-2 h-2 w-2 rounded-full bg-sky-500"
-                />
-              )}
-            </button>
+          <button
+            type="button"
+            onClick={() => setCurrentView("sugestoes")}
+            className="rounded-lg border border-white/10 bg-white/5 p-2.5 text-white/40 transition-all hover:bg-white/10 hover:text-sky-300 sm:p-3"
+            aria-label="Enviar sugestão"
+            title="Sugestões"
+          >
+            <MessageSquarePlus size={19} />
+          </button>
+        </div>
 
-            <AnimatePresence>
-              {showNotifPanel && (
-                <motion.div
-                  initial={{ opacity: 0, y: 12, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 12, scale: 0.96 }}
-                  className="fixed left-4 right-4 top-16 z-50 max-h-[70vh] overflow-hidden rounded-lg border border-white/10 bg-[#050B14] text-left shadow-2xl sm:absolute sm:left-auto sm:right-0 sm:top-14 sm:w-80"
-                >
-                  <div className="flex items-center justify-between gap-3 border-b border-white/5 p-4">
-                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white">
-                      Notificações
-                    </span>
-                    {unreadCount > 0 && (
-                      <span className="rounded-full bg-sky-500 px-3 py-1 text-[9px] font-black uppercase text-black">
-                        {unreadCount} novas
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
-                    {notifications.length === 0 ? (
-                      <div className="p-8 text-center text-[10px] font-black uppercase tracking-[0.22em] text-white/25">
-                        Nenhuma notificação agora
-                      </div>
-                    ) : (
-                      notifications.map(notif => (
-                        <button
-                          type="button"
-                          key={notif.id}
-                          onClick={() => {
-                            onNotificationClick(notif);
-                            setShowNotifPanel(false);
-                          }}
-                          className={`relative w-full border-b border-white/5 p-4 text-left transition hover:bg-sky-500/5 ${
-                            !notif.isRead ? "bg-sky-500/5" : ""
-                          }`}
-                        >
-                          {!notif.isRead && (
-                            <span className="absolute left-0 top-1/2 h-9 w-1 -translate-y-1/2 rounded-r-full bg-sky-500" />
-                          )}
-                          <h4 className="text-xs font-black uppercase tracking-tight text-white">
-                            {notif.title}
-                          </h4>
-                          <p className="mt-1 text-[10px] leading-relaxed text-white/45">
-                            {notif.message}
-                          </p>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          <div className="flex items-center gap-2 border-l border-white/5 pl-2">
-            <button
-              type="button"
-              onClick={() => setCurrentView("perfil")}
-              className="hidden text-right xl:block"
-            >
-              <p className="text-[10px] font-black uppercase italic leading-none text-white">
-                {currentUser.nickname}
-              </p>
-              <p className="mt-1 text-[8px] font-bold uppercase tracking-widest text-sky-500/60">
-                {roleLabel}
-              </p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCurrentView("perfil")}
-              className="relative h-9 w-9 overflow-hidden rounded-lg border border-white/10 lg:h-10 lg:w-10"
-              aria-label="Abrir Meu Perfil"
-              title="Meu Perfil"
-            >
-              <Image
-                src={currentUser.avatar}
-                alt="Perfil"
-                fill
-                className="object-cover"
-                unoptimized
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowNotifPanel((value) => !value)}
+            aria-label="Abrir notificações"
+            className={`relative rounded-lg border p-2.5 transition-all sm:p-3 ${
+              unreadCount > 0
+                ? "bg-sky-500/10 border-sky-500/30 text-sky-500 shadow-[0_0_15px_rgba(14,165,233,0.1)]"
+                : "bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10"
+            }`}
+          >
+            <Bell size={20} />
+            {unreadCount > 0 && (
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-sky-500 rounded-full shadow-neon"
               />
-            </button>
-          </div>
+            )}
+          </button>
+
+          <AnimatePresence>
+            {showNotifPanel && (
+              <motion.div
+                initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                className="fixed left-3 right-3 top-16 max-h-[70vh] overflow-hidden rounded-lg border border-white/10 bg-[#050B14] text-left shadow-3xl z-50 sm:absolute sm:left-auto sm:right-0 sm:top-16 sm:w-80"
+              >
+                <div className="p-5 border-b border-white/5 flex justify-between items-center gap-3">
+                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white">
+                    Notificações
+                  </span>
+                  {unreadCount > 0 && (
+                    <span className="rounded-full bg-sky-500 px-3 py-1 text-[9px] font-black uppercase text-black">
+                      {unreadCount} novas
+                    </span>
+                  )}
+                </div>
+
+                <div className="max-h-[450px] overflow-y-auto custom-scrollbar">
+                  {notifications.length === 0 ? (
+                    <div className="p-10 text-center text-[10px] font-black uppercase text-white/25 tracking-[0.22em]">
+                      Nenhuma notificação no momento
+                    </div>
+                  ) : (
+                    notifications.map((notif) => (
+                      <button
+                        type="button"
+                        key={notif.id}
+                        onClick={() => {
+                          onNotificationClick(notif);
+                          setShowNotifPanel(false);
+                        }}
+                        className={`w-full p-5 border-b border-white/5 cursor-pointer hover:bg-sky-500/5 transition-all relative group text-left ${
+                          !notif.isRead ? "bg-sky-500/5" : ""
+                        }`}
+                      >
+                        {!notif.isRead && (
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-10 bg-sky-500 rounded-r-full group-hover:h-12 transition-all" />
+                        )}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="inline-flex max-w-[55%] items-center rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-sky-200/85">
+                            <span className="truncate">{fallbackSourceLabel(notif)}</span>
+                          </span>
+                          {formatNotificationTime(notif.timestamp) && (
+                            <span className="shrink-0 text-[8px] font-black uppercase tracking-widest text-white/30">
+                              {formatNotificationTime(notif.timestamp)}
+                            </span>
+                          )}
+                        </div>
+                        <h4 className="text-xs font-black text-white uppercase italic tracking-tight">
+                          {notif.title}
+                        </h4>
+                        <p className="text-[10px] text-white/45 mt-1.5 leading-relaxed">
+                          {notif.message}
+                        </p>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-3 pl-1.5 sm:pl-2 border-l border-white/5">
+          <button type="button" onClick={() => setCurrentView("perfil")} className="hidden xl:block text-right">
+            <p className="text-[10px] font-black text-white uppercase italic leading-none">
+              {currentUser.nickname}
+            </p>
+            <p className="text-[8px] font-bold text-sky-500/60 uppercase tracking-widest mt-1">
+              {roleLabel}
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentView("perfil")}
+            className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-lg border-2 border-white/10 overflow-hidden relative shadow-2xl group cursor-pointer"
+            aria-label="Abrir Meu Perfil"
+            title="Meu Perfil"
+          >
+            <Image
+              src={currentUser.avatar}
+              alt="Perfil"
+              fill
+              className="object-cover group-hover:scale-110 transition-transform duration-500"
+              unoptimized
+            />
+          </button>
         </div>
       </div>
     </header>

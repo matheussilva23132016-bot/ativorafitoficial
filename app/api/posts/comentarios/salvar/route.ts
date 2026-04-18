@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     const conteudo = String(body.conteudo || "").trim();
 
     if (!postId || !nickname || !conteudo) {
-      return NextResponse.json({ error: "Dados invalidos" }, { status: 400 });
+      return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
     }
 
     const [posts]: any = await db.execute(
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     );
 
     if (!posts.length) {
-      return NextResponse.json({ error: "Post nao encontrado" }, { status: 404 });
+      return NextResponse.json({ error: "Post não encontrado" }, { status: 404 });
     }
 
     const [result]: any = await db.execute(
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, id: result.insertId });
   } catch (error: any) {
-    console.error("ERRO AO SALVAR COMENTARIO:", error.message);
+    console.error("ERRO AO SALVAR COMENTÁRIO:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

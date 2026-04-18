@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSession, signOut } from "next-auth/react";
 
@@ -19,11 +19,13 @@ import { NutritionView } from "./views/NutritionView";
 import { HelpView } from "./views/HelpView";
 import { SuggestionsView } from "./views/SuggestionsView";
 import { SimpleDashboardView } from "./views/SimpleDashboardView";
+import { EvolutionView } from "./views/EvolutionView";
 import { BossPanelView } from "./views/BossPanelView";
 import { ProfileView } from "./views/ProfileView";
 
 // --- TIPAGENS ---
 export type ViewState = 'home' | 'social' | 'treinos' | 'metricas' | 'config' | 'comunidades' | 'nutricao' | 'ajuda' | 'sugestoes' | 'boss' | 'perfil';
+type SocialRoute = 'feed' | 'profile' | 'messages';
 
 export interface INotification {
   id: string;
@@ -35,7 +37,202 @@ export interface INotification {
   isRead: boolean;
   rawType?: string;
   timestamp?: string;
+  sourceView?: ViewState;
+  sourceLabel?: string;
+  socialRoute?: SocialRoute;
 }
+
+type NotificationDestination = {
+  view: ViewState;
+  socialRoute?: SocialRoute;
+  communityId?: string;
+  communityTab?: string;
+};
+
+type DashboardHistoryState = {
+  __ativorafit_dashboard__: true;
+  view: ViewState;
+  socialRoute: SocialRoute;
+  communityId: string | null;
+  communityTab: string | null;
+  workoutId: string | null;
+};
+
+const isViewState = (value: unknown): value is ViewState =>
+  value === "home" ||
+  value === "social" ||
+  value === "treinos" ||
+  value === "metricas" ||
+  value === "config" ||
+  value === "comunidades" ||
+  value === "nutricao" ||
+  value === "ajuda" ||
+  value === "sugestoes" ||
+  value === "boss" ||
+  value === "perfil";
+
+const VIEW_LABELS: Record<ViewState, string> = {
+  home: "Painel",
+  social: "Social",
+  treinos: "Treinos",
+  metricas: "Evolução",
+  config: "Ajustes",
+  comunidades: "Comunidades",
+  nutricao: "Nutrição",
+  ajuda: "Ajuda",
+  sugestoes: "Sugestões",
+  boss: "Boss",
+  perfil: "Meu Perfil",
+};
+
+const SOCIAL_ROUTE_BY_RAW_TYPE: Record<string, SocialRoute> = {
+  message: "messages",
+  comment: "feed",
+  like: "feed",
+  follow: "profile",
+};
+
+const COMMUNITY_TAB_BY_RAW_TYPE: Record<string, string> = {
+  aviso_comunidade: "avisos",
+  novo_anuncio: "avisos",
+  solicitacao_entrada: "gestao",
+  entrada_aprovada: "geral",
+  entrada_recusada: "geral",
+  solicitacao_treino: "treinos",
+  novo_treino: "treinos",
+  solicitacao_nutri: "nutricao",
+  solicitacao_nutricao: "nutricao",
+  solicitacao_nutricional: "nutricao",
+  novo_cardapio: "nutricao",
+  cardapio_publicado: "nutricao",
+  chat_treino: "treinos",
+  chat_nutricao: "nutricao",
+  novo_desafio: "desafios",
+  entrega_desafio: "desafios",
+  desafio_aprovar: "desafios",
+  desafio_aprovado: "desafios",
+  desafio_reprovar: "desafios",
+  desafio_reprovado: "desafios",
+  desafio_reenvio: "desafios",
+  subiu_ranking: "ranking",
+  novo_selo: "ranking",
+};
+
+const VALID_COMMUNITY_TABS = new Set([
+  "geral",
+  "treinos",
+  "nutricao",
+  "desafios",
+  "ranking",
+  "avisos",
+  "evolucao",
+  "gestao",
+]);
+
+const normalizeSocialRoute = (value?: unknown): SocialRoute | undefined => {
+  const route = String(value || "").trim().toLowerCase();
+  if (route === "feed" || route === "profile" || route === "messages") return route;
+  return undefined;
+};
+
+const normalizeCommunityTab = (targetTab?: unknown, rawType?: unknown): string => {
+  const target = String(targetTab || "").trim().toLowerCase();
+  if (target === "home" || target === "overview" || target === "dashboard") return "geral";
+  if (target === "announcements") return "avisos";
+  if (VALID_COMMUNITY_TABS.has(target)) return target;
+
+  const raw = String(rawType || "").trim().toLowerCase();
+  return COMMUNITY_TAB_BY_RAW_TYPE[raw] || "geral";
+};
+
+const normalizeNotificationType = (type: unknown, rawType: string): INotification["type"] => {
+  if (type === "social" || type === "treino" || type === "comunidade") return type;
+  if (rawType.includes("treino")) return "treino";
+
+  if (
+    rawType.includes("comunidade") ||
+    rawType.includes("desafio") ||
+    rawType.includes("cardapio") ||
+    rawType.includes("solicitacao") ||
+    rawType.includes("entrada") ||
+    rawType.includes("aviso") ||
+    rawType.includes("ranking")
+  ) {
+    return "comunidade";
+  }
+
+  return "social";
+};
+
+const resolveSourceView = (notif: Pick<INotification, "type" | "targetId" | "rawType">): ViewState => {
+  const rawType = String(notif.rawType || "").trim().toLowerCase();
+
+  if (rawType === "boss_broadcast") return "home";
+  if (notif.type === "social") return "social";
+  if (notif.type === "comunidade") return "comunidades";
+  if (notif.type === "treino") return notif.targetId ? "comunidades" : "treinos";
+
+  return "home";
+};
+
+const normalizeDashboardNotification = (input: Partial<INotification>): INotification => {
+  const rawType = String(input.rawType || "").trim().toLowerCase();
+  const type = normalizeNotificationType(input.type, rawType);
+  const targetId = input.targetId ? String(input.targetId) : undefined;
+  const targetTab = normalizeCommunityTab(input.targetTab, rawType);
+  const socialRoute = normalizeSocialRoute(input.socialRoute) || SOCIAL_ROUTE_BY_RAW_TYPE[rawType];
+  const sourceView = input.sourceView || resolveSourceView({ type, targetId, rawType });
+  const sourceLabel = input.sourceLabel || VIEW_LABELS[sourceView];
+
+  return {
+    id: String(input.id || Math.random().toString(36).slice(2, 11)),
+    title: String(input.title || "Nova notificação"),
+    message: String(input.message || "Você recebeu uma atualização."),
+    type,
+    targetId,
+    targetTab,
+    isRead: input.isRead === true,
+    rawType: rawType || undefined,
+    timestamp: input.timestamp ? String(input.timestamp) : undefined,
+    sourceView,
+    sourceLabel,
+    socialRoute,
+  };
+};
+
+const resolveNotificationDestination = (notif: INotification): NotificationDestination => {
+  const rawType = String(notif.rawType || "").trim().toLowerCase();
+  const communityTab = normalizeCommunityTab(notif.targetTab, rawType);
+
+  if (rawType === "boss_broadcast") {
+    return { view: "home" };
+  }
+
+  if (notif.type === "social") {
+    return {
+      view: "social",
+      socialRoute: notif.socialRoute || SOCIAL_ROUTE_BY_RAW_TYPE[rawType] || "feed",
+    };
+  }
+
+  if ((notif.type === "comunidade" || notif.type === "treino") && notif.targetId) {
+    return {
+      view: "comunidades",
+      communityId: notif.targetId,
+      communityTab,
+    };
+  }
+
+  if (notif.type === "treino") {
+    return { view: "treinos" };
+  }
+
+  if (notif.type === "comunidade") {
+    return { view: "comunidades" };
+  }
+
+  return { view: "home" };
+};
 
 export default function MainDashboard() {
   const { data: session, status } = useSession();
@@ -43,9 +240,10 @@ export default function MainDashboard() {
   // -- ESTADOS DE NAVEGAÇÃO --
   const [currentView, setCurrentViewState] = useState<ViewState>('home');
   const [activeWorkoutId, setActiveWorkoutId] = useState<string | null>(null);
-  const [socialRoute, setSocialRoute] = useState<'feed' | 'profile' | 'messages'>('feed');
-  const [isGuestMode, setIsGuestMode] = useState(false);
+  const [socialRoute, setSocialRoute] = useState<SocialRoute>('feed');
   const [deepLink, setDeepLink] = useState<{ communityId: string, tab: string } | null>(null);
+  const skipNextHistoryPushRef = useRef(false);
+  const historyBootstrappedRef = useRef(false);
 
   // -- ESTADOS DE DADOS --
   const [hasProfile, setHasProfile] = useState(false);
@@ -89,6 +287,60 @@ export default function MainDashboard() {
     setCurrentViewState(view);
   }, [restrictedScopes]);
 
+  const buildHistoryState = useCallback(
+    (): DashboardHistoryState => ({
+      __ativorafit_dashboard__: true,
+      view: currentView,
+      socialRoute,
+      communityId: deepLink?.communityId ?? null,
+      communityTab: deepLink?.tab ?? null,
+      workoutId: activeWorkoutId ?? null,
+    }),
+    [activeWorkoutId, currentView, deepLink?.communityId, deepLink?.tab, socialRoute],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onPopState = (event: PopStateEvent) => {
+      const state = event.state as DashboardHistoryState | null;
+      if (!state?.__ativorafit_dashboard__) return;
+
+      skipNextHistoryPushRef.current = true;
+      setSocialRoute(normalizeSocialRoute(state.socialRoute) || "feed");
+      setDeepLink(
+        state.communityId
+          ? { communityId: state.communityId, tab: state.communityTab || "geral" }
+          : null,
+      );
+      setActiveWorkoutId(state.workoutId ?? null);
+      setCurrentViewState(isViewState(state.view) ? state.view : "home");
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const state = buildHistoryState();
+
+    if (!historyBootstrappedRef.current) {
+      historyBootstrappedRef.current = true;
+      window.history.replaceState(state, "");
+      return;
+    }
+
+    if (skipNextHistoryPushRef.current) {
+      skipNextHistoryPushRef.current = false;
+      window.history.replaceState(state, "");
+      return;
+    }
+
+    window.history.pushState(state, "");
+  }, [buildHistoryState]);
+
   // -- LOGICA DE USUÁRIO --
   useEffect(() => {
     if (session?.user) {
@@ -101,18 +353,18 @@ export default function MainDashboard() {
         role:     sUser.role     ?? "aluno",
         streak:   0,
       });
-    } else if (status === 'unauthenticated' && !isGuestMode) {
+    } else if (status === 'unauthenticated') {
       setHasProfile(false);
     }
-  }, [session, status, isGuestMode]);
+  }, [session, status]);
 
   // -- LOGICA DE NOTIFICAÇÕES --
   const addNotification = useCallback((notif: Omit<INotification, 'id' | 'isRead'>) => {
-    const newNotif: INotification = {
+    const newNotif = normalizeDashboardNotification({
       ...notif,
-      id: Math.random().toString(36).substr(2, 9),
-      isRead: false
-    };
+      id: Math.random().toString(36).slice(2, 11),
+      isRead: false,
+    });
     setNotifications(prev => [newNotif, ...prev]);
   }, []);
 
@@ -124,14 +376,31 @@ export default function MainDashboard() {
       body: JSON.stringify({ username: userProfile?.nickname, userId: userProfile?.id, id: notif.id })
     }).catch(() => null);
 
-    if ((notif.type === 'treino' || notif.type === 'comunidade') && notif.targetId) {
-      setDeepLink({ communityId: notif.targetId, tab: notif.targetTab || 'home' });
-      setCurrentView('comunidades');
-    } else if (notif.type === 'social') {
-      setSocialRoute(notif.rawType === 'message' ? 'messages' : 'feed');
+    const destination = resolveNotificationDestination(notif);
+
+    if (destination.view === 'social') {
+      setDeepLink(null);
+      setSocialRoute(destination.socialRoute || 'feed');
       setCurrentView('social');
+      return;
     }
-  }, [userProfile?.nickname]);
+
+    if (destination.view === 'comunidades') {
+      if (destination.communityId) {
+        setDeepLink({
+          communityId: destination.communityId,
+          tab: destination.communityTab || 'geral',
+        });
+      } else {
+        setDeepLink(null);
+      }
+      setCurrentView('comunidades');
+      return;
+    }
+
+    setDeepLink(null);
+    setCurrentView(destination.view);
+  }, [userProfile?.nickname, userProfile?.id, setCurrentView]);
 
   // -- HANDLERS DE TREINO --
   const handleStartWorkout = (workoutId: string) => {
@@ -171,12 +440,16 @@ export default function MainDashboard() {
     }
   };
 
-  const displayUser = userProfile || { 
-    nickname: "GUEST", id: "000", avatar: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=100", role: "aluno", streak: 0
+  const displayUser = userProfile || {
+    nickname: "ATLETA",
+    id: "",
+    avatar: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=100",
+    role: "aluno",
+    streak: 0
   };
 
   const loadDashboardNotifications = useCallback(async () => {
-    if (!displayUser.nickname || displayUser.nickname === "GUEST") {
+    if (!displayUser.nickname || !displayUser.id) {
       setNotifications([]);
       return;
     }
@@ -188,7 +461,9 @@ export default function MainDashboard() {
       if (!response.ok) return;
 
       const data = await response.json();
-      if (Array.isArray(data)) setNotifications(data);
+      if (Array.isArray(data)) {
+        setNotifications(data.map((item: any) => normalizeDashboardNotification(item)));
+      }
     } catch (error) {
       console.error("Erro ao carregar notificações:", error);
     }
@@ -291,7 +566,7 @@ export default function MainDashboard() {
         )}
 
         {/* CONTEÚDO PRINCIPAL (VIEWS) */}
-        <main className={`min-w-0 flex-1 overflow-y-auto overflow-x-hidden w-full custom-scrollbar z-10 relative text-left ${currentView === 'social' ? 'h-full' : 'p-6 lg:p-14 pb-36'}`}>
+        <main className={`min-w-0 flex-1 overflow-y-auto overflow-x-hidden w-full custom-scrollbar z-10 relative text-left ${currentView === 'social' ? 'h-full' : 'px-3 pt-3 pb-24 sm:px-4 sm:pt-4 sm:pb-28 lg:px-14 lg:pt-8 lg:pb-16'}`}>
           <AnimatePresence mode="wait">
 
             {currentView === 'home' && (
@@ -300,8 +575,6 @@ export default function MainDashboard() {
                 currentUser={displayUser}
                 setCurrentView={setCurrentView}
                 onStartWorkout={handleStartWorkout}
-                setSocialRoute={setSocialRoute}
-                setIsGuestMode={setIsGuestMode}
                 canBossPanel={canUseBossPanel}
               />
             )}
@@ -330,10 +603,13 @@ export default function MainDashboard() {
             )}
 
             {currentView === 'metricas' && (
-              <SimpleDashboardView
-                mode="metricas"
+              <EvolutionView
                 onBack={() => setCurrentView('home')}
                 onSuggestions={() => setCurrentView('sugestoes')}
+                currentUser={displayUser}
+                onOpenProfile={() => setCurrentView('perfil')}
+                onOpenTreinos={() => setCurrentView('treinos')}
+                onOpenCommunities={() => setCurrentView('comunidades')}
               />
             )}
 
@@ -388,7 +664,7 @@ export default function MainDashboard() {
             {currentView === 'social' && (
               <AtivoraSocial 
                 onBack={() => { setCurrentView('home'); setSocialRoute('feed'); }} 
-                isGuest={isGuestMode} 
+                isGuest={false} 
                 initialRoute={socialRoute} 
                 {...({ onNotify: addNotification } as any)} 
               />
@@ -396,7 +672,7 @@ export default function MainDashboard() {
 
             {currentView === 'comunidades' && (
               <motion.div key="comunidades" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="w-full text-left">
-                <div className="max-w-6xl mx-auto px-4 mb-4">
+                <div className="max-w-6xl mx-auto px-0 mb-2 sm:mb-3">
                   <button
                     onClick={() => { setCurrentView('home'); setDeepLink(null); }}
                     className="text-white/40 hover:text-sky-500 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2"

@@ -35,7 +35,7 @@ export async function GET(req: Request) {
     );
 
     if (userRows.length === 0) {
-      return NextResponse.json({ error: "Atleta nao localizado" }, { status: 404 });
+      return NextResponse.json({ error: "Atleta não localizado" }, { status: 404 });
     }
 
     const profile = userRows[0];

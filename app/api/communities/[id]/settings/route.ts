@@ -67,7 +67,7 @@ export async function GET(
           schemaReady: false,
           settings: DEFAULT_SETTINGS,
           rules: [],
-          warning: "Aplique o SQL complementar de Comunidades para ativar regras e configuracoes.",
+          warning: "Aplique o SQL complementar de Comunidades para ativar regras e configurações.",
         });
       }
       throw err;

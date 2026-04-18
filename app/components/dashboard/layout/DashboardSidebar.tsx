@@ -39,7 +39,7 @@ export const DashboardSidebar = ({
           Ativora<span className="text-sky-500 shadow-neon">Fit</span>
         </span>
         <span className="text-[8px] font-black text-white/20 uppercase tracking-widest mt-2.5 block italic leading-tight">
-          A Evolução na Palma da sua mão!
+          Evolução no ritmo da sua rotina
         </span>
       </div>
 

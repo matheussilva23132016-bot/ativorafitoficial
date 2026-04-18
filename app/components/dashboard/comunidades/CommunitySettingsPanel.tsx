@@ -34,12 +34,12 @@ const DEFAULT_SETTINGS = {
 };
 
 const TOGGLES = [
-  ["entrada_por_solicitacao", "Entrada por solicitacao", "Ninguem entra automaticamente."],
+  ["entrada_por_solicitacao", "Entrada por solicitação", "Ninguém entra automaticamente."],
   ["adm_pode_aprovar_membros", "ADM aprova membros", "Administradores podem liberar pedidos."],
   ["adm_pode_criar_desafios", "ADM cria desafios", "Permite missoes semanais por ADM."],
   ["adm_pode_avaliar_desafios", "ADM avalia entregas", "ADMs podem aprovar, reprovar ou pedir reenvio."],
-  ["adm_pode_editar_treinos", "ADM edita treinos", "Libera gestao de treinos para ADM."],
-  ["adm_pode_editar_nutricao", "ADM edita nutricao", "Libera gestao nutricional para ADM."],
+  ["adm_pode_editar_treinos", "ADM edita treinos", "Libera gestão de treinos para ADM."],
+  ["adm_pode_editar_nutricao", "ADM edita nutrição", "Libera gestão nutricional para ADM."],
 ] as const;
 
 export function CommunitySettingsPanel({
@@ -95,7 +95,7 @@ export function CommunitySettingsPanel({
 
   const addRule = () => {
     if (!newRule.titulo.trim() || !newRule.descricao.trim()) {
-      toast.warning("Preencha titulo e descricao da regra.");
+      toast.warning("Preencha título e descrição da regra.");
       return;
     }
 
@@ -144,9 +144,9 @@ export function CommunitySettingsPanel({
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? "Falha ao salvar configuracoes");
+      if (!res.ok) throw new Error(data.error ?? "Falha ao salvar configurações");
 
-      toast.success("Configuracoes da comunidade salvas.");
+      toast.success("configurações da comunidade salvas.");
       await loadSettings();
     } catch (err: any) {
       toast.error(err.message);
@@ -171,12 +171,12 @@ export function CommunitySettingsPanel({
             <AlertTriangle className="mt-0.5 text-amber-300" size={18} />
             <div>
               <p className="text-sm font-black text-amber-200">
-                SQL complementar ainda nao aplicado
+                SQL complementar ainda não aplicado
               </p>
               <p className="mt-1 text-xs leading-relaxed text-amber-100/55">
-                Regras e configuracoes granulares dependem das tabelas
-                comunidade_regras e comunidade_configuracoes. O painel fica visivel,
-                mas so salva depois que o SQL corrigido for aplicado no phpMyAdmin.
+                Regras e configurações granulares dependem das tabelas
+                comunidade_regras e comunidade_configuracoes. O painel fica visível,
+                mas só salva depois que o SQL corrigido for aplicado no phpMyAdmin.
               </p>
             </div>
           </div>
@@ -190,7 +190,7 @@ export function CommunitySettingsPanel({
             Controle da comunidade
           </h3>
           <p className="mt-1 text-xs text-white/30">
-            Permissoes de ADM, entrada fechada, pontuacao e fechamento semanal.
+            permissões de ADM, entrada fechada, pontuação e fechamento semanal.
           </p>
         </div>
         <button
@@ -205,14 +205,14 @@ export function CommunitySettingsPanel({
 
       {!canEdit && (
         <p className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-white/35">
-          Apenas o Dono altera configuracoes globais. ADMs continuam gerenciando membros e operacoes permitidas.
+          Apenas o Dono altera configurações globais. ADMs continuam gerenciando membros e operações permitidas.
         </p>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
           <p className="text-[10px] font-black uppercase text-white/40">
-            Permissoes operacionais
+            permissões operacionais
           </p>
           <div className="mt-4 space-y-2">
             {TOGGLES.map(([key, label, description]) => (
@@ -243,7 +243,7 @@ export function CommunitySettingsPanel({
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="space-y-2">
               <span className="text-[10px] font-black uppercase text-white/30">
-                XP por treino concluido
+                XP por treino concluído
               </span>
               <input
                 type="number"
@@ -258,7 +258,7 @@ export function CommunitySettingsPanel({
             </label>
             <label className="space-y-2">
               <span className="text-[10px] font-black uppercase text-white/30">
-                XP por dia de nutricao
+                XP por dia de nutrição
               </span>
               <input
                 type="number"
@@ -290,7 +290,7 @@ export function CommunitySettingsPanel({
             </label>
             <label className="space-y-2">
               <span className="text-[10px] font-black uppercase text-white/30">
-                Horario
+                Horário
               </span>
               <input
                 type="time"
@@ -352,13 +352,13 @@ export function CommunitySettingsPanel({
             <input
               value={newRule.titulo}
               onChange={event => setNewRule(prev => ({ ...prev, titulo: event.target.value }))}
-              placeholder="Titulo da regra"
+              placeholder="título da regra"
               className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/20"
             />
             <input
               value={newRule.descricao}
               onChange={event => setNewRule(prev => ({ ...prev, descricao: event.target.value }))}
-              placeholder="Descricao objetiva"
+              placeholder="descrição objetiva"
               className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/20"
             />
             <button

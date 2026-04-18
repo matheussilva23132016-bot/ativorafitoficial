@@ -1,0 +1,1043 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R 9 0 R 11 0 R 13 0 R 15 0 R 17 0 R 19 0 R 21 0 R 23 0 R 25 0 R 27 0 R 29 0 R 31 0 R] /Count 14 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Length 3978 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 40 800 Tm (ATIVORAFIT - SQL faltante para beta) Tj
+1 0 0 1 40 788 Tm (Gerado em: 17/04/2026, 21:52:52) Tj
+1 0 0 1 40 776 Tm (Total de arquivos SQL pendentes: 8) Tj
+1 0 0 1 40 764 Tm (---) Tj
+1 0 0 1 40 752 Tm (Arquivo: docs/boss-panel-sql-faltante.sql) Tj
+1 0 0 1 40 740 Tm (-- AtivoraFit - Painel Boss) Tj
+1 0 0 1 40 728 Tm (-- Banco: MySQL/phpMyAdmin) Tj
+1 0 0 1 40 716 Tm (-- Data: 2026-04-15) Tj
+1 0 0 1 40 704 Tm (--) Tj
+1 0 0 1 40 692 Tm (-- Execute este SQL para deixar o Painel Boss pronto em producao.) Tj
+1 0 0 1 40 680 Tm (-- Depois de executar, faca login novamente na conta @Teteuziin555.) Tj
+1 0 0 1 40 668 Tm ( ) Tj
+1 0 0 1 40 656 Tm (-- Pre-requisito do cadastro pelo Boss:) Tj
+1 0 0 1 40 644 Tm (-- garante que o painel consiga criar contas separadas de Personal e Instrutor.) Tj
+1 0 0 1 40 632 Tm (ALTER TABLE ativora_users) Tj
+1 0 0 1 40 620 Tm (  MODIFY role ENUM\('aluno','personal','instrutor','nutri','influencer','adm'\) DEFAULT 'aluno';) Tj
+1 0 0 1 40 608 Tm ( ) Tj
+1 0 0 1 40 596 Tm (CREATE TABLE IF NOT EXISTS boss_access \() Tj
+1 0 0 1 40 584 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY,) Tj
+1 0 0 1 40 572 Tm (  user_id VARCHAR\(191\) NULL,) Tj
+1 0 0 1 40 560 Tm (  nickname VARCHAR\(120\) NOT NULL,) Tj
+1 0 0 1 40 548 Tm (  nivel ENUM\('owner','admin','moderador'\) NOT NULL DEFAULT 'admin',) Tj
+1 0 0 1 40 536 Tm (  can_create_users TINYINT\(1\) NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 524 Tm (  can_ban_users TINYINT\(1\) NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 512 Tm (  can_grant_access TINYINT\(1\) NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 500 Tm (  can_run_sql TINYINT\(1\) NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 488 Tm (  can_manage_app TINYINT\(1\) NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 476 Tm (  can_moderate_content TINYINT\(1\) NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 464 Tm (  can_send_broadcast TINYINT\(1\) NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 452 Tm (  can_view_audit TINYINT\(1\) NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 440 Tm (  granted_by VARCHAR\(191\) NULL,) Tj
+1 0 0 1 40 428 Tm (  active TINYINT\(1\) NOT NULL DEFAULT 1,) Tj
+1 0 0 1 40 416 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 404 Tm (  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 392 Tm (  UNIQUE KEY uq_boss_access_user \(user_id\),) Tj
+1 0 0 1 40 380 Tm (  UNIQUE KEY uq_boss_access_nickname \(nickname\),) Tj
+1 0 0 1 40 368 Tm (  INDEX idx_boss_access_active \(active\)) Tj
+1 0 0 1 40 356 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;) Tj
+1 0 0 1 40 344 Tm ( ) Tj
+1 0 0 1 40 332 Tm (CREATE TABLE IF NOT EXISTS boss_bans \() Tj
+1 0 0 1 40 320 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY,) Tj
+1 0 0 1 40 308 Tm (  target_user_id VARCHAR\(191\) NULL,) Tj
+1 0 0 1 40 296 Tm (  target_nickname VARCHAR\(120\) NULL,) Tj
+1 0 0 1 40 284 Tm (  scope ENUM\('app','social','comunidades','treinos','nutricao'\) NOT NULL DEFAULT 'app',) Tj
+1 0 0 1 40 272 Tm (  reason VARCHAR\(500\) NULL,) Tj
+1 0 0 1 40 260 Tm (  status ENUM\('active','revoked'\) NOT NULL DEFAULT 'active',) Tj
+1 0 0 1 40 248 Tm (  banned_by VARCHAR\(191\) NOT NULL,) Tj
+1 0 0 1 40 236 Tm (  revoked_by VARCHAR\(191\) NULL,) Tj
+1 0 0 1 40 224 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 212 Tm (  revoked_at DATETIME NULL,) Tj
+1 0 0 1 40 200 Tm (  INDEX idx_boss_bans_target \(target_user_id\),) Tj
+1 0 0 1 40 188 Tm (  INDEX idx_boss_bans_scope_status \(scope, status\),) Tj
+1 0 0 1 40 176 Tm (  INDEX idx_boss_bans_created \(created_at\)) Tj
+1 0 0 1 40 164 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;) Tj
+1 0 0 1 40 152 Tm ( ) Tj
+1 0 0 1 40 140 Tm (CREATE TABLE IF NOT EXISTS boss_audit_log \() Tj
+1 0 0 1 40 128 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY,) Tj
+1 0 0 1 40 116 Tm (  actor_user_id VARCHAR\(191\) NOT NULL,) Tj
+1 0 0 1 40 104 Tm (  actor_nickname VARCHAR\(120\) NULL,) Tj
+1 0 0 1 40 92 Tm (  action VARCHAR\(80\) NOT NULL,) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 4206 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 40 800 Tm (  target_user_id VARCHAR\(191\) NULL,) Tj
+1 0 0 1 40 788 Tm (  target_nickname VARCHAR\(120\) NULL,) Tj
+1 0 0 1 40 776 Tm (  details_json LONGTEXT NULL,) Tj
+1 0 0 1 40 764 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 752 Tm (  INDEX idx_boss_audit_actor \(actor_user_id\),) Tj
+1 0 0 1 40 740 Tm (  INDEX idx_boss_audit_target \(target_user_id\),) Tj
+1 0 0 1 40 728 Tm (  INDEX idx_boss_audit_created \(created_at\)) Tj
+1 0 0 1 40 716 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;) Tj
+1 0 0 1 40 704 Tm ( ) Tj
+1 0 0 1 40 692 Tm (CREATE TABLE IF NOT EXISTS boss_app_settings \() Tj
+1 0 0 1 40 680 Tm (  setting_key VARCHAR\(100\) NOT NULL PRIMARY KEY,) Tj
+1 0 0 1 40 668 Tm (  setting_value LONGTEXT NULL,) Tj
+1 0 0 1 40 656 Tm (  setting_type ENUM\('text','boolean','json','number'\) NOT NULL DEFAULT 'text',) Tj
+1 0 0 1 40 644 Tm (  label VARCHAR\(160\) NOT NULL,) Tj
+1 0 0 1 40 632 Tm (  description VARCHAR\(500\) NULL,) Tj
+1 0 0 1 40 620 Tm (  updated_by VARCHAR\(191\) NULL,) Tj
+1 0 0 1 40 608 Tm (  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) Tj
+1 0 0 1 40 596 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;) Tj
+1 0 0 1 40 584 Tm ( ) Tj
+1 0 0 1 40 572 Tm (CREATE TABLE IF NOT EXISTS boss_broadcasts \() Tj
+1 0 0 1 40 560 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY,) Tj
+1 0 0 1 40 548 Tm (  titulo VARCHAR\(160\) NOT NULL,) Tj
+1 0 0 1 40 536 Tm (  mensagem TEXT NOT NULL,) Tj
+1 0 0 1 40 524 Tm (  audience ENUM\('all','role','user'\) NOT NULL DEFAULT 'all',) Tj
+1 0 0 1 40 512 Tm (  role_target VARCHAR\(40\) NULL,) Tj
+1 0 0 1 40 500 Tm (  user_target VARCHAR\(191\) NULL,) Tj
+1 0 0 1 40 488 Tm (  sent_by VARCHAR\(191\) NOT NULL,) Tj
+1 0 0 1 40 476 Tm (  delivered_count INT NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 464 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 452 Tm (  INDEX idx_boss_broadcasts_created \(created_at\),) Tj
+1 0 0 1 40 440 Tm (  INDEX idx_boss_broadcasts_audience \(audience\)) Tj
+1 0 0 1 40 428 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;) Tj
+1 0 0 1 40 416 Tm ( ) Tj
+1 0 0 1 40 404 Tm (CREATE TABLE IF NOT EXISTS boss_broadcast_recipients \() Tj
+1 0 0 1 40 392 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY,) Tj
+1 0 0 1 40 380 Tm (  broadcast_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 368 Tm (  user_id VARCHAR\(191\) NULL,) Tj
+1 0 0 1 40 356 Tm (  nickname VARCHAR\(120\) NOT NULL,) Tj
+1 0 0 1 40 344 Tm (  lida TINYINT\(1\) NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 332 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 320 Tm (  read_at DATETIME NULL,) Tj
+1 0 0 1 40 308 Tm (  UNIQUE KEY uq_boss_broadcast_recipient \(broadcast_id, nickname\),) Tj
+1 0 0 1 40 296 Tm (  INDEX idx_boss_broadcast_recipients_user \(user_id\),) Tj
+1 0 0 1 40 284 Tm (  INDEX idx_boss_broadcast_recipients_nickname \(nickname, lida, created_at\),) Tj
+1 0 0 1 40 272 Tm (  INDEX idx_boss_broadcast_recipients_broadcast \(broadcast_id\)) Tj
+1 0 0 1 40 260 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;) Tj
+1 0 0 1 40 248 Tm ( ) Tj
+1 0 0 1 40 236 Tm (INSERT INTO boss_app_settings) Tj
+1 0 0 1 40 224 Tm (  \(setting_key, setting_value, setting_type, label, description\)) Tj
+1 0 0 1 40 212 Tm (VALUES) Tj
+1 0 0 1 40 200 Tm (  \('beta_mode', 'true', 'boolean', 'Modo beta', 'Controla se o app deve se comunicar como uma ve) Tj
+1 0 0 1 40 188 Tm (rsao beta.'\),) Tj
+1 0 0 1 40 176 Tm (  \('maintenance_mode', 'false', 'boolean', 'Modo manutencao', 'Reservado para bloquear funcional) Tj
+1 0 0 1 40 164 Tm (idades durante manutencao planejada.'\),) Tj
+1 0 0 1 40 152 Tm (  \('boss_panel_enabled', 'true', 'boolean', 'Painel Boss', 'Permite manter o painel administrati) Tj
+1 0 0 1 40 140 Tm (vo ativo.'\),) Tj
+1 0 0 1 40 128 Tm (  \('support_whatsapp', '', 'text', 'WhatsApp de suporte', 'Contato oficial exibido em areas de a) Tj
+1 0 0 1 40 116 Tm (juda futuramente.'\),) Tj
+1 0 0 1 40 104 Tm (  \('release_notes', 'Beta interna AtivoraFit.', 'text', 'Notas da versao', 'Resumo editavel da v) Tj
+1 0 0 1 40 92 Tm (ersao atual do app.'\)) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 2842 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 40 800 Tm (ON DUPLICATE KEY UPDATE setting_key = VALUES\(setting_key\);) Tj
+1 0 0 1 40 788 Tm ( ) Tj
+1 0 0 1 40 776 Tm (-- Libera o Painel Boss para a conta @Teteuziin555 ou para o e-mail fundador.) Tj
+1 0 0 1 40 764 Tm (-- Se a conta ainda nao existir, crie a conta primeiro e rode este bloco novamente.) Tj
+1 0 0 1 40 752 Tm (INSERT INTO boss_access \() Tj
+1 0 0 1 40 740 Tm (  id,) Tj
+1 0 0 1 40 728 Tm (  user_id,) Tj
+1 0 0 1 40 716 Tm (  nickname,) Tj
+1 0 0 1 40 704 Tm (  nivel,) Tj
+1 0 0 1 40 692 Tm (  can_create_users,) Tj
+1 0 0 1 40 680 Tm (  can_ban_users,) Tj
+1 0 0 1 40 668 Tm (  can_grant_access,) Tj
+1 0 0 1 40 656 Tm (  can_run_sql,) Tj
+1 0 0 1 40 644 Tm (  can_manage_app,) Tj
+1 0 0 1 40 632 Tm (  can_moderate_content,) Tj
+1 0 0 1 40 620 Tm (  can_send_broadcast,) Tj
+1 0 0 1 40 608 Tm (  can_view_audit,) Tj
+1 0 0 1 40 596 Tm (  granted_by,) Tj
+1 0 0 1 40 584 Tm (  active) Tj
+1 0 0 1 40 572 Tm (\)) Tj
+1 0 0 1 40 560 Tm (SELECT) Tj
+1 0 0 1 40 548 Tm (  UUID\(\),) Tj
+1 0 0 1 40 536 Tm (  id,) Tj
+1 0 0 1 40 524 Tm (  LOWER\(nickname\),) Tj
+1 0 0 1 40 512 Tm (  'owner',) Tj
+1 0 0 1 40 500 Tm (  1,) Tj
+1 0 0 1 40 488 Tm (  1,) Tj
+1 0 0 1 40 476 Tm (  1,) Tj
+1 0 0 1 40 464 Tm (  1,) Tj
+1 0 0 1 40 452 Tm (  1,) Tj
+1 0 0 1 40 440 Tm (  1,) Tj
+1 0 0 1 40 428 Tm (  1,) Tj
+1 0 0 1 40 416 Tm (  1,) Tj
+1 0 0 1 40 404 Tm (  'system',) Tj
+1 0 0 1 40 392 Tm (  1) Tj
+1 0 0 1 40 380 Tm (FROM ativora_users) Tj
+1 0 0 1 40 368 Tm (WHERE LOWER\(nickname\) = 'teteuziin555') Tj
+1 0 0 1 40 356 Tm (   OR LOWER\(email\) = 'matheussilva23132016@gmail.com') Tj
+1 0 0 1 40 344 Tm (LIMIT 1) Tj
+1 0 0 1 40 332 Tm (ON DUPLICATE KEY UPDATE) Tj
+1 0 0 1 40 320 Tm (  user_id = VALUES\(user_id\),) Tj
+1 0 0 1 40 308 Tm (  nickname = VALUES\(nickname\),) Tj
+1 0 0 1 40 296 Tm (  nivel = 'owner',) Tj
+1 0 0 1 40 284 Tm (  can_create_users = 1,) Tj
+1 0 0 1 40 272 Tm (  can_ban_users = 1,) Tj
+1 0 0 1 40 260 Tm (  can_grant_access = 1,) Tj
+1 0 0 1 40 248 Tm (  can_run_sql = 1,) Tj
+1 0 0 1 40 236 Tm (  can_manage_app = 1,) Tj
+1 0 0 1 40 224 Tm (  can_moderate_content = 1,) Tj
+1 0 0 1 40 212 Tm (  can_send_broadcast = 1,) Tj
+1 0 0 1 40 200 Tm (  can_view_audit = 1,) Tj
+1 0 0 1 40 188 Tm (  active = 1;) Tj
+1 0 0 1 40 176 Tm ( ) Tj
+1 0 0 1 40 164 Tm (-- Se voce ja executou uma versao anterior deste arquivo e a coluna ainda nao existir,) Tj
+1 0 0 1 40 152 Tm (-- o app tenta criar automaticamente ao abrir o Painel Boss.) Tj
+1 0 0 1 40 140 Tm (-- Caso queira aplicar manualmente no phpMyAdmin, rode apenas uma vez:) Tj
+1 0 0 1 40 128 Tm (-- ALTER TABLE boss_access ADD COLUMN can_run_sql TINYINT\(1\) NOT NULL DEFAULT 0 AFTER can_grant_) Tj
+1 0 0 1 40 116 Tm (access;) Tj
+1 0 0 1 40 104 Tm (-- ALTER TABLE boss_access ADD COLUMN can_manage_app TINYINT\(1\) NOT NULL DEFAULT 0 AFTER can_run) Tj
+1 0 0 1 40 92 Tm (_sql;) Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 3609 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 40 800 Tm (-- ALTER TABLE boss_access ADD COLUMN can_moderate_content TINYINT\(1\) NOT NULL DEFAULT 0 AFTER c) Tj
+1 0 0 1 40 788 Tm (an_manage_app;) Tj
+1 0 0 1 40 776 Tm (-- ALTER TABLE boss_access ADD COLUMN can_send_broadcast TINYINT\(1\) NOT NULL DEFAULT 0 AFTER can) Tj
+1 0 0 1 40 764 Tm (_moderate_content;) Tj
+1 0 0 1 40 752 Tm (-- ALTER TABLE boss_access ADD COLUMN can_view_audit TINYINT\(1\) NOT NULL DEFAULT 0 AFTER can_sen) Tj
+1 0 0 1 40 740 Tm (d_broadcast;) Tj
+1 0 0 1 40 728 Tm ( ) Tj
+1 0 0 1 40 716 Tm (---) Tj
+1 0 0 1 40 704 Tm (Arquivo: docs/cadastro-beta-1-sql-faltante.sql) Tj
+1 0 0 1 40 692 Tm (-- AtivoraFit Beta 1.0 - SQL complementar do cadastro inicial) Tj
+1 0 0 1 40 680 Tm (-- Banco: MySQL/phpMyAdmin) Tj
+1 0 0 1 40 668 Tm (--) Tj
+1 0 0 1 40 656 Tm (-- Use este arquivo apenas se a tela inicial, selecao de perfil ou cadastro falhar) Tj
+1 0 0 1 40 644 Tm (-- por coluna ausente na tabela ativora_users.) Tj
+1 0 0 1 40 632 Tm (--) Tj
+1 0 0 1 40 620 Tm (-- Importante:) Tj
+1 0 0 1 40 608 Tm (-- 1. A tela atual cadastra usuarios na tabela ativora_users.) Tj
+1 0 0 1 40 596 Tm (-- 2. O perfil "Personal Trainer" grava role = 'personal'.) Tj
+1 0 0 1 40 584 Tm (-- 3. O perfil "Instrutor" grava role = 'instrutor'.) Tj
+1 0 0 1 40 572 Tm (-- 4. O perfil "Nutricionista" grava role = 'nutri'.) Tj
+1 0 0 1 40 560 Tm (-- 4. Se sua tabela ja segue o prisma/schema.prisma, nao ha SQL obrigatorio novo.) Tj
+1 0 0 1 40 548 Tm ( ) Tj
+1 0 0 1 40 536 Tm (CREATE TABLE IF NOT EXISTS ativora_users \() Tj
+1 0 0 1 40 524 Tm (  id VARCHAR\(50\) NOT NULL,) Tj
+1 0 0 1 40 512 Tm (  email VARCHAR\(255\) NOT NULL,) Tj
+1 0 0 1 40 500 Tm (  password_hash VARCHAR\(255\) NOT NULL,) Tj
+1 0 0 1 40 488 Tm (  full_name VARCHAR\(255\) NOT NULL,) Tj
+1 0 0 1 40 476 Tm (  nickname VARCHAR\(50\) NULL,) Tj
+1 0 0 1 40 464 Tm (  genero VARCHAR\(20\) NULL,) Tj
+1 0 0 1 40 452 Tm (  data_nascimento DATE NULL,) Tj
+1 0 0 1 40 440 Tm (  cidade_estado VARCHAR\(100\) NULL,) Tj
+1 0 0 1 40 428 Tm (  interesses TEXT NULL,) Tj
+1 0 0 1 40 416 Tm (  nivel VARCHAR\(50\) NULL,) Tj
+1 0 0 1 40 404 Tm (  freq VARCHAR\(50\) NULL,) Tj
+1 0 0 1 40 392 Tm (  peso VARCHAR\(20\) NULL,) Tj
+1 0 0 1 40 380 Tm (  altura VARCHAR\(20\) NULL,) Tj
+1 0 0 1 40 368 Tm (  registro VARCHAR\(50\) NULL,) Tj
+1 0 0 1 40 356 Tm (  exp VARCHAR\(50\) NULL,) Tj
+1 0 0 1 40 344 Tm (  modalidade VARCHAR\(50\) NULL,) Tj
+1 0 0 1 40 332 Tm (  especialidade VARCHAR\(100\) NULL,) Tj
+1 0 0 1 40 320 Tm (  seguidores VARCHAR\(50\) NULL,) Tj
+1 0 0 1 40 308 Tm (  nicho VARCHAR\(100\) NULL,) Tj
+1 0 0 1 40 296 Tm (  rede VARCHAR\(50\) NULL,) Tj
+1 0 0 1 40 284 Tm (  role ENUM\('aluno','personal','instrutor','nutri','influencer','adm'\) DEFAULT 'aluno',) Tj
+1 0 0 1 40 272 Tm (  xp_score INT DEFAULT 0,) Tj
+1 0 0 1 40 260 Tm (  created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 248 Tm (  account_status VARCHAR\(20\) DEFAULT 'active',) Tj
+1 0 0 1 40 236 Tm (  avatar_url TEXT NULL,) Tj
+1 0 0 1 40 224 Tm (  bio TEXT NULL,) Tj
+1 0 0 1 40 212 Tm (  current_streak INT DEFAULT 0,) Tj
+1 0 0 1 40 200 Tm (  descricao TEXT NULL,) Tj
+1 0 0 1 40 188 Tm (  email_verified TINYINT\(1\) DEFAULT 0,) Tj
+1 0 0 1 40 176 Tm (  external_link VARCHAR\(255\) NULL,) Tj
+1 0 0 1 40 164 Tm (  failed_login_attempts INT DEFAULT 0,) Tj
+1 0 0 1 40 152 Tm (  is_private TINYINT\(1\) DEFAULT 0,) Tj
+1 0 0 1 40 140 Tm (  is_verified TINYINT\(1\) DEFAULT 0,) Tj
+1 0 0 1 40 128 Tm (  last_post_date DATE NULL,) Tj
+1 0 0 1 40 116 Tm (  nivel_int INT DEFAULT 1,) Tj
+1 0 0 1 40 104 Tm (  xp INT DEFAULT 0,) Tj
+1 0 0 1 40 92 Tm (  PRIMARY KEY \(id\),) Tj
+ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Length 4508 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 40 800 Tm (  UNIQUE KEY email \(email\),) Tj
+1 0 0 1 40 788 Tm (  UNIQUE KEY nickname \(nickname\)) Tj
+1 0 0 1 40 776 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;) Tj
+1 0 0 1 40 764 Tm ( ) Tj
+1 0 0 1 40 752 Tm (-- Helper seguro para hospedagens que nao aceitam ADD COLUMN IF NOT EXISTS.) Tj
+1 0 0 1 40 740 Tm (DROP PROCEDURE IF EXISTS ativora_add_column_if_missing;) Tj
+1 0 0 1 40 728 Tm ( ) Tj
+1 0 0 1 40 716 Tm (DELIMITER $$) Tj
+1 0 0 1 40 704 Tm (CREATE PROCEDURE ativora_add_column_if_missing\() Tj
+1 0 0 1 40 692 Tm (  IN p_table_name VARCHAR\(64\),) Tj
+1 0 0 1 40 680 Tm (  IN p_column_name VARCHAR\(64\),) Tj
+1 0 0 1 40 668 Tm (  IN p_column_definition TEXT) Tj
+1 0 0 1 40 656 Tm (\)) Tj
+1 0 0 1 40 644 Tm (BEGIN) Tj
+1 0 0 1 40 632 Tm (  IF NOT EXISTS \() Tj
+1 0 0 1 40 620 Tm (    SELECT 1) Tj
+1 0 0 1 40 608 Tm (    FROM information_schema.COLUMNS) Tj
+1 0 0 1 40 596 Tm (    WHERE TABLE_SCHEMA = DATABASE\(\)) Tj
+1 0 0 1 40 584 Tm (      AND TABLE_NAME = p_table_name) Tj
+1 0 0 1 40 572 Tm (      AND COLUMN_NAME = p_column_name) Tj
+1 0 0 1 40 560 Tm (  \) THEN) Tj
+1 0 0 1 40 548 Tm (    SET @ativora_sql = CONCAT\('ALTER TABLE `', p_table_name, '` ADD COLUMN ', p_column_definitio) Tj
+1 0 0 1 40 536 Tm (n\);) Tj
+1 0 0 1 40 524 Tm (    PREPARE ativora_stmt FROM @ativora_sql;) Tj
+1 0 0 1 40 512 Tm (    EXECUTE ativora_stmt;) Tj
+1 0 0 1 40 500 Tm (    DEALLOCATE PREPARE ativora_stmt;) Tj
+1 0 0 1 40 488 Tm (  END IF;) Tj
+1 0 0 1 40 476 Tm (END$$) Tj
+1 0 0 1 40 464 Tm (DELIMITER ;) Tj
+1 0 0 1 40 452 Tm ( ) Tj
+1 0 0 1 40 440 Tm (-- Em tabelas ja existentes com usuarios, colunas novas entram como NULL para evitar erro.) Tj
+1 0 0 1 40 428 Tm (-- Os novos cadastros feitos pelo app sempre gravam password_hash e full_name preenchidos.) Tj
+1 0 0 1 40 416 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'password_hash', '`password_hash` VARCHAR\(25) Tj
+1 0 0 1 40 404 Tm (5\) NULL'\);) Tj
+1 0 0 1 40 392 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'full_name', '`full_name` VARCHAR\(255\) NULL') Tj
+1 0 0 1 40 380 Tm (\);) Tj
+1 0 0 1 40 368 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'nickname', '`nickname` VARCHAR\(50\) NULL'\);) Tj
+1 0 0 1 40 356 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'genero', '`genero` VARCHAR\(20\) NULL'\);) Tj
+1 0 0 1 40 344 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'data_nascimento', '`data_nascimento` DATE N) Tj
+1 0 0 1 40 332 Tm (ULL'\);) Tj
+1 0 0 1 40 320 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'cidade_estado', '`cidade_estado` VARCHAR\(10) Tj
+1 0 0 1 40 308 Tm (0\) NULL'\);) Tj
+1 0 0 1 40 296 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'interesses', '`interesses` TEXT NULL'\);) Tj
+1 0 0 1 40 284 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'nivel', '`nivel` VARCHAR\(50\) NULL'\);) Tj
+1 0 0 1 40 272 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'freq', '`freq` VARCHAR\(50\) NULL'\);) Tj
+1 0 0 1 40 260 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'peso', '`peso` VARCHAR\(20\) NULL'\);) Tj
+1 0 0 1 40 248 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'altura', '`altura` VARCHAR\(20\) NULL'\);) Tj
+1 0 0 1 40 236 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'registro', '`registro` VARCHAR\(50\) NULL'\);) Tj
+1 0 0 1 40 224 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'exp', '`exp` VARCHAR\(50\) NULL'\);) Tj
+1 0 0 1 40 212 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'modalidade', '`modalidade` VARCHAR\(50\) NULL) Tj
+1 0 0 1 40 200 Tm ('\);) Tj
+1 0 0 1 40 188 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'especialidade', '`especialidade` VARCHAR\(10) Tj
+1 0 0 1 40 176 Tm (0\) NULL'\);) Tj
+1 0 0 1 40 164 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'seguidores', '`seguidores` VARCHAR\(50\) NULL) Tj
+1 0 0 1 40 152 Tm ('\);) Tj
+1 0 0 1 40 140 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'nicho', '`nicho` VARCHAR\(100\) NULL'\);) Tj
+1 0 0 1 40 128 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'rede', '`rede` VARCHAR\(50\) NULL'\);) Tj
+1 0 0 1 40 116 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'role', '`role` ENUM\(''aluno'',''personal'',) Tj
+1 0 0 1 40 104 Tm (''instrutor'',''nutri'',''influencer'',''adm''\) DEFAULT ''aluno'''\);) Tj
+1 0 0 1 40 92 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'xp_score', '`xp_score` INT DEFAULT 0'\);) Tj
+ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 12 0 R >>
+endobj
+14 0 obj
+<< /Length 4451 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 40 800 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'created_at', '`created_at` TIMESTAMP NULL D) Tj
+1 0 0 1 40 788 Tm (EFAULT CURRENT_TIMESTAMP'\);) Tj
+1 0 0 1 40 776 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'account_status', '`account_status` VARCHAR\() Tj
+1 0 0 1 40 764 Tm (20\) DEFAULT ''active'''\);) Tj
+1 0 0 1 40 752 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'avatar_url', '`avatar_url` TEXT NULL'\);) Tj
+1 0 0 1 40 740 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'bio', '`bio` TEXT NULL'\);) Tj
+1 0 0 1 40 728 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'current_streak', '`current_streak` INT DEFA) Tj
+1 0 0 1 40 716 Tm (ULT 0'\);) Tj
+1 0 0 1 40 704 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'descricao', '`descricao` TEXT NULL'\);) Tj
+1 0 0 1 40 692 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'email_verified', '`email_verified` TINYINT\() Tj
+1 0 0 1 40 680 Tm (1\) DEFAULT 0'\);) Tj
+1 0 0 1 40 668 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'external_link', '`external_link` VARCHAR\(25) Tj
+1 0 0 1 40 656 Tm (5\) NULL'\);) Tj
+1 0 0 1 40 644 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'failed_login_attempts', '`failed_login_atte) Tj
+1 0 0 1 40 632 Tm (mpts` INT DEFAULT 0'\);) Tj
+1 0 0 1 40 620 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'is_private', '`is_private` TINYINT\(1\) DEFAU) Tj
+1 0 0 1 40 608 Tm (LT 0'\);) Tj
+1 0 0 1 40 596 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'is_verified', '`is_verified` TINYINT\(1\) DEF) Tj
+1 0 0 1 40 584 Tm (AULT 0'\);) Tj
+1 0 0 1 40 572 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'last_post_date', '`last_post_date` DATE NUL) Tj
+1 0 0 1 40 560 Tm (L'\);) Tj
+1 0 0 1 40 548 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'nivel_int', '`nivel_int` INT DEFAULT 1'\);) Tj
+1 0 0 1 40 536 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'xp', '`xp` INT DEFAULT 0'\);) Tj
+1 0 0 1 40 524 Tm ( ) Tj
+1 0 0 1 40 512 Tm (DROP PROCEDURE IF EXISTS ativora_add_column_if_missing;) Tj
+1 0 0 1 40 500 Tm ( ) Tj
+1 0 0 1 40 488 Tm (-- Ajuste do enum de perfil usado pela tela de cadastro.) Tj
+1 0 0 1 40 476 Tm (ALTER TABLE ativora_users) Tj
+1 0 0 1 40 464 Tm (  MODIFY role ENUM\('aluno','personal','instrutor','nutri','influencer','adm'\) DEFAULT 'aluno';) Tj
+1 0 0 1 40 452 Tm ( ) Tj
+1 0 0 1 40 440 Tm (-- Rode estes indices somente se ainda nao existirem.) Tj
+1 0 0 1 40 428 Tm (-- Se o phpMyAdmin acusar "Duplicate key name", ignore: significa que ja existe.) Tj
+1 0 0 1 40 416 Tm (-- CREATE UNIQUE INDEX email ON ativora_users\(email\);) Tj
+1 0 0 1 40 404 Tm (-- CREATE UNIQUE INDEX nickname ON ativora_users\(nickname\);) Tj
+1 0 0 1 40 392 Tm ( ) Tj
+1 0 0 1 40 380 Tm (---) Tj
+1 0 0 1 40 368 Tm (Arquivo: docs/comunidades-avisos-sql-faltante.sql) Tj
+1 0 0 1 40 356 Tm (-- Ativora Comunidades - Aba Avisos) Tj
+1 0 0 1 40 344 Tm (-- Banco: MySQL/phpMyAdmin) Tj
+1 0 0 1 40 332 Tm (-- Data: 2026-04-15) Tj
+1 0 0 1 40 320 Tm (--) Tj
+1 0 0 1 40 308 Tm (-- O app cria estas tabelas automaticamente quando a aba Avisos for usada.) Tj
+1 0 0 1 40 296 Tm (-- Para producao, rode este arquivo uma vez no phpMyAdmin.) Tj
+1 0 0 1 40 284 Tm (-- Sem FOREIGN KEY de proposito, para evitar erro 150 em bancos com collations legadas.) Tj
+1 0 0 1 40 272 Tm ( ) Tj
+1 0 0 1 40 260 Tm (CREATE TABLE IF NOT EXISTS comunidade_avisos \() Tj
+1 0 0 1 40 248 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY,) Tj
+1 0 0 1 40 236 Tm (  comunidade_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 224 Tm (  autor_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 212 Tm (  titulo VARCHAR\(160\) NOT NULL,) Tj
+1 0 0 1 40 200 Tm (  mensagem TEXT NOT NULL,) Tj
+1 0 0 1 40 188 Tm (  categoria VARCHAR\(40\) NOT NULL DEFAULT 'geral',) Tj
+1 0 0 1 40 176 Tm (  prioridade ENUM\('normal','alta','urgente'\) NOT NULL DEFAULT 'normal',) Tj
+1 0 0 1 40 164 Tm (  audience ENUM\('todos','aluno'\) NOT NULL DEFAULT 'todos',) Tj
+1 0 0 1 40 152 Tm (  target_user_id VARCHAR\(36\) NULL,) Tj
+1 0 0 1 40 140 Tm (  acao_recomendada VARCHAR\(500\) NULL,) Tj
+1 0 0 1 40 128 Tm (  related_area VARCHAR\(40\) NULL,) Tj
+1 0 0 1 40 116 Tm (  fixado TINYINT\(1\) NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 104 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 92 Tm (  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,) Tj
+ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 14 0 R >>
+endobj
+16 0 obj
+<< /Length 3992 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 40 800 Tm (  INDEX idx_comunidade_created \(comunidade_id, created_at\),) Tj
+1 0 0 1 40 788 Tm (  INDEX idx_target \(comunidade_id, target_user_id\),) Tj
+1 0 0 1 40 776 Tm (  INDEX idx_audience \(audience, prioridade\)) Tj
+1 0 0 1 40 764 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;) Tj
+1 0 0 1 40 752 Tm ( ) Tj
+1 0 0 1 40 740 Tm (CREATE TABLE IF NOT EXISTS comunidade_aviso_leituras \() Tj
+1 0 0 1 40 728 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY,) Tj
+1 0 0 1 40 716 Tm (  aviso_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 704 Tm (  user_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 692 Tm (  lida TINYINT\(1\) NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 680 Tm (  read_at DATETIME NULL,) Tj
+1 0 0 1 40 668 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 656 Tm (  UNIQUE KEY uq_aviso_user \(aviso_id, user_id\),) Tj
+1 0 0 1 40 644 Tm (  INDEX idx_user_lida \(user_id, lida\),) Tj
+1 0 0 1 40 632 Tm (  INDEX idx_aviso \(aviso_id\)) Tj
+1 0 0 1 40 620 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;) Tj
+1 0 0 1 40 608 Tm ( ) Tj
+1 0 0 1 40 596 Tm (---) Tj
+1 0 0 1 40 584 Tm (Arquivo: docs/comunidades-minichat-sql-faltante.sql) Tj
+1 0 0 1 40 572 Tm (-- SQL faltante para o mini-chat de solicitacoes \(treino e nutricao\)) Tj
+1 0 0 1 40 560 Tm (-- Contexto: o app cria essa tabela sob demanda em runtime, mas para beta/producao) Tj
+1 0 0 1 40 548 Tm (-- e recomendavel provisionar antecipadamente.) Tj
+1 0 0 1 40 536 Tm ( ) Tj
+1 0 0 1 40 524 Tm (CREATE TABLE IF NOT EXISTS solicitacoes_chat_mensagens \() Tj
+1 0 0 1 40 512 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY,) Tj
+1 0 0 1 40 500 Tm (  comunidade_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 488 Tm (  tipo VARCHAR\(20\) NOT NULL,) Tj
+1 0 0 1 40 476 Tm (  solicitacao_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 464 Tm (  user_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 452 Tm (  user_nome VARCHAR\(200\) NOT NULL,) Tj
+1 0 0 1 40 440 Tm (  role_label VARCHAR\(50\) NULL,) Tj
+1 0 0 1 40 428 Tm (  mensagem TEXT NOT NULL,) Tj
+1 0 0 1 40 416 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 404 Tm (  INDEX idx_chat_request \(tipo, solicitacao_id, created_at\),) Tj
+1 0 0 1 40 392 Tm (  INDEX idx_chat_user \(user_id\),) Tj
+1 0 0 1 40 380 Tm (  INDEX idx_chat_community \(comunidade_id\)) Tj
+1 0 0 1 40 368 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;) Tj
+1 0 0 1 40 356 Tm ( ) Tj
+1 0 0 1 40 344 Tm ( ) Tj
+1 0 0 1 40 332 Tm (---) Tj
+1 0 0 1 40 320 Tm (Arquivo: docs/comunidades-premium-sql-faltante.sql) Tj
+1 0 0 1 40 308 Tm (﻿-- Ativora Comunidades Premium - SQL complementar) Tj
+1 0 0 1 40 296 Tm (-- Banco: MySQL/phpMyAdmin) Tj
+1 0 0 1 40 284 Tm (-- Observacao: antes de executar ALTER TABLE, confira se a coluna ja existe.) Tj
+1 0 0 1 40 272 Tm (-- Algumas hospedagens nao aceitam ADD COLUMN IF NOT EXISTS.) Tj
+1 0 0 1 40 260 Tm ( ) Tj
+1 0 0 1 40 248 Tm (-- 1\) Comunidade: regras, configuracoes e permissoes granulares) Tj
+1 0 0 1 40 236 Tm (CREATE TABLE IF NOT EXISTS comunidade_regras \() Tj
+1 0 0 1 40 224 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY DEFAULT uuid\(\),) Tj
+1 0 0 1 40 212 Tm (  comunidade_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 200 Tm (  titulo VARCHAR\(120\) NOT NULL,) Tj
+1 0 0 1 40 188 Tm (  descricao TEXT NOT NULL,) Tj
+1 0 0 1 40 176 Tm (  ordem TINYINT NOT NULL DEFAULT 1,) Tj
+1 0 0 1 40 164 Tm (  ativo TINYINT\(1\) NOT NULL DEFAULT 1,) Tj
+1 0 0 1 40 152 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 140 Tm (  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 128 Tm (  INDEX idx_comunidade \(comunidade_id\),) Tj
+1 0 0 1 40 116 Tm (  CONSTRAINT fk_comunidade_regras_comunidade) Tj
+1 0 0 1 40 104 Tm (    FOREIGN KEY \(comunidade_id\) REFERENCES comunidades\(id\) ON DELETE CASCADE) Tj
+1 0 0 1 40 92 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;) Tj
+ET
+endstream
+endobj
+17 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 16 0 R >>
+endobj
+18 0 obj
+<< /Length 4341 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 40 800 Tm ( ) Tj
+1 0 0 1 40 788 Tm (CREATE TABLE IF NOT EXISTS comunidade_configuracoes \() Tj
+1 0 0 1 40 776 Tm (  comunidade_id VARCHAR\(36\) NOT NULL PRIMARY KEY,) Tj
+1 0 0 1 40 764 Tm (  entrada_por_solicitacao TINYINT\(1\) NOT NULL DEFAULT 1,) Tj
+1 0 0 1 40 752 Tm (  adm_pode_aprovar_membros TINYINT\(1\) NOT NULL DEFAULT 1,) Tj
+1 0 0 1 40 740 Tm (  adm_pode_criar_desafios TINYINT\(1\) NOT NULL DEFAULT 1,) Tj
+1 0 0 1 40 728 Tm (  adm_pode_avaliar_desafios TINYINT\(1\) NOT NULL DEFAULT 1,) Tj
+1 0 0 1 40 716 Tm (  adm_pode_editar_treinos TINYINT\(1\) NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 704 Tm (  adm_pode_editar_nutricao TINYINT\(1\) NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 692 Tm (  xp_treino_concluido INT NOT NULL DEFAULT 10,) Tj
+1 0 0 1 40 680 Tm (  xp_refeicao_dia_concluida INT NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 668 Tm (  ranking_fecha_dia ENUM\('domingo','segunda'\) NOT NULL DEFAULT 'domingo',) Tj
+1 0 0 1 40 656 Tm (  ranking_fecha_hora TIME NOT NULL DEFAULT '23:59:00',) Tj
+1 0 0 1 40 644 Tm (  timezone VARCHAR\(60\) NOT NULL DEFAULT 'America/Sao_Paulo',) Tj
+1 0 0 1 40 632 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 620 Tm (  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 608 Tm (  CONSTRAINT fk_comunidade_config_comunidade) Tj
+1 0 0 1 40 596 Tm (    FOREIGN KEY \(comunidade_id\) REFERENCES comunidades\(id\) ON DELETE CASCADE) Tj
+1 0 0 1 40 584 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;) Tj
+1 0 0 1 40 572 Tm ( ) Tj
+1 0 0 1 40 560 Tm (CREATE TABLE IF NOT EXISTS comunidade_permissoes_tag \() Tj
+1 0 0 1 40 548 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY DEFAULT uuid\(\),) Tj
+1 0 0 1 40 536 Tm (  comunidade_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 524 Tm (  tag_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 512 Tm (  permissao VARCHAR\(80\) NOT NULL,) Tj
+1 0 0 1 40 500 Tm (  permitido TINYINT\(1\) NOT NULL DEFAULT 1,) Tj
+1 0 0 1 40 488 Tm (  definido_por VARCHAR\(36\) NULL,) Tj
+1 0 0 1 40 476 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 464 Tm (  UNIQUE KEY uq_tag_permissao \(tag_id, permissao\),) Tj
+1 0 0 1 40 452 Tm (  INDEX idx_comunidade \(comunidade_id\),) Tj
+1 0 0 1 40 440 Tm (  CONSTRAINT fk_perm_tag_comunidade) Tj
+1 0 0 1 40 428 Tm (    FOREIGN KEY \(comunidade_id\) REFERENCES comunidades\(id\) ON DELETE CASCADE,) Tj
+1 0 0 1 40 416 Tm (  CONSTRAINT fk_perm_tag_tag) Tj
+1 0 0 1 40 404 Tm (    FOREIGN KEY \(tag_id\) REFERENCES comunidade_tags\(id\) ON DELETE CASCADE) Tj
+1 0 0 1 40 392 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;) Tj
+1 0 0 1 40 380 Tm ( ) Tj
+1 0 0 1 40 368 Tm (-- 2\) Tags: flexibilidade real e historico) Tj
+1 0 0 1 40 356 Tm (ALTER TABLE comunidade_tags) Tj
+1 0 0 1 40 344 Tm (  ADD UNIQUE KEY uq_comunidade_tag_nome \(comunidade_id, nome\);) Tj
+1 0 0 1 40 332 Tm ( ) Tj
+1 0 0 1 40 320 Tm (CREATE TABLE IF NOT EXISTS comunidade_tag_historico \() Tj
+1 0 0 1 40 308 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY DEFAULT uuid\(\),) Tj
+1 0 0 1 40 296 Tm (  comunidade_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 284 Tm (  membro_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 272 Tm (  tag_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 260 Tm (  acao ENUM\('add','remove'\) NOT NULL,) Tj
+1 0 0 1 40 248 Tm (  realizado_por VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 236 Tm (  motivo VARCHAR\(255\) NULL,) Tj
+1 0 0 1 40 224 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 212 Tm (  INDEX idx_membro \(membro_id\),) Tj
+1 0 0 1 40 200 Tm (  INDEX idx_comunidade \(comunidade_id\),) Tj
+1 0 0 1 40 188 Tm (  CONSTRAINT fk_tag_hist_comunidade) Tj
+1 0 0 1 40 176 Tm (    FOREIGN KEY \(comunidade_id\) REFERENCES comunidades\(id\) ON DELETE CASCADE,) Tj
+1 0 0 1 40 164 Tm (  CONSTRAINT fk_tag_hist_membro) Tj
+1 0 0 1 40 152 Tm (    FOREIGN KEY \(membro_id\) REFERENCES comunidade_membros\(id\) ON DELETE CASCADE,) Tj
+1 0 0 1 40 140 Tm (  CONSTRAINT fk_tag_hist_tag) Tj
+1 0 0 1 40 128 Tm (    FOREIGN KEY \(tag_id\) REFERENCES comunidade_tags\(id\) ON DELETE CASCADE) Tj
+1 0 0 1 40 116 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;) Tj
+1 0 0 1 40 104 Tm ( ) Tj
+1 0 0 1 40 92 Tm (-- 3\) Treinos: preservar documento real, grupos e links externos) Tj
+ET
+endstream
+endobj
+19 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 18 0 R >>
+endobj
+20 0 obj
+<< /Length 4148 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 40 800 Tm (ALTER TABLE treinos) Tj
+1 0 0 1 40 788 Tm (  ADD COLUMN dia_rotulo VARCHAR\(60\) NULL AFTER dia_semana,) Tj
+1 0 0 1 40 776 Tm (  ADD COLUMN grupo_alvo_id VARCHAR\(36\) NULL AFTER alvo_user_id,) Tj
+1 0 0 1 40 764 Tm (  ADD COLUMN publicado_em DATETIME NULL AFTER ia_revisado,) Tj
+1 0 0 1 40 752 Tm (  ADD COLUMN removido_em DATETIME NULL AFTER publicado_em;) Tj
+1 0 0 1 40 740 Tm ( ) Tj
+1 0 0 1 40 728 Tm (ALTER TABLE exercicios_treino) Tj
+1 0 0 1 40 716 Tm (  ADD COLUMN grupo_nome VARCHAR\(100\) NULL AFTER treino_id,) Tj
+1 0 0 1 40 704 Tm (  ADD COLUMN ordem_grupo TINYINT NOT NULL DEFAULT 1 AFTER grupo_nome,) Tj
+1 0 0 1 40 692 Tm (  ADD COLUMN link_externo VARCHAR\(500\) NULL AFTER video_url,) Tj
+1 0 0 1 40 680 Tm (  ADD COLUMN video_asset_id VARCHAR\(36\) NULL AFTER link_externo;) Tj
+1 0 0 1 40 668 Tm ( ) Tj
+1 0 0 1 40 656 Tm (-- 4\) Nutricao: preservar dia importado e dados de publicacao) Tj
+1 0 0 1 40 644 Tm (ALTER TABLE cardapios) Tj
+1 0 0 1 40 632 Tm (  ADD COLUMN publicado_em DATETIME NULL AFTER ia_revisado,) Tj
+1 0 0 1 40 620 Tm (  ADD COLUMN removido_em DATETIME NULL AFTER publicado_em;) Tj
+1 0 0 1 40 608 Tm ( ) Tj
+1 0 0 1 40 596 Tm (ALTER TABLE refeicoes_cardapio) Tj
+1 0 0 1 40 584 Tm (  ADD COLUMN dia_rotulo VARCHAR\(60\) NULL AFTER dia_semana,) Tj
+1 0 0 1 40 572 Tm (  ADD COLUMN alimentos_json LONGTEXT NULL AFTER alimentos;) Tj
+1 0 0 1 40 560 Tm ( ) Tj
+1 0 0 1 40 548 Tm (-- 5\) Solicitacoes: mais contexto para IA e atendimento online) Tj
+1 0 0 1 40 536 Tm (ALTER TABLE solicitacoes_nutricionais) Tj
+1 0 0 1 40 524 Tm (  ADD COLUMN preferencias LONGTEXT NULL AFTER restricoes,) Tj
+1 0 0 1 40 512 Tm (  ADD COLUMN sexo VARCHAR\(20\) NULL AFTER medida_id,) Tj
+1 0 0 1 40 500 Tm (  ADD COLUMN nivel_atividade VARCHAR\(50\) NULL AFTER sexo,) Tj
+1 0 0 1 40 488 Tm (  ADD COLUMN dados_ia LONGTEXT NULL AFTER obs;) Tj
+1 0 0 1 40 476 Tm ( ) Tj
+1 0 0 1 40 464 Tm (ALTER TABLE solicitacoes_treino) Tj
+1 0 0 1 40 452 Tm (  ADD COLUMN preferencias LONGTEXT NULL AFTER restricoes,) Tj
+1 0 0 1 40 440 Tm (  ADD COLUMN lesoes LONGTEXT NULL AFTER preferencias,) Tj
+1 0 0 1 40 428 Tm (  ADD COLUMN dados_ia LONGTEXT NULL AFTER obs;) Tj
+1 0 0 1 40 416 Tm ( ) Tj
+1 0 0 1 40 404 Tm (-- 6\) Medidas corporais: responsabilidade e revisao profissional) Tj
+1 0 0 1 40 392 Tm (ALTER TABLE medidas_corporais) Tj
+1 0 0 1 40 380 Tm (  ADD COLUMN fonte ENUM\('aluno','profissional','importado'\) NOT NULL DEFAULT 'aluno' AFTER metod) Tj
+1 0 0 1 40 368 Tm (o_calculo,) Tj
+1 0 0 1 40 356 Tm (  ADD COLUMN disclaimer_aceito TINYINT\(1\) NOT NULL DEFAULT 0 AFTER fonte,) Tj
+1 0 0 1 40 344 Tm (  ADD COLUMN revisado_por VARCHAR\(36\) NULL AFTER disclaimer_aceito,) Tj
+1 0 0 1 40 332 Tm (  ADD COLUMN revisado_em DATETIME NULL AFTER revisado_por;) Tj
+1 0 0 1 40 320 Tm ( ) Tj
+1 0 0 1 40 308 Tm (-- 7\) Desafios: criterio, aprovador e historico de eventos) Tj
+1 0 0 1 40 296 Tm (ALTER TABLE desafios) Tj
+1 0 0 1 40 284 Tm (  ADD COLUMN criterio_avaliacao TEXT NULL AFTER instrucoes,) Tj
+1 0 0 1 40 272 Tm (  ADD COLUMN aprovador_responsavel VARCHAR\(36\) NULL AFTER criterio_avaliacao,) Tj
+1 0 0 1 40 260 Tm (  ADD COLUMN xp_bonus INT NOT NULL DEFAULT 0 AFTER xp_recompensa;) Tj
+1 0 0 1 40 248 Tm ( ) Tj
+1 0 0 1 40 236 Tm (CREATE TABLE IF NOT EXISTS desafio_entrega_eventos \() Tj
+1 0 0 1 40 224 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY DEFAULT uuid\(\),) Tj
+1 0 0 1 40 212 Tm (  entrega_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 200 Tm (  status_anterior VARCHAR\(30\) NULL,) Tj
+1 0 0 1 40 188 Tm (  status_novo VARCHAR\(30\) NOT NULL,) Tj
+1 0 0 1 40 176 Tm (  comentario TEXT NULL,) Tj
+1 0 0 1 40 164 Tm (  realizado_por VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 152 Tm (  xp_aplicado INT NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 140 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 128 Tm (  INDEX idx_entrega \(entrega_id\),) Tj
+1 0 0 1 40 116 Tm (  CONSTRAINT fk_entrega_eventos_entrega) Tj
+1 0 0 1 40 104 Tm (    FOREIGN KEY \(entrega_id\) REFERENCES entregas_desafios\(id\) ON DELETE CASCADE) Tj
+1 0 0 1 40 92 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;) Tj
+ET
+endstream
+endobj
+21 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 20 0 R >>
+endobj
+22 0 obj
+<< /Length 4121 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 40 800 Tm ( ) Tj
+1 0 0 1 40 788 Tm (CREATE TABLE IF NOT EXISTS desafio_entrega_arquivos \() Tj
+1 0 0 1 40 776 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY DEFAULT uuid\(\),) Tj
+1 0 0 1 40 764 Tm (  entrega_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 752 Tm (  arquivo_url VARCHAR\(700\) NOT NULL,) Tj
+1 0 0 1 40 740 Tm (  mime_type VARCHAR\(120\) NULL,) Tj
+1 0 0 1 40 728 Tm (  nome_original VARCHAR\(255\) NULL,) Tj
+1 0 0 1 40 716 Tm (  tamanho_bytes INT NULL,) Tj
+1 0 0 1 40 704 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 692 Tm (  INDEX idx_entrega \(entrega_id\),) Tj
+1 0 0 1 40 680 Tm (  CONSTRAINT fk_entrega_arquivos_entrega) Tj
+1 0 0 1 40 668 Tm (    FOREIGN KEY \(entrega_id\) REFERENCES entregas_desafios\(id\) ON DELETE CASCADE) Tj
+1 0 0 1 40 656 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;) Tj
+1 0 0 1 40 644 Tm ( ) Tj
+1 0 0 1 40 632 Tm (-- 8\) Ranking: snapshot, desempate e fechamento semanal) Tj
+1 0 0 1 40 620 Tm (ALTER TABLE ranking_semanal) Tj
+1 0 0 1 40 608 Tm (  ADD COLUMN reprovacoes INT NOT NULL DEFAULT 0 AFTER desafios_total,) Tj
+1 0 0 1 40 596 Tm (  ADD COLUMN ultima_aprovacao_em DATETIME NULL AFTER reprovacoes,) Tj
+1 0 0 1 40 584 Tm (  ADD COLUMN fechado TINYINT\(1\) NOT NULL DEFAULT 0 AFTER vencedor;) Tj
+1 0 0 1 40 572 Tm ( ) Tj
+1 0 0 1 40 560 Tm (CREATE TABLE IF NOT EXISTS ranking_fechamentos_semanais \() Tj
+1 0 0 1 40 548 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY DEFAULT uuid\(\),) Tj
+1 0 0 1 40 536 Tm (  comunidade_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 524 Tm (  semana_inicio DATE NOT NULL,) Tj
+1 0 0 1 40 512 Tm (  semana_fim DATE NOT NULL,) Tj
+1 0 0 1 40 500 Tm (  fechado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 488 Tm (  vencedor_user_id VARCHAR\(36\) NULL,) Tj
+1 0 0 1 40 476 Tm (  total_participantes INT NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 464 Tm (  snapshot_json LONGTEXT NOT NULL,) Tj
+1 0 0 1 40 452 Tm (  UNIQUE KEY uq_fechamento \(comunidade_id, semana_inicio\),) Tj
+1 0 0 1 40 440 Tm (  INDEX idx_comunidade_semana \(comunidade_id, semana_inicio\),) Tj
+1 0 0 1 40 428 Tm (  CONSTRAINT fk_ranking_fechamento_comunidade) Tj
+1 0 0 1 40 416 Tm (    FOREIGN KEY \(comunidade_id\) REFERENCES comunidades\(id\) ON DELETE CASCADE) Tj
+1 0 0 1 40 404 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;) Tj
+1 0 0 1 40 392 Tm ( ) Tj
+1 0 0 1 40 380 Tm (-- 9\) Selos: evitar duplicidade e preparar selos por comunidade) Tj
+1 0 0 1 40 368 Tm (ALTER TABLE selos) Tj
+1 0 0 1 40 356 Tm (  ADD COLUMN comunidade_id VARCHAR\(36\) NULL AFTER id,) Tj
+1 0 0 1 40 344 Tm (  ADD COLUMN escopo ENUM\('global','comunidade'\) NOT NULL DEFAULT 'global' AFTER comunidade_id,) Tj
+1 0 0 1 40 332 Tm (  ADD KEY idx_selos_comunidade \(comunidade_id\);) Tj
+1 0 0 1 40 320 Tm ( ) Tj
+1 0 0 1 40 308 Tm (ALTER TABLE usuario_selos) Tj
+1 0 0 1 40 296 Tm (  ADD UNIQUE KEY uq_usuario_selo_semana \(user_id, comunidade_id, selo_id, semana_ref\);) Tj
+1 0 0 1 40 284 Tm ( ) Tj
+1 0 0 1 40 272 Tm (-- 10\) Notificacoes: segmentacao e navegacao) Tj
+1 0 0 1 40 260 Tm (ALTER TABLE notificacoes_comunidade) Tj
+1 0 0 1 40 248 Tm (  ADD COLUMN target_tag VARCHAR\(50\) NULL AFTER user_id,) Tj
+1 0 0 1 40 236 Tm (  ADD COLUMN action_url VARCHAR\(500\) NULL AFTER payload,) Tj
+1 0 0 1 40 224 Tm (  ADD COLUMN read_at DATETIME NULL AFTER lida,) Tj
+1 0 0 1 40 212 Tm (  ADD KEY idx_tipo \(tipo\),) Tj
+1 0 0 1 40 200 Tm (  ADD KEY idx_user_lida_created \(user_id, lida, created_at\);) Tj
+1 0 0 1 40 188 Tm ( ) Tj
+1 0 0 1 40 176 Tm (-- 11\) Arquivos gerais da comunidade) Tj
+1 0 0 1 40 164 Tm (CREATE TABLE IF NOT EXISTS comunidade_arquivos \() Tj
+1 0 0 1 40 152 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY DEFAULT uuid\(\),) Tj
+1 0 0 1 40 140 Tm (  comunidade_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 128 Tm (  owner_user_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 116 Tm (  contexto ENUM\('treino','nutricao','desafio','capa','anuncio','documento'\) NOT NULL,) Tj
+1 0 0 1 40 104 Tm (  referencia_id VARCHAR\(36\) NULL,) Tj
+1 0 0 1 40 92 Tm (  arquivo_url VARCHAR\(700\) NOT NULL,) Tj
+ET
+endstream
+endobj
+23 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 22 0 R >>
+endobj
+24 0 obj
+<< /Length 3853 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 40 800 Tm (  mime_type VARCHAR\(120\) NULL,) Tj
+1 0 0 1 40 788 Tm (  nome_original VARCHAR\(255\) NULL,) Tj
+1 0 0 1 40 776 Tm (  tamanho_bytes INT NULL,) Tj
+1 0 0 1 40 764 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 752 Tm (  INDEX idx_comunidade_contexto \(comunidade_id, contexto\),) Tj
+1 0 0 1 40 740 Tm (  INDEX idx_referencia \(referencia_id\),) Tj
+1 0 0 1 40 728 Tm (  CONSTRAINT fk_comunidade_arquivos_comunidade) Tj
+1 0 0 1 40 716 Tm (    FOREIGN KEY \(comunidade_id\) REFERENCES comunidades\(id\) ON DELETE CASCADE) Tj
+1 0 0 1 40 704 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;) Tj
+1 0 0 1 40 692 Tm ( ) Tj
+1 0 0 1 40 680 Tm (-- 12\) Logs de IA: auditoria, custo e revisao humana) Tj
+1 0 0 1 40 668 Tm (CREATE TABLE IF NOT EXISTS ia_execucoes \() Tj
+1 0 0 1 40 656 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY DEFAULT uuid\(\),) Tj
+1 0 0 1 40 644 Tm (  comunidade_id VARCHAR\(36\) NULL,) Tj
+1 0 0 1 40 632 Tm (  user_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 620 Tm (  contexto ENUM\('treino','nutricao','document_import','substituicao_alimentar'\) NOT NULL,) Tj
+1 0 0 1 40 608 Tm (  referencia_id VARCHAR\(36\) NULL,) Tj
+1 0 0 1 40 596 Tm (  model VARCHAR\(80\) NOT NULL,) Tj
+1 0 0 1 40 584 Tm (  prompt_hash VARCHAR\(100\) NULL,) Tj
+1 0 0 1 40 572 Tm (  input_json LONGTEXT NULL,) Tj
+1 0 0 1 40 560 Tm (  output_json LONGTEXT NULL,) Tj
+1 0 0 1 40 548 Tm (  status ENUM\('sucesso','erro','cancelado'\) NOT NULL DEFAULT 'sucesso',) Tj
+1 0 0 1 40 536 Tm (  erro TEXT NULL,) Tj
+1 0 0 1 40 524 Tm (  tokens_input INT NULL,) Tj
+1 0 0 1 40 512 Tm (  tokens_output INT NULL,) Tj
+1 0 0 1 40 500 Tm (  revisado_por VARCHAR\(36\) NULL,) Tj
+1 0 0 1 40 488 Tm (  publicado TINYINT\(1\) NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 476 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 464 Tm (  INDEX idx_comunidade_contexto \(comunidade_id, contexto\),) Tj
+1 0 0 1 40 452 Tm (  INDEX idx_user_created \(user_id, created_at\),) Tj
+1 0 0 1 40 440 Tm (  CONSTRAINT fk_ia_execucoes_comunidade) Tj
+1 0 0 1 40 428 Tm (    FOREIGN KEY \(comunidade_id\) REFERENCES comunidades\(id\) ON DELETE SET NULL) Tj
+1 0 0 1 40 416 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;) Tj
+1 0 0 1 40 404 Tm ( ) Tj
+1 0 0 1 40 392 Tm (-- 13\) Auditoria geral) Tj
+1 0 0 1 40 380 Tm (CREATE TABLE IF NOT EXISTS comunidade_audit_log \() Tj
+1 0 0 1 40 368 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY DEFAULT uuid\(\),) Tj
+1 0 0 1 40 356 Tm (  comunidade_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 344 Tm (  actor_user_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 332 Tm (  acao VARCHAR\(80\) NOT NULL,) Tj
+1 0 0 1 40 320 Tm (  entidade VARCHAR\(80\) NOT NULL,) Tj
+1 0 0 1 40 308 Tm (  entidade_id VARCHAR\(36\) NULL,) Tj
+1 0 0 1 40 296 Tm (  antes_json LONGTEXT NULL,) Tj
+1 0 0 1 40 284 Tm (  depois_json LONGTEXT NULL,) Tj
+1 0 0 1 40 272 Tm (  ip_address VARCHAR\(45\) NULL,) Tj
+1 0 0 1 40 260 Tm (  user_agent TEXT NULL,) Tj
+1 0 0 1 40 248 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 236 Tm (  INDEX idx_comunidade_created \(comunidade_id, created_at\),) Tj
+1 0 0 1 40 224 Tm (  INDEX idx_actor \(actor_user_id\),) Tj
+1 0 0 1 40 212 Tm (  CONSTRAINT fk_audit_comunidade) Tj
+1 0 0 1 40 200 Tm (    FOREIGN KEY \(comunidade_id\) REFERENCES comunidades\(id\) ON DELETE CASCADE) Tj
+1 0 0 1 40 188 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;) Tj
+1 0 0 1 40 176 Tm ( ) Tj
+1 0 0 1 40 164 Tm ( ) Tj
+1 0 0 1 40 152 Tm ( ) Tj
+1 0 0 1 40 140 Tm (---) Tj
+1 0 0 1 40 128 Tm (Arquivo: docs/dashboard-principal-sql-faltante.sql) Tj
+1 0 0 1 40 116 Tm (-- AtivoraFit - SQL complementar do dashboard principal) Tj
+1 0 0 1 40 104 Tm (-- Banco: MySQL/phpMyAdmin) Tj
+1 0 0 1 40 92 Tm (-- Data: 2026-04-15) Tj
+ET
+endstream
+endobj
+25 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 24 0 R >>
+endobj
+26 0 obj
+<< /Length 3537 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 40 800 Tm (--) Tj
+1 0 0 1 40 788 Tm (-- Objetivo:) Tj
+1 0 0 1 40 776 Tm (-- 1. Garantir a tabela usada pela aba Sugestoes do dashboard.) Tj
+1 0 0 1 40 764 Tm (-- 2. Evitar depender do CREATE TABLE automatico da API em producao.) Tj
+1 0 0 1 40 752 Tm (--) Tj
+1 0 0 1 40 740 Tm (-- Observacao:) Tj
+1 0 0 1 40 728 Tm (-- As outras tabelas usadas pelo dashboard principal ja aparecem no schema/docs atuais:) Tj
+1 0 0 1 40 716 Tm (-- ativora_users, notificacoes, notificacoes_comunidade, treinos,) Tj
+1 0 0 1 40 704 Tm (-- exercicios_treino e treino_execucoes.) Tj
+1 0 0 1 40 692 Tm ( ) Tj
+1 0 0 1 40 680 Tm (CREATE TABLE IF NOT EXISTS beta_sugestoes \() Tj
+1 0 0 1 40 668 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY,) Tj
+1 0 0 1 40 656 Tm (  user_id VARCHAR\(191\) NULL,) Tj
+1 0 0 1 40 644 Tm (  nickname VARCHAR\(120\) NULL,) Tj
+1 0 0 1 40 632 Tm (  categoria VARCHAR\(40\) NOT NULL,) Tj
+1 0 0 1 40 620 Tm (  impacto VARCHAR\(30\) NOT NULL,) Tj
+1 0 0 1 40 608 Tm (  contexto VARCHAR\(180\) NULL,) Tj
+1 0 0 1 40 596 Tm (  mensagem TEXT NOT NULL,) Tj
+1 0 0 1 40 584 Tm (  dispositivo VARCHAR\(40\) NULL,) Tj
+1 0 0 1 40 572 Tm (  status VARCHAR\(30\) NOT NULL DEFAULT 'recebida',) Tj
+1 0 0 1 40 560 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 548 Tm (  INDEX idx_beta_sugestoes_user \(user_id\),) Tj
+1 0 0 1 40 536 Tm (  INDEX idx_beta_sugestoes_status \(status\),) Tj
+1 0 0 1 40 524 Tm (  INDEX idx_beta_sugestoes_created \(created_at\)) Tj
+1 0 0 1 40 512 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;) Tj
+1 0 0 1 40 500 Tm ( ) Tj
+1 0 0 1 40 488 Tm (---) Tj
+1 0 0 1 40 476 Tm (Arquivo: docs/login-recuperacao-sql-faltante.sql) Tj
+1 0 0 1 40 464 Tm (-- AtivoraFit - SQL complementar para login e recuperacao de senha) Tj
+1 0 0 1 40 452 Tm (-- Banco: MySQL/phpMyAdmin) Tj
+1 0 0 1 40 440 Tm (--) Tj
+1 0 0 1 40 428 Tm (-- Execute se o login ou "esqueci minha senha" falhar por tabela/coluna ausente.) Tj
+1 0 0 1 40 416 Tm (-- A tela de login usa ativora_users.email OU ativora_users.nickname + ativora_users.password_ha) Tj
+1 0 0 1 40 404 Tm (sh.) Tj
+1 0 0 1 40 392 Tm ( ) Tj
+1 0 0 1 40 380 Tm (CREATE TABLE IF NOT EXISTS password_resets \() Tj
+1 0 0 1 40 368 Tm (  id INT NOT NULL AUTO_INCREMENT,) Tj
+1 0 0 1 40 356 Tm (  email VARCHAR\(255\) NOT NULL,) Tj
+1 0 0 1 40 344 Tm (  code_hash VARCHAR\(255\) NOT NULL,) Tj
+1 0 0 1 40 332 Tm (  expires_at DATETIME NOT NULL,) Tj
+1 0 0 1 40 320 Tm (  used TINYINT\(1\) NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 308 Tm (  created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 296 Tm (  PRIMARY KEY \(id\),) Tj
+1 0 0 1 40 284 Tm (  INDEX idx_password_resets_email_used \(email, used\),) Tj
+1 0 0 1 40 272 Tm (  INDEX idx_password_resets_expires_at \(expires_at\)) Tj
+1 0 0 1 40 260 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;) Tj
+1 0 0 1 40 248 Tm ( ) Tj
+1 0 0 1 40 236 Tm (DROP PROCEDURE IF EXISTS ativora_add_column_if_missing;) Tj
+1 0 0 1 40 224 Tm ( ) Tj
+1 0 0 1 40 212 Tm (DELIMITER $$) Tj
+1 0 0 1 40 200 Tm (CREATE PROCEDURE ativora_add_column_if_missing\() Tj
+1 0 0 1 40 188 Tm (  IN p_table_name VARCHAR\(64\),) Tj
+1 0 0 1 40 176 Tm (  IN p_column_name VARCHAR\(64\),) Tj
+1 0 0 1 40 164 Tm (  IN p_column_definition TEXT) Tj
+1 0 0 1 40 152 Tm (\)) Tj
+1 0 0 1 40 140 Tm (BEGIN) Tj
+1 0 0 1 40 128 Tm (  IF NOT EXISTS \() Tj
+1 0 0 1 40 116 Tm (    SELECT 1) Tj
+1 0 0 1 40 104 Tm (    FROM information_schema.COLUMNS) Tj
+1 0 0 1 40 92 Tm (    WHERE TABLE_SCHEMA = DATABASE\(\)) Tj
+ET
+endstream
+endobj
+27 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 26 0 R >>
+endobj
+28 0 obj
+<< /Length 3951 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 40 800 Tm (      AND TABLE_NAME = p_table_name) Tj
+1 0 0 1 40 788 Tm (      AND COLUMN_NAME = p_column_name) Tj
+1 0 0 1 40 776 Tm (  \) THEN) Tj
+1 0 0 1 40 764 Tm (    SET @ativora_sql = CONCAT\('ALTER TABLE `', p_table_name, '` ADD COLUMN ', p_column_definitio) Tj
+1 0 0 1 40 752 Tm (n\);) Tj
+1 0 0 1 40 740 Tm (    PREPARE ativora_stmt FROM @ativora_sql;) Tj
+1 0 0 1 40 728 Tm (    EXECUTE ativora_stmt;) Tj
+1 0 0 1 40 716 Tm (    DEALLOCATE PREPARE ativora_stmt;) Tj
+1 0 0 1 40 704 Tm (  END IF;) Tj
+1 0 0 1 40 692 Tm (END$$) Tj
+1 0 0 1 40 680 Tm (DELIMITER ;) Tj
+1 0 0 1 40 668 Tm ( ) Tj
+1 0 0 1 40 656 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'password_hash', '`password_hash` VARCHAR\(25) Tj
+1 0 0 1 40 644 Tm (5\) NULL'\);) Tj
+1 0 0 1 40 632 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'account_status', '`account_status` VARCHAR\() Tj
+1 0 0 1 40 620 Tm (20\) DEFAULT ''active'''\);) Tj
+1 0 0 1 40 608 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'failed_login_attempts', '`failed_login_atte) Tj
+1 0 0 1 40 596 Tm (mpts` INT DEFAULT 0'\);) Tj
+1 0 0 1 40 584 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'locked_until', '`locked_until` DATETIME NUL) Tj
+1 0 0 1 40 572 Tm (L'\);) Tj
+1 0 0 1 40 560 Tm (CALL ativora_add_column_if_missing\('ativora_users', 'last_login_at', '`last_login_at` DATETIME N) Tj
+1 0 0 1 40 548 Tm (ULL'\);) Tj
+1 0 0 1 40 536 Tm ( ) Tj
+1 0 0 1 40 524 Tm (DROP PROCEDURE IF EXISTS ativora_add_column_if_missing;) Tj
+1 0 0 1 40 512 Tm ( ) Tj
+1 0 0 1 40 500 Tm (-- Indices recomendados. Se acusar "Duplicate key name", significa que ja existe.) Tj
+1 0 0 1 40 488 Tm (-- CREATE UNIQUE INDEX email ON ativora_users\(email\);) Tj
+1 0 0 1 40 476 Tm (-- CREATE UNIQUE INDEX nickname ON ativora_users\(nickname\);) Tj
+1 0 0 1 40 464 Tm (-- CREATE INDEX idx_ativora_users_account_status ON ativora_users\(account_status\);) Tj
+1 0 0 1 40 452 Tm ( ) Tj
+1 0 0 1 40 440 Tm (---) Tj
+1 0 0 1 40 428 Tm (Arquivo: docs/meu-perfil-sql-faltante.sql) Tj
+1 0 0 1 40 416 Tm (-- AtivoraFit - Meu Perfil Premium) Tj
+1 0 0 1 40 404 Tm (-- Banco: MySQL/phpMyAdmin) Tj
+1 0 0 1 40 392 Tm (-- Objetivo: complementar o dashboard principal com dados por cargo e avaliacoes opcionais.) Tj
+1 0 0 1 40 380 Tm (-- Observacao: as APIs tambem tentam criar estas tabelas automaticamente, mas execute este SQL) Tj
+1 0 0 1 40 368 Tm (-- no phpMyAdmin para deixar a producao preparada e visivel.) Tj
+1 0 0 1 40 356 Tm ( ) Tj
+1 0 0 1 40 344 Tm (CREATE TABLE IF NOT EXISTS perfil_complementar \() Tj
+1 0 0 1 40 332 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY,) Tj
+1 0 0 1 40 320 Tm (  user_id VARCHAR\(50\) NOT NULL,) Tj
+1 0 0 1 40 308 Tm (  role VARCHAR\(50\) NOT NULL DEFAULT 'aluno',) Tj
+1 0 0 1 40 296 Tm (  objetivo_principal VARCHAR\(180\) NULL,) Tj
+1 0 0 1 40 284 Tm (  nivel VARCHAR\(60\) NULL,) Tj
+1 0 0 1 40 272 Tm (  frequencia VARCHAR\(80\) NULL,) Tj
+1 0 0 1 40 260 Tm (  restricoes TEXT NULL,) Tj
+1 0 0 1 40 248 Tm (  disponibilidade TEXT NULL,) Tj
+1 0 0 1 40 236 Tm (  preferencias_treino TEXT NULL,) Tj
+1 0 0 1 40 224 Tm (  preferencias_nutricao TEXT NULL,) Tj
+1 0 0 1 40 212 Tm (  privacidade_dados VARCHAR\(30\) NOT NULL DEFAULT 'privado',) Tj
+1 0 0 1 40 200 Tm (  dados_cargo_json JSON NULL,) Tj
+1 0 0 1 40 188 Tm (  progresso TINYINT UNSIGNED NOT NULL DEFAULT 0,) Tj
+1 0 0 1 40 176 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 164 Tm (  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 152 Tm (  UNIQUE KEY uq_perfil_complementar_user \(user_id\),) Tj
+1 0 0 1 40 140 Tm (  INDEX idx_perfil_complementar_role \(role\),) Tj
+1 0 0 1 40 128 Tm (  INDEX idx_perfil_complementar_updated \(updated_at\)) Tj
+1 0 0 1 40 116 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;) Tj
+1 0 0 1 40 104 Tm ( ) Tj
+1 0 0 1 40 92 Tm (CREATE TABLE IF NOT EXISTS perfil_avaliacoes \() Tj
+ET
+endstream
+endobj
+29 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 28 0 R >>
+endobj
+30 0 obj
+<< /Length 3760 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 40 800 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY,) Tj
+1 0 0 1 40 788 Tm (  user_id VARCHAR\(50\) NOT NULL,) Tj
+1 0 0 1 40 776 Tm (  tipo VARCHAR\(40\) NOT NULL DEFAULT 'rapida',) Tj
+1 0 0 1 40 764 Tm (  titulo VARCHAR\(160\) NOT NULL,) Tj
+1 0 0 1 40 752 Tm (  status VARCHAR\(30\) NOT NULL DEFAULT 'rascunho',) Tj
+1 0 0 1 40 740 Tm (  data_avaliacao DATE NULL,) Tj
+1 0 0 1 40 728 Tm (  data_reavaliacao DATE NULL,) Tj
+1 0 0 1 40 716 Tm (  objetivo TEXT NULL,) Tj
+1 0 0 1 40 704 Tm (  sexo VARCHAR\(20\) NULL,) Tj
+1 0 0 1 40 692 Tm (  data_nascimento DATE NULL,) Tj
+1 0 0 1 40 680 Tm (  parq_json JSON NULL,) Tj
+1 0 0 1 40 668 Tm (  protocolo VARCHAR\(140\) NULL,) Tj
+1 0 0 1 40 656 Tm (  percentual_gordura_informado DECIMAL\(6,2\) NULL,) Tj
+1 0 0 1 40 644 Tm (  parecer_final TEXT NULL,) Tj
+1 0 0 1 40 632 Tm (  observacoes TEXT NULL,) Tj
+1 0 0 1 40 620 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 608 Tm (  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 596 Tm (  INDEX idx_perfil_avaliacoes_user \(user_id\),) Tj
+1 0 0 1 40 584 Tm (  INDEX idx_perfil_avaliacoes_tipo \(tipo\),) Tj
+1 0 0 1 40 572 Tm (  INDEX idx_perfil_avaliacoes_status \(status\),) Tj
+1 0 0 1 40 560 Tm (  INDEX idx_perfil_avaliacoes_data \(data_avaliacao\)) Tj
+1 0 0 1 40 548 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;) Tj
+1 0 0 1 40 536 Tm ( ) Tj
+1 0 0 1 40 524 Tm (CREATE TABLE IF NOT EXISTS perfil_avaliacao_medidas \() Tj
+1 0 0 1 40 512 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY,) Tj
+1 0 0 1 40 500 Tm (  avaliacao_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 488 Tm (  user_id VARCHAR\(50\) NOT NULL,) Tj
+1 0 0 1 40 476 Tm (  categoria VARCHAR\(50\) NOT NULL,) Tj
+1 0 0 1 40 464 Tm (  slug VARCHAR\(90\) NOT NULL,) Tj
+1 0 0 1 40 452 Tm (  nome VARCHAR\(160\) NOT NULL,) Tj
+1 0 0 1 40 440 Tm (  unidade VARCHAR\(20\) NOT NULL,) Tj
+1 0 0 1 40 428 Tm (  rodada1 DECIMAL\(10,2\) NULL,) Tj
+1 0 0 1 40 416 Tm (  rodada2 DECIMAL\(10,2\) NULL,) Tj
+1 0 0 1 40 404 Tm (  rodada3 DECIMAL\(10,2\) NULL,) Tj
+1 0 0 1 40 392 Tm (  mediana DECIMAL\(10,2\) NULL,) Tj
+1 0 0 1 40 380 Tm (  erro_percentual DECIMAL\(8,2\) NULL,) Tj
+1 0 0 1 40 368 Tm (  consistencia VARCHAR\(40\) NULL,) Tj
+1 0 0 1 40 356 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 344 Tm (  INDEX idx_perfil_medidas_avaliacao \(avaliacao_id\),) Tj
+1 0 0 1 40 332 Tm (  INDEX idx_perfil_medidas_user \(user_id\),) Tj
+1 0 0 1 40 320 Tm (  INDEX idx_perfil_medidas_slug \(slug\)) Tj
+1 0 0 1 40 308 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;) Tj
+1 0 0 1 40 296 Tm ( ) Tj
+1 0 0 1 40 284 Tm (CREATE TABLE IF NOT EXISTS perfil_avaliacao_resultados \() Tj
+1 0 0 1 40 272 Tm (  id VARCHAR\(36\) NOT NULL PRIMARY KEY,) Tj
+1 0 0 1 40 260 Tm (  avaliacao_id VARCHAR\(36\) NOT NULL,) Tj
+1 0 0 1 40 248 Tm (  user_id VARCHAR\(50\) NOT NULL,) Tj
+1 0 0 1 40 236 Tm (  metodo VARCHAR\(120\) NOT NULL,) Tj
+1 0 0 1 40 224 Tm (  valor DECIMAL\(10,2\) NOT NULL,) Tj
+1 0 0 1 40 212 Tm (  unidade VARCHAR\(30\) NOT NULL,) Tj
+1 0 0 1 40 200 Tm (  classificacao VARCHAR\(120\) NULL,) Tj
+1 0 0 1 40 188 Tm (  observacao TEXT NULL,) Tj
+1 0 0 1 40 176 Tm (  origem VARCHAR\(30\) NOT NULL DEFAULT 'calculado',) Tj
+1 0 0 1 40 164 Tm (  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,) Tj
+1 0 0 1 40 152 Tm (  INDEX idx_perfil_resultados_avaliacao \(avaliacao_id\),) Tj
+1 0 0 1 40 140 Tm (  INDEX idx_perfil_resultados_user \(user_id\),) Tj
+1 0 0 1 40 128 Tm (  INDEX idx_perfil_resultados_metodo \(metodo\)) Tj
+1 0 0 1 40 116 Tm (\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;) Tj
+1 0 0 1 40 104 Tm ( ) Tj
+1 0 0 1 40 92 Tm (---) Tj
+ET
+endstream
+endobj
+31 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 30 0 R >>
+endobj
+xref
+0 32
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000205 00000 n 
+0000000275 00000 n 
+0000004304 00000 n 
+0000004430 00000 n 
+0000008687 00000 n 
+0000008813 00000 n 
+0000011706 00000 n 
+0000011832 00000 n 
+0000015493 00000 n 
+0000015621 00000 n 
+0000020181 00000 n 
+0000020309 00000 n 
+0000024812 00000 n 
+0000024940 00000 n 
+0000028984 00000 n 
+0000029112 00000 n 
+0000033505 00000 n 
+0000033633 00000 n 
+0000037833 00000 n 
+0000037961 00000 n 
+0000042134 00000 n 
+0000042262 00000 n 
+0000046167 00000 n 
+0000046295 00000 n 
+0000049884 00000 n 
+0000050012 00000 n 
+0000054015 00000 n 
+0000054143 00000 n 
+0000057955 00000 n 
+trailer
+<< /Size 32 /Root 1 0 R >>
+startxref
+58083
+%%EOF

@@ -31,6 +31,11 @@ export async function GET(req: Request) {
         (SELECT ev.opcao FROM enquetes_votos ev WHERE ev.post_id = p.id AND ev.usuario_nickname = ? LIMIT 1) as enquete_voto_usuario,
         (SELECT COUNT(*) FROM enquetes_votos ev1 WHERE ev1.post_id = p.id AND ev1.opcao = 1) as enquete_op1_votos,
         (SELECT COUNT(*) FROM enquetes_votos ev2 WHERE ev2.post_id = p.id AND ev2.opcao = 2) as enquete_op2_votos,
+        (SELECT COUNT(*) FROM enquetes_votos ev3 WHERE ev3.post_id = p.id AND ev3.opcao = 3) as enquete_op3_votos,
+        (SELECT COUNT(*) FROM enquetes_votos ev4 WHERE ev4.post_id = p.id AND ev4.opcao = 4) as enquete_op4_votos,
+        (SELECT COUNT(*) FROM enquetes_votos ev5 WHERE ev5.post_id = p.id AND ev5.opcao = 5) as enquete_op5_votos,
+        (SELECT COUNT(*) FROM enquetes_votos ev6 WHERE ev6.post_id = p.id AND ev6.opcao = 6) as enquete_op6_votos,
+        (SELECT COUNT(*) FROM enquetes_votos evt WHERE evt.post_id = p.id) as enquete_total_votos,
         TIMESTAMPDIFF(MINUTE, p.criado_em, NOW()) as minutes_ago,
         COALESCE(p.comentarios_count, (SELECT COUNT(*) FROM posts_comentarios WHERE post_id = p.id)) as comentarios_count
       FROM posts p

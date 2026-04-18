@@ -16,15 +16,15 @@ const buildNotification = (row: any) => {
 
   const titles: Record<string, string> = {
     like: "Nova curtida",
-    comment: "Novo comentario",
-    follow: "Nova conexao",
+    comment: "Novo comentário",
+    follow: "Nova conexão",
     message: "Nova mensagem",
   };
 
   const messages: Record<string, string> = {
     like: `${sender} curtiu seu post.`,
     comment: `${sender} comentou no seu post.`,
-    follow: `${sender} quer se conectar com voce.`,
+    follow: `${sender} quer se conectar com você.`,
     message: `${sender} enviou uma mensagem no Direct.`,
   };
 
@@ -43,21 +43,34 @@ const buildNotification = (row: any) => {
   };
 };
 
-const buildCommunityNotification = (row: any) => ({
+const buildCommunityNotification = (row: any) => {
+  const targetByType: Record<string, string> = {
+    aviso_comunidade: "avisos",
+    novo_anuncio: "avisos",
+    solicitacao_treino: "treinos",
+    novo_treino: "treinos",
+    chat_treino: "treinos",
+    solicitacao_nutricao: "nutricao",
+    solicitacao_nutricional: "nutricao",
+    novo_cardapio: "nutricao",
+    cardapio_publicado: "nutricao",
+    chat_nutricao: "nutricao",
+  };
+  const rawType = String(row.tipo || "");
+
+  return {
   id: `com:${row.id}`,
   title: row.titulo || "Novo sinal",
   message: row.mensagem || "Nova atividade na comunidade.",
-  type: String(row.tipo || "").includes("treino") ? "treino" : "comunidade",
+  type: rawType.includes("treino") ? "treino" : "comunidade",
   targetId: row.comunidade_id ? String(row.comunidade_id) : undefined,
-  targetTab:
-    row.tipo === "aviso_comunidade" || row.tipo === "novo_anuncio"
-      ? "avisos"
-      : row.tipo,
+  targetTab: targetByType[rawType] || rawType,
   isRead: row.lida === 1 || row.lida === true,
   timestamp: row.created_at,
-  rawType: row.tipo,
+  rawType,
   source: "community",
-});
+  };
+};
 
 const buildBossBroadcastNotification = (row: any) => ({
   id: `boss:${row.id}`,

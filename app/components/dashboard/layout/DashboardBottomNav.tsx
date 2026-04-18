@@ -1,21 +1,22 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  Activity,
   Crown,
   HelpCircle,
   LayoutDashboard,
+  Menu,
   MessageSquarePlus,
-  MoreHorizontal,
+  Settings,
   Shield,
   Target,
+  TrendingUp,
   UserRound,
+  Users,
   UtensilsCrossed,
-  Zap,
+  X,
 } from "lucide-react";
-import { MobileNavItem } from "../../ui/MobileNavItem";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface DashboardBottomNavProps {
   currentView: string;
@@ -24,12 +25,17 @@ interface DashboardBottomNavProps {
   canBossPanel?: boolean;
 }
 
-type ExtraItem = {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  onClick: () => void;
-};
+type BottomMainView = "home" | "comunidades" | "treinos" | "nutricao";
+type ExtraView = "social" | "perfil" | "metricas" | "ajuda" | "sugestoes" | "config" | "boss";
+
+const mainItems: Array<{ id: BottomMainView; label: string; icon: React.ElementType }> = [
+  { id: "home", label: "Início", icon: LayoutDashboard },
+  { id: "comunidades", label: "Grupos", icon: Shield },
+  { id: "treinos", label: "Treinos", icon: Target },
+  { id: "nutricao", label: "Nutrição", icon: UtensilsCrossed },
+];
+
+const mainViewSet = new Set<BottomMainView>(["home", "comunidades", "treinos", "nutricao"]);
 
 export const DashboardBottomNav = ({
   currentView,
@@ -39,117 +45,40 @@ export const DashboardBottomNav = ({
 }: DashboardBottomNavProps) => {
   const [showMore, setShowMore] = useState(false);
 
-  const moreActive = useMemo(
-    () => ["perfil", "nutricao", "metricas", "ajuda", "sugestoes", "boss"].includes(currentView),
-    [currentView],
+  useEffect(() => {
+    setShowMore(false);
+  }, [currentView]);
+
+  const extraItems = useMemo(
+    () =>
+      [
+        { id: "social" as ExtraView, label: "Social", icon: Users },
+        { id: "perfil" as ExtraView, label: "Perfil", icon: UserRound },
+        { id: "metricas" as ExtraView, label: "Evolução", icon: TrendingUp },
+        { id: "ajuda" as ExtraView, label: "Ajuda", icon: HelpCircle },
+        { id: "sugestoes" as ExtraView, label: "Sugestões", icon: MessageSquarePlus },
+        { id: "config" as ExtraView, label: "Ajustes", icon: Settings },
+        ...(canBossPanel ? [{ id: "boss" as ExtraView, label: "Boss", icon: Crown }] : []),
+      ] as Array<{ id: ExtraView; label: string; icon: React.ElementType }>,
+    [canBossPanel],
   );
 
-  const extraItems = useMemo<ExtraItem[]>(() => {
-    const items: ExtraItem[] = [
-      {
-        id: "perfil",
-        label: "Meu Perfil",
-        icon: <UserRound size={18} strokeWidth={2.3} />,
-        onClick: () => setCurrentView("perfil"),
-      },
-      {
-        id: "nutricao",
-        label: "Nutrição",
-        icon: <UtensilsCrossed size={18} strokeWidth={2.3} />,
-        onClick: () => setCurrentView("nutricao"),
-      },
-      {
-        id: "metricas",
-        label: "Evolução",
-        icon: <Activity size={18} strokeWidth={2.3} />,
-        onClick: () => setCurrentView("metricas"),
-      },
-      {
-        id: "ajuda",
-        label: "Ajuda",
-        icon: <HelpCircle size={18} strokeWidth={2.3} />,
-        onClick: () => setCurrentView("ajuda"),
-      },
-      {
-        id: "sugestoes",
-        label: "Sugestões",
-        icon: <MessageSquarePlus size={18} strokeWidth={2.3} />,
-        onClick: () => setCurrentView("sugestoes"),
-      },
-    ];
+  const moreActive = showMore || !mainViewSet.has(currentView as BottomMainView);
 
-    if (canBossPanel) {
-      items.push({
-        id: "boss",
-        label: "Boss",
-        icon: <Crown size={18} strokeWidth={2.3} />,
-        onClick: () => setCurrentView("boss"),
-      });
+  const handleMainNav = (view: BottomMainView) => {
+    if (view === "home" || view === "comunidades") {
+      setDeepLink(null);
     }
+    setCurrentView(view);
+  };
 
-    return items;
-  }, [canBossPanel, setCurrentView]);
-
-  const handleExtraClick = (onClick: () => void) => {
-    onClick();
+  const handleExtraNav = (view: ExtraView) => {
     setShowMore(false);
+    setCurrentView(view);
   };
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 z-50 w-full border-t border-white/5 bg-black/80 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-3xl lg:hidden">
-        <div className="mx-auto flex h-[74px] max-w-xl items-center justify-between gap-1">
-          <MobileNavItem
-            icon={<LayoutDashboard size={19} strokeWidth={2.4} />}
-            label="Início"
-            active={currentView === "home"}
-            onClick={() => {
-              setCurrentView("home");
-              setDeepLink(null);
-              setShowMore(false);
-            }}
-          />
-
-          <MobileNavItem
-            icon={<Target size={19} strokeWidth={2.4} />}
-            label="Treinos"
-            active={currentView === "treinos"}
-            onClick={() => {
-              setCurrentView("treinos");
-              setShowMore(false);
-            }}
-          />
-
-          <MobileNavItem
-            icon={<Shield size={19} strokeWidth={2.4} />}
-            label="Comunid."
-            active={currentView === "comunidades"}
-            onClick={() => {
-              setCurrentView("comunidades");
-              setDeepLink(null);
-              setShowMore(false);
-            }}
-          />
-
-          <MobileNavItem
-            icon={<Zap size={20} strokeWidth={2.6} />}
-            label="Social"
-            active={currentView === "social"}
-            onClick={() => {
-              setCurrentView("social");
-              setShowMore(false);
-            }}
-          />
-
-          <MobileNavItem
-            icon={<MoreHorizontal size={19} strokeWidth={2.4} />}
-            label="Mais"
-            active={moreActive || showMore}
-            onClick={() => setShowMore(value => !value)}
-          />
-        </div>
-      </nav>
-
       <AnimatePresence>
         {showMore && (
           <>
@@ -159,53 +88,96 @@ export const DashboardBottomNav = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowMore(false)}
-              className="fixed inset-0 z-40 bg-black/55 lg:hidden"
+              className="fixed inset-0 z-[59] bg-black/55 backdrop-blur-[2px] lg:hidden"
               aria-label="Fechar menu"
             />
 
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
+            <motion.section
+              initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 24 }}
-              className="fixed bottom-[82px] left-3 right-3 z-50 rounded-2xl border border-white/10 bg-[#06101D] p-3 shadow-2xl lg:hidden"
+              exit={{ opacity: 0, y: 18 }}
+              transition={{ type: "spring", stiffness: 280, damping: 24 }}
+              className="fixed inset-x-3 bottom-[80px] z-[60] rounded-[18px] border border-white/10 bg-[#050B14] p-2.5 shadow-[0_18px_60px_rgba(0,0,0,0.65)] lg:hidden"
             >
-              <div className="mb-2 flex items-center justify-between gap-3 px-1">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">
-                    Mais áreas
-                  </p>
-                  <h3 className="mt-1 text-sm font-black text-white">
-                    Acessos secundários
-                  </h3>
-                </div>
+              <div className="mb-2.5 flex items-center justify-between gap-3 border-b border-white/10 pb-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/45">
+                  Mais funções
+                </p>
                 <button
                   type="button"
                   onClick={() => setShowMore(false)}
-                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/60"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/45 transition hover:text-white"
+                  aria-label="Fechar"
                 >
-                  Fechar
+                  <X size={14} />
                 </button>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-2">
-                {extraItems.map(item => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => handleExtraClick(item.onClick)}
-                    className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-left transition hover:border-white/20 hover:bg-black/30"
-                  >
-                    <div className="rounded-lg border border-white/10 bg-white/5 p-2.5 text-sky-300">
-                      {item.icon}
-                    </div>
-                    <span className="text-sm font-black text-white">{item.label}</span>
-                  </button>
-                ))}
+              <div className="grid grid-cols-2 gap-2">
+                {extraItems.map(item => {
+                  const Icon = item.icon;
+                  const active = currentView === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleExtraNav(item.id)}
+                      className={`flex min-h-12 items-center gap-2 rounded-lg border px-3 text-left transition-all ${
+                        active
+                          ? "border-sky-500/35 bg-sky-500/15 text-sky-200"
+                          : "border-white/10 bg-white/5 text-white/65 hover:bg-white/10"
+                      }`}
+                    >
+                      <Icon size={15} />
+                      <span className="truncate text-[10px] font-black uppercase tracking-widest">
+                        {item.label}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-            </motion.div>
+            </motion.section>
           </>
         )}
       </AnimatePresence>
+
+      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-black/75 px-2 pb-[env(safe-area-inset-bottom)] pt-1 backdrop-blur-2xl lg:hidden">
+        <div className="mx-auto grid max-w-lg grid-cols-5 gap-0.5">
+          {mainItems.map(item => {
+            const Icon = item.icon;
+            const active = currentView === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleMainNav(item.id)}
+                className={`flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-lg border transition-all active:scale-[0.98] ${
+                  active
+                    ? "border-sky-500/35 bg-sky-500/14 text-sky-300"
+                    : "border-transparent bg-transparent text-white/35 hover:text-white/70"
+                }`}
+              >
+                <Icon size={20} strokeWidth={2.4} />
+                <span className="text-[8px] font-black uppercase tracking-widest">{item.label}</span>
+              </button>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={() => setShowMore(prev => !prev)}
+            className={`flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-lg border transition-all active:scale-[0.98] ${
+              moreActive
+                ? "border-sky-500/35 bg-sky-500/14 text-sky-300"
+                : "border-transparent bg-transparent text-white/35 hover:text-white/70"
+            }`}
+            aria-label="Abrir mais funções"
+          >
+            <Menu size={20} strokeWidth={2.4} />
+            <span className="text-[8px] font-black uppercase tracking-widest">Mais</span>
+          </button>
+        </div>
+      </nav>
     </>
   );
 };

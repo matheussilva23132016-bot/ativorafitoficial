@@ -1,82 +1,125 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  Users, UserX, ShieldCheck, RefreshCw, Search,
-  CheckCircle2, X, Clock, UserPlus, Settings2,
-  AlertTriangle, Crown, Shield, Zap, ChevronDown, Trash2,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  Clock,
+  Crown,
+  RefreshCw,
+  Search,
+  Settings2,
+  Shield,
+  ShieldCheck,
+  SlidersHorizontal,
+  Trash2,
+  UserPlus,
+  UserX,
+  Users,
+  X,
+  Zap,
 } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { canDo } from "@/lib/communities/permissions";
 import { CommunitySettingsPanel } from "./CommunitySettingsPanel";
 
-// ══════════════════════════════════════════════════════════════════
-// TIPOS
-// ══════════════════════════════════════════════════════════════════
 interface Membro {
-  membro_id:  string;
-  user_id:    string;
-  nickname:   string;
-  full_name:  string;
+  membro_id: string;
+  user_id: string;
+  nickname: string;
+  full_name: string;
   avatar_url: string | null;
-  tags:       string[];
-  joined_at:  string;
+  tags: string[];
+  joined_at: string;
 }
 
 interface Solicitacao {
-  id:         string;
-  user_id:    string;
-  nickname:   string;
-  full_name:  string;
+  id: string;
+  user_id: string;
+  nickname: string;
+  full_name: string;
   avatar_url: string | null;
-  mensagem:   string | null;
+  mensagem: string | null;
   created_at: string;
 }
 
 interface CommunityGestaoProps {
   communityId: string;
   currentUser: any;
-  userTags:    string[];
-  canDelete?:  boolean;
-  onNotify?:   (n: any) => void;
+  userTags: string[];
+  canDelete?: boolean;
+  onNotify?: (n: any) => void;
   onGroupDeleted?: () => void;
 }
 
 type Section = "membros" | "solicitacoes" | "config";
+type MemberFilter = "todos" | "lideranca" | "profissionais" | "participantes";
 
-// ══════════════════════════════════════════════════════════════════
-// HELPERS
-// ══════════════════════════════════════════════════════════════════
-const isValidUrl = (u: unknown): u is string =>
-  typeof u === "string" && u.startsWith("http");
+const TAGS_DISPONIVEIS = [
+  "Participante",
+  "Instrutor",
+  "Personal",
+  "Nutri",
+  "Nutricionista",
+  "ADM",
+];
 
 const TAG_COLORS: Record<string, string> = {
-  Dono:         "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  ADM:          "bg-purple-500/10 text-purple-400 border-purple-500/20",
-  Nutri:        "bg-green-500/10 text-green-400 border-green-500/20",
-  Nutricionista:"bg-green-500/10 text-green-400 border-green-500/20",
-  Instrutor:    "bg-sky-500/10 text-sky-400 border-sky-500/20",
-  Personal:     "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  Participante: "bg-white/5 text-white/30 border-white/10",
+  Dono: "border-amber-500/20 bg-amber-500/10 text-amber-300",
+  ADM: "border-purple-500/20 bg-purple-500/10 text-purple-300",
+  Nutri: "border-emerald-500/20 bg-emerald-500/10 text-emerald-300",
+  Nutricionista: "border-emerald-500/20 bg-emerald-500/10 text-emerald-300",
+  Instrutor: "border-sky-500/20 bg-sky-500/10 text-sky-300",
+  Personal: "border-sky-500/20 bg-sky-500/10 text-sky-300",
+  Participante: "border-white/10 bg-white/5 text-white/45",
 };
 
 const TAG_ICONS: Record<string, React.ReactNode> = {
-  Dono:         <Crown size={10} />,
-  ADM:          <Shield size={10} />,
-  Nutri:        <Zap size={10} />,
-  Nutricionista:<Zap size={10} />,
-  Instrutor:    <ShieldCheck size={10} />,
-  Personal:     <ShieldCheck size={10} />,
+  Dono: <Crown size={10} />,
+  ADM: <Shield size={10} />,
+  Nutri: <Zap size={10} />,
+  Nutricionista: <Zap size={10} />,
+  Instrutor: <ShieldCheck size={10} />,
+  Personal: <ShieldCheck size={10} />,
   Participante: <Users size={10} />,
 };
 
-const TAGS_DISPONIVEIS = ["Participante", "Instrutor", "Personal", "Nutri", "Nutricionista", "ADM"];
+const isValidUrl = (value: unknown): value is string =>
+  typeof value === "string" && value.startsWith("http");
 
-// ══════════════════════════════════════════════════════════════════
-// COMPONENTE
-// ══════════════════════════════════════════════════════════════════
+const hasLeadershipTag = (tags: string[]) => tags.includes("Dono") || tags.includes("ADM");
+const hasProfessionalTag = (tags: string[]) =>
+  tags.some(tag => ["Nutri", "Nutricionista", "Instrutor", "Personal"].includes(tag));
+
+const rolePriority = (tags: string[]) => {
+  if (tags.includes("Dono")) return 0;
+  if (tags.includes("ADM")) return 1;
+  if (hasProfessionalTag(tags)) return 2;
+  return 3;
+};
+
+const displayName = (item: { nickname?: string; full_name?: string }) =>
+  item.nickname || item.full_name || "Membro";
+
+const formatDate = (value: string) =>
+  new Date(value).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
+const formatDateShort = (value: string) =>
+  new Date(value).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+
+const INITIAL_VISIBLE_MEMBERS = 8;
+const INITIAL_VISIBLE_REQUESTS = 4;
+
 export function CommunityGestao({
   communityId,
   currentUser,
@@ -85,35 +128,43 @@ export function CommunityGestao({
   onNotify,
   onGroupDeleted,
 }: CommunityGestaoProps) {
-  const [membros,       setMembros]       = useState<Membro[]>([]);
-  const [solicitacoes,  setSolicitacoes]  = useState<Solicitacao[]>([]);
-  const [loading,       setLoading]       = useState(true);
-  const [searchQuery,   setSearchQuery]   = useState("");
+  const [membros, setMembros] = useState<Membro[]>([]);
+  const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const [activeSection, setActiveSection] = useState<Section>("membros");
-  const [processingId,  setProcessingId]  = useState<string | null>(null);
-  const [tagMenuId,     setTagMenuId]     = useState<string | null>(null);
+  const [memberFilter, setMemberFilter] = useState<MemberFilter>("todos");
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [tagMenuId, setTagMenuId] = useState<string | null>(null);
   const [deletingGroup, setDeletingGroup] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [recusaAlvo,    setRecusaAlvo]    = useState<Solicitacao | null>(null);
-  const [motivoRecusa,  setMotivoRecusa]  = useState("");
-  const [removeAlvo,    setRemoveAlvo]    = useState<Membro | null>(null);
+  const [recusaAlvo, setRecusaAlvo] = useState<Solicitacao | null>(null);
+  const [motivoRecusa, setMotivoRecusa] = useState("");
+  const [removeAlvo, setRemoveAlvo] = useState<Membro | null>(null);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [visibleMembersCount, setVisibleMembersCount] = useState(INITIAL_VISIBLE_MEMBERS);
+  const [visibleRequestsCount, setVisibleRequestsCount] = useState(INITIAL_VISIBLE_REQUESTS);
 
   const canApprove = canDo(userTags, "member:approve");
-  const canRemove  = canDo(userTags, "member:remove");
-  const canTag     = canDo(userTags, "tag:assign");
+  const canRemove = canDo(userTags, "member:remove");
+  const canTag = canDo(userTags, "tag:assign");
 
-  // ── Carrega dados ──────────────────────────────────────────────
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [membrosRes, solRes] = await Promise.all([
-        fetch(`/api/communities/${communityId}/members`),
-        fetch(`/api/communities/${communityId}/requests?requesterId=${currentUser?.id ?? ""}`),
+      const [membrosRes, solicitacoesRes] = await Promise.all([
+        fetch(`/api/communities/${communityId}/members`, { cache: "no-store" }),
+        fetch(
+          `/api/communities/${communityId}/requests?requesterId=${encodeURIComponent(currentUser?.id ?? "")}`,
+          { cache: "no-store" },
+        ),
       ]);
-      const md = membrosRes.ok ? await membrosRes.json() : {};
-      const sd = solRes.ok    ? await solRes.json()     : {};
-      setMembros(md.members       ?? []);
-      setSolicitacoes(sd.requests ?? []);
+
+      const membrosData = membrosRes.ok ? await membrosRes.json() : {};
+      const solicitacoesData = solicitacoesRes.ok ? await solicitacoesRes.json() : {};
+
+      setMembros(Array.isArray(membrosData.members) ? membrosData.members : []);
+      setSolicitacoes(Array.isArray(solicitacoesData.requests) ? solicitacoesData.requests : []);
     } catch {
       setMembros([]);
       setSolicitacoes([]);
@@ -122,160 +173,207 @@ export function CommunityGestao({
     }
   }, [communityId, currentUser?.id]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-  // ── Filtro de busca ────────────────────────────────────────────
-  const membrosFiltrados = membros.filter(m => {
-    const q = searchQuery.toLowerCase();
-    return (
-      m.nickname?.toLowerCase().includes(q) ||
-      m.full_name?.toLowerCase().includes(q)
-    );
-  });
+  const membrosOrdenados = useMemo(() => {
+    return [...membros].sort((a, b) => {
+      const priorityDiff = rolePriority(a.tags) - rolePriority(b.tags);
+      if (priorityDiff !== 0) return priorityDiff;
+      return displayName(a).localeCompare(displayName(b), "pt-BR");
+    });
+  }, [membros]);
 
-  // ── Lê o ID real do usuário (mesma fonte usada ao criar o grupo) ──
-  const getRequesterId = (): string | null => {
-    return currentUser?.id ?? null;
-  };
+  const membrosFiltrados = useMemo(() => {
+    const normalized = searchQuery.trim().toLowerCase();
 
-  // ── Deletar grupo ──────────────────────────────────────────────
+    return membrosOrdenados.filter(membro => {
+      const bySearch =
+        !normalized ||
+        displayName(membro).toLowerCase().includes(normalized) ||
+        membro.tags.join(" ").toLowerCase().includes(normalized);
+
+      if (!bySearch) return false;
+
+      if (memberFilter === "todos") return true;
+      if (memberFilter === "lideranca") return hasLeadershipTag(membro.tags);
+      if (memberFilter === "profissionais") return hasProfessionalTag(membro.tags);
+      return !hasLeadershipTag(membro.tags) && !hasProfessionalTag(membro.tags);
+    });
+  }, [membrosOrdenados, searchQuery, memberFilter]);
+
+  const membrosVisiveis = useMemo(
+    () => membrosFiltrados.slice(0, visibleMembersCount),
+    [membrosFiltrados, visibleMembersCount],
+  );
+  const solicitacoesVisiveis = useMemo(
+    () => solicitacoes.slice(0, visibleRequestsCount),
+    [solicitacoes, visibleRequestsCount],
+  );
+  const temMaisMembros = membrosFiltrados.length > visibleMembersCount;
+  const temMaisSolicitacoes = solicitacoes.length > visibleRequestsCount;
+  const filtrosAbertosNoMobile =
+    showMobileFilters || searchQuery.trim().length > 0 || memberFilter !== "todos";
+
+  const totalMembros = membros.length;
+  const totalSolicitacoes = solicitacoes.length;
+  const totalLideranca = membros.filter(m => hasLeadershipTag(m.tags)).length;
+  const totalProfissionais = membros.filter(m => hasProfessionalTag(m.tags)).length;
+
+  useEffect(() => {
+    setVisibleMembersCount(INITIAL_VISIBLE_MEMBERS);
+  }, [searchQuery, memberFilter, membros.length]);
+
+  useEffect(() => {
+    setVisibleRequestsCount(INITIAL_VISIBLE_REQUESTS);
+  }, [solicitacoes.length]);
+
   const handleDeletarGrupo = async () => {
     if (!confirmDelete) {
       setConfirmDelete(true);
       return;
     }
+
     setDeletingGroup(true);
     try {
-      const requesterId = getRequesterId();
+      const requesterId = currentUser?.id ?? null;
       const res = await fetch(`/api/communities/${communityId}`, {
-        method:  "DELETE",
+        method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ requesterId }),
+        body: JSON.stringify({ requesterId }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error ?? "Falha ao deletar");
+        throw new Error(data.error ?? "Falha ao encerrar grupo");
       }
+
       onNotify?.({
-        title:   "Grupo Encerrado",
-        message: "O grupo foi desativado com sucesso.",
-        type:    "social",
+        title: "Grupo encerrado",
+        message: "A comunidade foi desativada com sucesso.",
+        type: "social",
       });
       toast.success("Grupo encerrado com sucesso.");
       onGroupDeleted?.();
     } catch (err: any) {
-      toast.error("Erro ao deletar grupo: " + err.message);
+      toast.error(`Erro ao encerrar grupo: ${err.message}`);
       setConfirmDelete(false);
     } finally {
       setDeletingGroup(false);
     }
   };
 
-  // ── Aprovar solicitação ────────────────────────────────────────
-  const handleAprovar = async (sol: Solicitacao) => {
-    setProcessingId(sol.id);
+  const handleAprovar = async (solicitacao: Solicitacao) => {
+    setProcessingId(solicitacao.id);
     try {
       const res = await fetch(`/api/communities/${communityId}/requests`, {
-        method:  "PATCH",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          solicitacaoId: sol.id,
-          acao:          "aprovar",
-          analisadoPor:  currentUser?.id,
+        body: JSON.stringify({
+          solicitacaoId: solicitacao.id,
+          acao: "aprovar",
+          analisadoPor: currentUser?.id,
         }),
       });
       if (!res.ok) throw new Error("Falha ao aprovar");
-      setSolicitacoes(p => p.filter(s => s.id !== sol.id));
+
+      setSolicitacoes(current => current.filter(item => item.id !== solicitacao.id));
       setRecusaAlvo(null);
       setMotivoRecusa("");
-      setRecusaAlvo(null);
-      setMotivoRecusa("");
+
       onNotify?.({
-        title:   "Acesso Liberado",
-        message: `${sol.nickname || sol.full_name} entrou no esquadrão.`,
-        type:    "social",
+        title: "Solicitação aprovada",
+        message: `${displayName(solicitacao)} entrou na comunidade.`,
+        type: "social",
       });
-      toast.success(`${sol.nickname || sol.full_name} aprovado!`);
+      toast.success(`${displayName(solicitacao)} aprovado(a).`);
       await loadData();
     } catch (err: any) {
-      toast.error("Erro ao aprovar: " + err.message);
+      toast.error(`Erro ao aprovar: ${err.message}`);
     } finally {
       setProcessingId(null);
     }
   };
 
-  // ── Recusar solicitação ────────────────────────────────────────
-  const handleRecusar = async (sol: Solicitacao, motivo = "") => {
-    setProcessingId(sol.id);
+  const handleRecusar = async (solicitacao: Solicitacao, motivo = "") => {
+    setProcessingId(solicitacao.id);
     try {
       const res = await fetch(`/api/communities/${communityId}/requests`, {
-        method:  "PATCH",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          solicitacaoId: sol.id,
-          acao:          "recusar",
-          motivo:        motivo,
-          analisadoPor:  currentUser?.id,
+        body: JSON.stringify({
+          solicitacaoId: solicitacao.id,
+          acao: "recusar",
+          motivo,
+          analisadoPor: currentUser?.id,
         }),
       });
       if (!res.ok) throw new Error("Falha ao recusar");
-      setSolicitacoes(p => p.filter(s => s.id !== sol.id));
-      onNotify?.({ title: "Acesso Negado", message: "Solicitação recusada.", type: "social" });
+
+      setSolicitacoes(current => current.filter(item => item.id !== solicitacao.id));
+      setRecusaAlvo(null);
+      setMotivoRecusa("");
+
+      onNotify?.({
+        title: "Solicitação recusada",
+        message: `${displayName(solicitacao)} não entrou na comunidade.`,
+        type: "social",
+      });
       toast.info("Solicitação recusada.");
     } catch (err: any) {
-      toast.error("Erro ao recusar: " + err.message);
+      toast.error(`Erro ao recusar: ${err.message}`);
     } finally {
       setProcessingId(null);
     }
   };
 
-  // ── Remover membro ─────────────────────────────────────────────
-  const handleRemover = async (m: Membro) => {
-    setProcessingId(m.membro_id);
+  const handleRemover = async (membro: Membro) => {
+    setProcessingId(membro.membro_id);
     try {
       const res = await fetch(`/api/communities/${communityId}/members`, {
-        method:  "DELETE",
+        method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          membroId:    m.membro_id,
+        body: JSON.stringify({
+          membroId: membro.membro_id,
           requesterId: currentUser?.id,
         }),
       });
       if (!res.ok) throw new Error("Falha ao remover");
-      setMembros(p => p.filter(mb => mb.membro_id !== m.membro_id));
+
+      setMembros(current => current.filter(item => item.membro_id !== membro.membro_id));
       setRemoveAlvo(null);
+
       onNotify?.({
-        title:   "Membro Removido",
-        message: `${m.nickname} foi desligado.`,
-        type:    "social",
+        title: "Membro removido",
+        message: `${displayName(membro)} foi removido(a) da comunidade.`,
+        type: "social",
       });
-      toast.success(`${m.nickname} removido.`);
+      toast.success(`${displayName(membro)} removido(a).`);
     } catch (err: any) {
-      toast.error("Erro ao remover: " + err.message);
+      toast.error(`Erro ao remover: ${err.message}`);
     } finally {
       setProcessingId(null);
     }
   };
 
-  // ── Alterar tag ────────────────────────────────────────────────
-  const handleAlterarTag = async (m: Membro, novaTag: string) => {
+  const handleAlterarTag = async (membro: Membro, novaTag: string) => {
     setTagMenuId(null);
-    const jaTemTag = m.tags.includes(novaTag);
 
-    if (novaTag === "Participante" && jaTemTag) {
-      toast.info("Participante e a tag base de todo membro aprovado.");
+    const alreadyHas = membro.tags.includes(novaTag);
+    if (novaTag === "Participante" && alreadyHas) {
+      toast.info("Participante é a tag base de todo membro aprovado.");
       return;
     }
 
-    setProcessingId(m.membro_id);
+    setProcessingId(membro.membro_id);
     try {
       const res = await fetch(`/api/communities/${communityId}/members`, {
-        method:  "PATCH",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          membroId:    m.membro_id,
-          tagNome:     novaTag,
-          acao:        jaTemTag ? "remove" : "add",
+        body: JSON.stringify({
+          membroId: membro.membro_id,
+          tagNome: novaTag,
+          acao: alreadyHas ? "remove" : "add",
           requesterId: currentUser?.id,
         }),
       });
@@ -283,317 +381,455 @@ export function CommunityGestao({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Falha ao atualizar tag");
       }
-      setMembros(p =>
-        p.map(mb =>
-          mb.membro_id === m.membro_id
-            ? {
-                ...mb,
-                tags: jaTemTag
-                  ? mb.tags.filter(tag => tag !== novaTag)
-                  : Array.from(new Set([...mb.tags, novaTag])),
-              }
-            : mb
-        )
+
+      setMembros(current =>
+        current.map(item => {
+          if (item.membro_id !== membro.membro_id) return item;
+
+          const tagsAtualizadas = alreadyHas
+            ? item.tags.filter(tag => tag !== novaTag)
+            : Array.from(new Set([...item.tags, novaTag]));
+
+          return {
+            ...item,
+            tags: tagsAtualizadas.length > 0 ? tagsAtualizadas : ["Participante"],
+          };
+        }),
       );
+
       onNotify?.({
-        title:   "Tag Atualizada",
-        message: jaTemTag
-          ? `${m.nickname} perdeu a tag ${novaTag}.`
-          : `${m.nickname} recebeu a tag ${novaTag}.`,
-        type:    "social",
+        title: "Tag atualizada",
+        message: alreadyHas
+          ? `${displayName(membro)} perdeu a tag ${novaTag}.`
+          : `${displayName(membro)} recebeu a tag ${novaTag}.`,
+        type: "social",
       });
       toast.success(
-        jaTemTag
-          ? `Tag ${novaTag} removida de ${m.nickname}.`
-          : `Tag ${novaTag} adicionada para ${m.nickname}.`,
+        alreadyHas
+          ? `Tag ${novaTag} removida de ${displayName(membro)}.`
+          : `Tag ${novaTag} aplicada para ${displayName(membro)}.`,
       );
     } catch (err: any) {
-      toast.error("Erro ao atualizar tag: " + err.message);
+      toast.error(`Erro ao atualizar tag: ${err.message}`);
     } finally {
       setProcessingId(null);
     }
   };
 
-  // ══════════════════════════════════════════════════════════════
-  // RENDER
-  // ══════════════════════════════════════════════════════════════
   return (
-    <div className="space-y-6 text-left" onClick={() => setTagMenuId(null)}>
+    <div className="space-y-4 text-left sm:space-y-5" onClick={() => setTagMenuId(null)}>
+      <section className="rounded-[24px] border border-white/10 bg-[#06101D] p-4 sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-[9px] font-black uppercase tracking-widest text-sky-300">
+              Gestão da comunidade
+            </p>
+            <h2 className="mt-2 break-words text-2xl font-black italic leading-none tracking-tighter text-white sm:text-3xl">
+              Operação clara e objetiva
+            </h2>
+            <p className="mt-2 text-xs leading-relaxed text-white/40">
+              Gerencie membros, solicitações e permissões com foco em agilidade no desktop e no
+              smartphone.
+            </p>
+          </div>
 
-      {/* ── HEADER ──────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white flex items-center gap-3">
-            <Settings2 size={22} className="text-sky-500" />
-            Gestão do <span className="text-sky-500 ml-2">Esquadrão</span>
-          </h2>
-          <p className="text-xs text-white/25 font-medium mt-1">
-            Gerencie membros, permissões e solicitações de entrada.
-          </p>
+          <button
+            type="button"
+            onClick={loadData}
+            disabled={loading}
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-[10px] font-black uppercase tracking-widest text-white/60 transition hover:text-white disabled:opacity-45 lg:w-auto"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            Atualizar
+          </button>
         </div>
-        <button
-          onClick={loadData}
-          disabled={loading}
-          className="flex w-full items-center justify-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase text-white/40 hover:text-white hover:border-white/20 transition-all disabled:opacity-40 shrink-0 sm:w-auto"
-        >
-          <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-          Atualizar
-        </button>
-      </div>
 
-      {/* ── TABS ────────────────────────────────────────────────── */}
-      <div className="grid w-full grid-cols-3 gap-1.5 bg-white/5 p-1.5 rounded-2xl border border-white/5 sm:inline-flex sm:w-fit sm:gap-2">
-        {([
-          { id: "membros",      label: "Membros",      count: membros.length,      icon: Users    },
-          { id: "solicitacoes", label: "Solicitações", count: solicitacoes.length, icon: UserPlus },
-          { id: "config",       label: "Controle",     count: 0,                  icon: Settings2 },
-        ] as const).map(tab => (
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          {[
+            { label: "Membros", value: totalMembros, icon: Users, tone: "text-sky-300" },
+            {
+              label: "Solicitações",
+              value: totalSolicitacoes,
+              icon: UserPlus,
+              tone: "text-amber-300",
+            },
+            { label: "Liderança", value: totalLideranca, icon: ShieldCheck, tone: "text-purple-300" },
+            {
+              label: "Profissionais",
+              value: totalProfissionais,
+              icon: Zap,
+              tone: "text-emerald-300",
+            },
+          ].map(card => (
+            <article key={card.label} className="rounded-2xl border border-white/10 bg-black/20 p-3 sm:p-4">
+              <card.icon size={16} className={card.tone} />
+              <p className="mt-2 text-[8px] font-black uppercase tracking-widest text-white/30">
+                {card.label}
+              </p>
+              <p className="mt-1 text-sm font-black text-white">{card.value}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+        {[
+          { id: "membros" as Section, label: "Membros", count: totalMembros, icon: Users },
+          {
+            id: "solicitacoes" as Section,
+            label: "Solicitações",
+            count: totalSolicitacoes,
+            icon: UserPlus,
+          },
+          { id: "config" as Section, label: "Configurações", count: 0, icon: Settings2 },
+        ].map(tab => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => setActiveSection(tab.id)}
-            className={`flex items-center justify-center gap-2 px-2 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all sm:px-5 sm:text-[10px]
-              ${activeSection === tab.id
-                ? "bg-sky-500 text-black shadow-lg"
-                : "text-white/30 hover:text-white/60"}`}
+            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest transition-all sm:px-4 ${
+              activeSection === tab.id
+                ? "border border-sky-500/30 bg-sky-500/15 text-sky-200"
+                : "border border-white/10 bg-white/5 text-white/45 hover:text-white"
+            }`}
           >
-            <tab.icon size={14} />
+            <tab.icon size={13} />
             {tab.label}
-            {tab.count > 0 && (
-              <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black
-                ${activeSection === tab.id
-                  ? "bg-black/20 text-black"
-                  : "bg-white/10 text-white/40"}`}>
-                {tab.count}
-              </span>
-            )}
+            {tab.count > 0 && <span className="text-white/45">{tab.count}</span>}
           </button>
         ))}
-      </div>
+      </section>
 
       <AnimatePresence mode="wait">
-
-        {/* ── MEMBROS ─────────────────────────────────────────────── */}
         {activeSection === "membros" && (
-          <motion.div
+          <motion.section
             key="membros"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="space-y-4"
+            className="space-y-3"
           >
             <div className="relative">
-              <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+              <Search size={14} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/25" />
               <input
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Buscar por nome ou @nickname..."
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-11 pr-5 text-sm text-white outline-none focus:border-sky-500/40 transition-all placeholder:text-white/15"
+                onChange={event => setSearchQuery(event.target.value)}
+                placeholder="Buscar por nome, @nick ou tag"
+                className="min-h-11 w-full rounded-2xl border border-white/10 bg-[#050B14] py-2.5 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-sky-500/40"
               />
             </div>
 
+            <div className="flex items-center justify-between gap-2 sm:hidden">
+              <button
+                type="button"
+                onClick={() => setShowMobileFilters(current => !current)}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-[9px] font-black uppercase tracking-widest text-white/55 transition hover:text-white"
+              >
+                <SlidersHorizontal size={12} />
+                Filtros
+                <ChevronDown
+                  size={11}
+                  className={`transition-transform ${filtrosAbertosNoMobile ? "rotate-180" : ""}`}
+                />
+              </button>
+              <span className="text-[9px] font-black uppercase tracking-widest text-white/40">
+                {membrosFiltrados.length} no resultado
+              </span>
+            </div>
+
+            <div
+              className={`${filtrosAbertosNoMobile ? "grid" : "hidden"} grid-cols-2 gap-2 sm:flex sm:flex-wrap`}
+            >
+              {[
+                { id: "todos" as MemberFilter, label: "Todos" },
+                { id: "lideranca" as MemberFilter, label: "Liderança" },
+                { id: "profissionais" as MemberFilter, label: "Profissionais" },
+                { id: "participantes" as MemberFilter, label: "Participantes" },
+              ].map(filter => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  onClick={() => setMemberFilter(filter.id)}
+                  className={`inline-flex min-h-10 items-center justify-center rounded-xl px-3 text-[9px] font-black uppercase tracking-widest transition sm:px-4 ${
+                    memberFilter === filter.id
+                      ? "border border-sky-500/30 bg-sky-500/15 text-sky-200"
+                      : "border border-white/10 bg-white/5 text-white/45 hover:text-white"
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+
             {loading ? (
-              <div className="py-16 flex justify-center">
-                <RefreshCw className="animate-spin text-sky-500" size={24} />
+              <div className="flex min-h-[240px] items-center justify-center rounded-[22px] border border-white/10 bg-[#050B14]">
+                <RefreshCw size={22} className="animate-spin text-sky-400" />
               </div>
             ) : membrosFiltrados.length === 0 ? (
-              <div className="py-16 text-center opacity-20">
-                <Users size={32} className="mx-auto mb-3" />
-                <p className="text-[10px] font-black uppercase tracking-widest">
-                  {searchQuery ? "Nenhum resultado encontrado" : "Nenhum membro"}
+              <div className="rounded-[22px] border border-white/10 bg-[#050B14] p-8 text-center">
+                <Users size={30} className="mx-auto text-white/20" />
+                <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-white/35">
+                  {searchQuery ? "Nenhum membro encontrado" : "Nenhum membro disponível"}
                 </p>
               </div>
             ) : (
-              <div className="space-y-2.5">
-                {membrosFiltrados.map(m => (
-                  <div
-                    key={m.membro_id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-white/5 border border-white/5 rounded-2xl hover:border-white/10 transition-colors"
+              <div className="space-y-2">
+                {membrosVisiveis.map(membro => (
+                  <article
+                    key={membro.membro_id}
+                    className="rounded-[20px] border border-white/10 bg-[#050B14] p-3 sm:p-4"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="relative w-10 h-10 rounded-xl overflow-hidden ring-1 ring-white/10 shrink-0">
-                        {isValidUrl(m.avatar_url) ? (
-                          <Image src={m.avatar_url} alt={m.nickname} fill className="object-cover" unoptimized />
-                        ) : (
-                          <div className="w-full h-full bg-white/5 flex items-center justify-center">
-                            <span className="text-sm font-black text-white/30">
-                              {(m.nickname || m.full_name || "?")[0].toUpperCase()}
-                            </span>
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+                          {isValidUrl(membro.avatar_url) ? (
+                            <Image
+                              src={membro.avatar_url}
+                              alt={displayName(membro)}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-sm font-black text-white/35">
+                              {displayName(membro)[0]?.toUpperCase() || "?"}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <h4 className="truncate text-sm font-black text-white">{displayName(membro)}</h4>
+                          <p className="mt-0.5 text-[10px] text-white/35">
+                            Entrou em {formatDateShort(membro.joined_at)}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {membro.tags.map(tag => (
+                              <span
+                                key={`${membro.membro_id}-${tag}`}
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-widest ${
+                                  TAG_COLORS[tag] ?? TAG_COLORS.Participante
+                                }`}
+                              >
+                                {TAG_ICONS[tag]} {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        className="flex w-full flex-wrap gap-2 lg:w-auto lg:justify-end"
+                        onClick={event => event.stopPropagation()}
+                      >
+                        {canTag && !membro.tags.includes("Dono") && (
+                          <div className="relative flex-1 sm:flex-none">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setTagMenuId(current =>
+                                  current === membro.membro_id ? null : membro.membro_id,
+                                )
+                              }
+                              disabled={processingId === membro.membro_id}
+                              className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-[9px] font-black uppercase tracking-widest text-white/50 transition hover:text-white disabled:opacity-45 sm:w-auto"
+                            >
+                              <ShieldCheck size={12} />
+                              Tags
+                              <ChevronDown
+                                size={11}
+                                className={`transition-transform ${tagMenuId === membro.membro_id ? "rotate-180" : ""}`}
+                              />
+                            </button>
+
+                            <AnimatePresence>
+                              {tagMenuId === membro.membro_id && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: 4 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: 4 }}
+                                  className="absolute right-0 top-full z-50 mt-2 w-[min(18rem,calc(100vw-3rem))] min-w-[180px] rounded-2xl border border-white/10 bg-[#0A1222] p-2 shadow-2xl"
+                                >
+                                  {TAGS_DISPONIVEIS.map(tag => (
+                                    <button
+                                      key={`${membro.membro_id}-tag-${tag}`}
+                                      type="button"
+                                      onClick={() => handleAlterarTag(membro, tag)}
+                                      className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[9px] font-black uppercase tracking-widest transition ${
+                                        membro.tags.includes(tag)
+                                          ? "bg-sky-500/10 text-sky-300"
+                                          : "text-white/50 hover:bg-white/5 hover:text-white"
+                                      }`}
+                                    >
+                                      {TAG_ICONS[tag]}
+                                      {tag}
+                                      {membro.tags.includes(tag) && (
+                                        <CheckCircle2 size={11} className="ml-auto text-sky-300" />
+                                      )}
+                                    </button>
+                                  ))}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </div>
                         )}
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-black uppercase italic text-white leading-none mb-1">
-                          {m.nickname || m.full_name}
-                        </h4>
-                        <div className="flex flex-wrap gap-1">
-                          {m.tags.map(tag => (
-                            <span
-                              key={tag}
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase border
-                                ${TAG_COLORS[tag] ?? TAG_COLORS.Participante}`}
-                            >
-                              {TAG_ICONS[tag]} {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
 
-                    <div className="flex gap-2 w-full sm:w-auto" onClick={e => e.stopPropagation()}>
-                      {canTag && !m.tags.includes("Dono") && (
-                        <div className="relative flex-1 sm:flex-none">
+                        {canRemove && !membro.tags.includes("Dono") && (
                           <button
-                            onClick={() => setTagMenuId(tagMenuId === m.membro_id ? null : m.membro_id)}
-                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-white/20 transition-all"
+                            type="button"
+                            onClick={() => setRemoveAlvo(membro)}
+                            disabled={processingId === membro.membro_id}
+                            className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 text-[9px] font-black uppercase tracking-widest text-rose-300 transition hover:bg-rose-500 hover:text-black disabled:opacity-45 sm:flex-none"
                           >
-                            <ShieldCheck size={13} />
-                            Tag
-                            <ChevronDown size={11} className={`transition-transform ${tagMenuId === m.membro_id ? "rotate-180" : ""}`} />
-                          </button>
-
-                          <AnimatePresence>
-                            {tagMenuId === m.membro_id && (
-                              <motion.div
-                                initial={{ opacity: 0, y: 4 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: 4 }}
-                                className="absolute right-0 top-full mt-2 z-50 bg-[#0A1222] border border-white/10 rounded-2xl p-2 shadow-2xl min-w-[160px]"
-                              >
-                                {TAGS_DISPONIVEIS.map(tag => (
-                                  <button
-                                    key={tag}
-                                    onClick={() => handleAlterarTag(m, tag)}
-                                    className={`w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all text-left
-                                      ${m.tags.includes(tag)
-                                        ? "bg-sky-500/10 text-sky-400"
-                                        : "text-white/40 hover:bg-white/5 hover:text-white"}`}
-                                  >
-                                    {TAG_ICONS[tag]} {tag}
-                                    {m.tags.includes(tag) && (
-                                      <CheckCircle2 size={11} className="ml-auto text-sky-400" />
-                                    )}
-                                  </button>
-                                ))}
-                              </motion.div>
+                            {processingId === membro.membro_id ? (
+                              <RefreshCw size={12} className="animate-spin" />
+                            ) : (
+                              <UserX size={12} />
                             )}
-                          </AnimatePresence>
-                        </div>
-                      )}
-
-                      {canRemove && !m.tags.includes("Dono") && (
-                        <button
-                          onClick={() => setRemoveAlvo(m)}
-                          disabled={processingId === m.membro_id}
-                          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-xl text-[9px] font-black uppercase hover:bg-rose-500 hover:text-black transition-all disabled:opacity-40 shrink-0"
-                        >
-                          {processingId === m.membro_id
-                            ? <RefreshCw size={13} className="animate-spin" />
-                            : <UserX size={13} />}
-                        </button>
-                      )}
+                            Remover
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </article>
                 ))}
+
+                {temMaisMembros && (
+                  <button
+                    type="button"
+                    onClick={() => setVisibleMembersCount(current => current + INITIAL_VISIBLE_MEMBERS)}
+                    className="mt-2 inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-[9px] font-black uppercase tracking-widest text-white/55 transition hover:text-white"
+                  >
+                    Mostrar mais membros
+                  </button>
+                )}
               </div>
             )}
-          </motion.div>
+          </motion.section>
         )}
 
-        {/* ── SOLICITAÇÕES ────────────────────────────────────────── */}
         {activeSection === "solicitacoes" && (
-          <motion.div
+          <motion.section
             key="solicitacoes"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="space-y-4"
+            className="space-y-3"
           >
             {loading ? (
-              <div className="py-16 flex justify-center">
-                <RefreshCw className="animate-spin text-sky-500" size={24} />
+              <div className="flex min-h-[240px] items-center justify-center rounded-[22px] border border-white/10 bg-[#050B14]">
+                <RefreshCw size={22} className="animate-spin text-sky-400" />
               </div>
             ) : solicitacoes.length === 0 ? (
-              <div className="py-16 text-center opacity-20">
-                <Clock size={32} className="mx-auto mb-3" />
-                <p className="text-[10px] font-black uppercase tracking-widest">
+              <div className="rounded-[22px] border border-white/10 bg-[#050B14] p-8 text-center">
+                <Clock size={30} className="mx-auto text-white/20" />
+                <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-white/35">
                   Nenhuma solicitação pendente
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {solicitacoes.map(sol => (
-                  <div
-                    key={sol.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-white/5 border border-white/10 rounded-[22px] hover:border-white/20 transition-colors"
+              <div className="space-y-2">
+                {solicitacoesVisiveis.map(solicitacao => (
+                  <article
+                    key={solicitacao.id}
+                    className="rounded-[20px] border border-white/10 bg-[#050B14] p-3 sm:p-4"
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="relative w-12 h-12 rounded-2xl overflow-hidden ring-1 ring-white/10 shrink-0">
-                        {isValidUrl(sol.avatar_url) ? (
-                          <Image src={sol.avatar_url} alt={sol.nickname} fill className="object-cover" unoptimized />
-                        ) : (
-                          <div className="w-full h-full bg-sky-500/10 flex items-center justify-center">
-                            <span className="text-base font-black text-sky-400">
-                              {(sol.nickname || sol.full_name || "?")[0].toUpperCase()}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-black uppercase italic text-white leading-none mb-1">
-                          {sol.nickname || sol.full_name}
-                        </h4>
-                        {sol.mensagem && (
-                          <p className="text-[10px] text-white/30 font-medium max-w-xs line-clamp-1">
-                            "{sol.mensagem}"
-                          </p>
-                        )}
-                        <span className="text-[8px] text-white/15 font-black uppercase tracking-widest">
-                          {new Date(sol.created_at).toLocaleDateString("pt-BR")}
-                        </span>
-                      </div>
-                    </div>
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+                          {isValidUrl(solicitacao.avatar_url) ? (
+                            <Image
+                              src={solicitacao.avatar_url}
+                              alt={displayName(solicitacao)}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-sm font-black text-white/35">
+                              {displayName(solicitacao)[0]?.toUpperCase() || "?"}
+                            </div>
+                          )}
+                        </div>
 
-                    {canApprove && (
-                      <div className="flex gap-2 w-full sm:w-auto">
-                        <button
-                          onClick={() => handleAprovar(sol)}
-                          disabled={processingId === sol.id}
-                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-green-500/10 border border-green-500/20 text-green-400 rounded-xl text-[9px] font-black uppercase hover:bg-green-500 hover:text-black transition-all disabled:opacity-40"
-                        >
-                          {processingId === sol.id
-                            ? <RefreshCw size={13} className="animate-spin" />
-                            : <><CheckCircle2 size={13} /> Aprovar</>}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setMotivoRecusa("");
-                            setRecusaAlvo(sol);
-                          }}
-                          disabled={processingId === sol.id}
-                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-[9px] font-black uppercase hover:bg-rose-500 hover:text-black transition-all disabled:opacity-40"
-                        >
-                          <X size={13} /> Recusar
-                        </button>
+                        <div className="min-w-0">
+                          <h4 className="truncate text-sm font-black text-white">
+                            {displayName(solicitacao)}
+                          </h4>
+                          <p className="mt-0.5 text-[10px] text-white/35">
+                            {formatDate(solicitacao.created_at)}
+                          </p>
+                          {solicitacao.mensagem && (
+                            <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-white/50">
+                              "{solicitacao.mensagem}"
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
+
+                      {canApprove ? (
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => handleAprovar(solicitacao)}
+                            disabled={processingId === solicitacao.id}
+                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 text-[9px] font-black uppercase tracking-widest text-emerald-300 transition hover:bg-emerald-500 hover:text-black disabled:opacity-45"
+                          >
+                            {processingId === solicitacao.id ? (
+                              <RefreshCw size={12} className="animate-spin" />
+                            ) : (
+                              <CheckCircle2 size={12} />
+                            )}
+                            Aprovar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMotivoRecusa("");
+                              setRecusaAlvo(solicitacao);
+                            }}
+                            disabled={processingId === solicitacao.id}
+                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 text-[9px] font-black uppercase tracking-widest text-rose-300 transition hover:bg-rose-500 hover:text-black disabled:opacity-45"
+                          >
+                            <X size={12} />
+                            Recusar
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="inline-flex min-h-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 text-[9px] font-black uppercase tracking-widest text-white/45">
+                          Sem permissão
+                        </span>
+                      )}
+                    </div>
+                  </article>
                 ))}
+
+                {temMaisSolicitacoes && (
+                  <button
+                    type="button"
+                    onClick={() => setVisibleRequestsCount(current => current + INITIAL_VISIBLE_REQUESTS)}
+                    className="mt-2 inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-[9px] font-black uppercase tracking-widest text-white/55 transition hover:text-white"
+                  >
+                    Mostrar mais solicitações
+                  </button>
+                )}
               </div>
             )}
 
             {!canApprove && (
-              <div className="flex items-start gap-3 p-4 bg-orange-500/10 border border-orange-500/20 rounded-2xl">
-                <AlertTriangle size={15} className="text-orange-500 shrink-0 mt-0.5" />
-                <p className="text-[10px] text-orange-500/80 font-medium leading-relaxed">
-                  Você não tem permissão para aprovar ou recusar solicitações.
-                </p>
+              <div className="rounded-[20px] border border-amber-500/20 bg-amber-500/10 p-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-300" />
+                  <p className="text-[10px] leading-relaxed text-amber-100/80">
+                    Você não tem permissão para aprovar ou recusar solicitações.
+                  </p>
+                </div>
               </div>
             )}
-          </motion.div>
+          </motion.section>
         )}
 
         {activeSection === "config" && (
-          <motion.div
+          <motion.section
             key="config"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -604,11 +840,10 @@ export function CommunityGestao({
               currentUser={currentUser}
               canEdit={userTags.includes("Dono")}
             />
-          </motion.div>
+          </motion.section>
         )}
       </AnimatePresence>
 
-      {/* ── ZONA DE PERIGO — para Dono e ADM ───────────────────────── */}
       <AnimatePresence>
         {recusaAlvo && (
           <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4 backdrop-blur-xl">
@@ -620,16 +855,18 @@ export function CommunityGestao({
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm font-black uppercase text-white">
-                    Recusar solicitação
-                  </p>
+                  <p className="text-sm font-black uppercase text-white">Recusar solicitação</p>
                   <p className="mt-1 text-xs text-white/35">
-                    Informe um motivo opcional para {recusaAlvo.nickname || recusaAlvo.full_name}.
+                    Informe um motivo opcional para {displayName(recusaAlvo)}.
                   </p>
                 </div>
                 <button
-                  onClick={() => { setRecusaAlvo(null); setMotivoRecusa(""); }}
-                  className="rounded-xl bg-white/5 p-2 text-white/30 transition-colors hover:text-white"
+                  type="button"
+                  onClick={() => {
+                    setRecusaAlvo(null);
+                    setMotivoRecusa("");
+                  }}
+                  className="rounded-xl bg-white/5 p-2 text-white/30 transition hover:text-white"
                 >
                   <X size={14} />
                 </button>
@@ -638,21 +875,26 @@ export function CommunityGestao({
               <textarea
                 value={motivoRecusa}
                 onChange={event => setMotivoRecusa(event.target.value)}
-                placeholder="Ex: vagas encerradas nesta turma."
-                className="mt-4 h-28 w-full resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition-all placeholder:text-white/15 focus:border-rose-500/40"
+                placeholder="Ex.: vagas encerradas nesta turma."
+                className="mt-4 h-28 w-full resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-rose-500/40"
               />
 
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => { setRecusaAlvo(null); setMotivoRecusa(""); }}
-                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-[10px] font-black uppercase text-white/40 transition-colors hover:text-white"
+                  type="button"
+                  onClick={() => {
+                    setRecusaAlvo(null);
+                    setMotivoRecusa("");
+                  }}
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-[10px] font-black uppercase text-white/45 transition hover:text-white"
                 >
                   Cancelar
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleRecusar(recusaAlvo, motivoRecusa.trim())}
                   disabled={processingId === recusaAlvo.id}
-                  className="rounded-xl bg-rose-500 px-4 py-3 text-[10px] font-black uppercase text-black transition-colors hover:bg-rose-400 disabled:opacity-50"
+                  className="rounded-xl bg-rose-500 px-4 py-3 text-[10px] font-black uppercase text-black transition hover:bg-rose-400 disabled:opacity-45"
                 >
                   {processingId === recusaAlvo.id ? "Recusando..." : "Recusar"}
                 </button>
@@ -674,26 +916,27 @@ export function CommunityGestao({
               <div className="flex items-start gap-3">
                 <AlertTriangle size={18} className="mt-0.5 shrink-0 text-rose-400" />
                 <div>
-                  <p className="text-sm font-black uppercase text-rose-300">
-                    Remover membro
-                  </p>
+                  <p className="text-sm font-black uppercase text-rose-300">Remover membro</p>
                   <p className="mt-1 text-xs leading-relaxed text-white/40">
-                    {removeAlvo.nickname || removeAlvo.full_name} perderá acesso ao hub, treinos, nutrição e desafios desta comunidade.
+                    {displayName(removeAlvo)} perderá acesso ao hub, treinos, nutrição e desafios
+                    da comunidade.
                   </p>
                 </div>
               </div>
 
               <div className="mt-5 grid grid-cols-2 gap-2">
                 <button
+                  type="button"
                   onClick={() => setRemoveAlvo(null)}
-                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-[10px] font-black uppercase text-white/40 transition-colors hover:text-white"
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-[10px] font-black uppercase text-white/45 transition hover:text-white"
                 >
                   Cancelar
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleRemover(removeAlvo)}
                   disabled={processingId === removeAlvo.membro_id}
-                  className="rounded-xl bg-rose-500 px-4 py-3 text-[10px] font-black uppercase text-black transition-colors hover:bg-rose-400 disabled:opacity-50"
+                  className="rounded-xl bg-rose-500 px-4 py-3 text-[10px] font-black uppercase text-black transition hover:bg-rose-400 disabled:opacity-45"
                 >
                   {processingId === removeAlvo.membro_id ? "Removendo..." : "Remover"}
                 </button>
@@ -704,55 +947,54 @@ export function CommunityGestao({
       </AnimatePresence>
 
       {canDelete && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-8 pt-6 border-t border-rose-500/10"
-        >
-          <p className="text-[9px] font-black uppercase tracking-widest text-rose-500/40 mb-4">
-            ⚠ Zona de Perigo
+        <section className="rounded-[22px] border border-rose-500/20 bg-rose-500/10 p-4 sm:p-5">
+          <p className="text-[9px] font-black uppercase tracking-widest text-rose-300/80">
+            Zona de perigo
           </p>
 
           {!confirmDelete ? (
             <button
+              type="button"
               onClick={handleDeletarGrupo}
-              className="flex items-center gap-3 px-6 py-4 bg-rose-500/5 border border-rose-500/20 text-rose-500/60 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/40 transition-all"
+              className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 text-[10px] font-black uppercase tracking-widest text-rose-300 transition hover:bg-rose-500 hover:text-black"
             >
-              <Trash2 size={15} />
-              Encerrar e Deletar Grupo
+              <Trash2 size={13} />
+              Encerrar e excluir grupo
             </button>
           ) : (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-5 bg-rose-500/10 border border-rose-500/30 rounded-2xl">
-              <div className="flex-1">
-                <p className="text-sm font-black uppercase text-rose-400 leading-none mb-1">
-                  Tem certeza absoluta?
-                </p>
-                <p className="text-[10px] text-rose-500/60 font-medium">
-                  Esta ação é irreversível. O grupo será encerrado permanentemente.
+            <div className="mt-3 flex flex-col gap-3 rounded-xl border border-rose-500/30 bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-black uppercase text-rose-300">Tem certeza absoluta?</p>
+                <p className="mt-1 text-xs text-rose-100/70">
+                  Esta ação é irreversível. A comunidade será encerrada permanentemente.
                 </p>
               </div>
-              <div className="flex gap-2 shrink-0">
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                 <button
+                  type="button"
                   onClick={() => setConfirmDelete(false)}
-                  className="px-5 py-3 bg-white/5 border border-white/10 text-white/40 rounded-xl text-[9px] font-black uppercase hover:text-white transition-all"
+                  className="inline-flex min-h-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 text-[9px] font-black uppercase tracking-widest text-white/55 transition hover:text-white"
                 >
                   Cancelar
                 </button>
                 <button
+                  type="button"
                   onClick={handleDeletarGrupo}
                   disabled={deletingGroup}
-                  className="flex items-center gap-2 px-5 py-3 bg-rose-500 text-black rounded-xl text-[9px] font-black uppercase hover:bg-rose-400 transition-all disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-rose-500 px-3 text-[9px] font-black uppercase tracking-widest text-black transition hover:bg-rose-400 disabled:opacity-45"
                 >
-                  {deletingGroup
-                    ? <RefreshCw size={13} className="animate-spin" />
-                    : <><Trash2 size={13} /> Confirmar Exclusão</>}
+                  {deletingGroup ? (
+                    <RefreshCw size={12} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={12} />
+                  )}
+                  Confirmar exclusão
                 </button>
               </div>
             </div>
           )}
-        </motion.div>
+        </section>
       )}
-
     </div>
   );
 }

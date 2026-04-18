@@ -131,7 +131,7 @@ export const CommentDrawer = ({
                       comment={c}
                       canDelete={Boolean(c.canDelete || c.user === currentUser)}
                       onDelete={async (id) => {
-                        const confirmed = window.confirm("Apagar este comentario?");
+                        const confirmed = window.confirm("Apagar este comentário?");
                         if (!confirmed) return;
                         await onDelete?.(id);
                       }}

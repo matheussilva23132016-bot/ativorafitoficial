@@ -1,5 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
+import { mkdir, writeFile } from "fs/promises";
+import { join } from "path";
 import { db } from "@/lib/db";
+
+const MAX_COVER_BYTES = 12 * 1024 * 1024;
+
+async function persistCommunityCoverIfBase64(input: unknown) {
+  if (typeof input !== "string") return input;
+  const raw = input.trim();
+  if (!raw) return "";
+
+  if (!raw.startsWith("data:image/") || !raw.includes("base64,")) {
+    return raw;
+  }
+
+  const mimeMatch = raw.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/);
+  if (!mimeMatch) throw new Error("Formato de capa inválido.");
+
+  const base64Data = raw.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
+  const buffer = Buffer.from(base64Data, "base64");
+
+  if (!buffer.length) throw new Error("Capa vazia.");
+  if (buffer.length > MAX_COVER_BYTES) throw new Error("Capa muito grande. Limite: 12MB.");
+
+  const extension =
+    mimeMatch[1].split("/")[1]?.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8) || "jpg";
+  const fileName = `community-cover-${Date.now()}-${randomUUID()}.${extension}`;
+  const uploadDir = join(process.cwd(), "public", "uploads");
+  await mkdir(uploadDir, { recursive: true });
+  await writeFile(join(uploadDir, fileName), buffer);
+
+  return `/uploads/${fileName}`;
+}
 
 // GET /api/communities/[id]
 export async function GET(
@@ -44,6 +77,7 @@ export async function PATCH(
     const paramsId = resolvedParams.id;
     const body = await req.json();
     const { nome, descricao, cover_url, tema, foco, privacidade, requesterId } = body;
+    const normalizedCoverUrl = await persistCommunityCoverIfBase64(cover_url);
 
     // Verifica se é dono
     const [check] = await db.query(`
@@ -69,7 +103,7 @@ export async function PATCH(
           foco        = COALESCE(?, foco),
           privacidade = COALESCE(?, privacidade)
       WHERE id = ?
-    `, [nome, descricao, cover_url, tema, foco, privacidade, paramsId]);
+    `, [nome, descricao, normalizedCoverUrl, tema, foco, privacidade, paramsId]);
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

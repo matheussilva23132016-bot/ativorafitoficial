@@ -35,68 +35,63 @@ export const authOptions: AuthOptions = {
         senha: { label: "Senha", type: "password" },
       },
       async authorize(credentials) {
-        try {
-          if (!credentials?.identificador || !credentials?.senha) {
-            return null;
-          }
-
-          const identificador = credentials.identificador.trim().toLowerCase();
-          const [users] = await db.execute<AuthUserRow[]>(
-            `SELECT id, email, password_hash, full_name, avatar_url, role, nickname, account_status
-             FROM ativora_users
-             WHERE email = ? OR nickname = ?
-             LIMIT 1`,
-            [identificador, identificador],
-          );
-          const user = users[0];
-
-          if (!user) {
-            return null;
-          }
-
-          const status = String(user.account_status || "active").toLowerCase();
-          if (!["active", "ativo"].includes(status)) {
-            throw new Error("AUTH_ACCOUNT_INACTIVE");
-          }
-
-          const isValid = await bcrypt.compare(credentials.senha, user.password_hash);
-
-          if (!isValid) {
-            await tryAuthUpdate(db.execute(
-              `UPDATE ativora_users
-               SET failed_login_attempts = COALESCE(failed_login_attempts, 0) + 1
-               WHERE id = ?`,
-              [user.id],
-            ));
-            return null;
-          }
-
-          await tryAuthUpdate(db.execute(
-            `UPDATE ativora_users
-             SET failed_login_attempts = 0
-             WHERE id = ?`,
-            [user.id],
-          ));
-
-          await tryAuthUpdate(db.execute(
-            `UPDATE ativora_users
-             SET last_login_at = NOW()
-             WHERE id = ?`,
-            [user.id],
-          ));
-
-          return {
-            id: user.id,
-            name: user.full_name,
-            email: user.email,
-            image: user.avatar_url,
-            role: user.role,
-            nickname: user.nickname,
-          };
-        } catch (error) {
-          console.error("[NEXTAUTH_AUTHORIZE_ERROR]", error);
-          throw error;
+        if (!credentials?.identificador || !credentials?.senha) {
+          throw new Error("Informe e-mail ou nickname e senha.");
         }
+
+        const identificador = credentials.identificador.trim().toLowerCase();
+        const [users] = await db.execute<AuthUserRow[]>(
+          `SELECT id, email, password_hash, full_name, avatar_url, role, nickname, account_status
+           FROM ativora_users
+           WHERE email = ? OR nickname = ?
+           LIMIT 1`,
+          [identificador, identificador],
+        );
+        const user = users[0];
+
+        if (!user) {
+          throw new Error("Conta não encontrada. Verifique e-mail ou nickname.");
+        }
+
+        const status = String(user.account_status || "active").toLowerCase();
+        if (!["active", "ativo"].includes(status)) {
+          throw new Error("Conta sem acesso liberado. Verifique seu cadastro ou fale com o suporte.");
+        }
+
+        const isValid = await bcrypt.compare(credentials.senha, user.password_hash);
+
+        if (!isValid) {
+          await tryAuthUpdate(db.execute(
+            `UPDATE ativora_users
+             SET failed_login_attempts = COALESCE(failed_login_attempts, 0) + 1
+             WHERE id = ?`,
+            [user.id],
+          ));
+          throw new Error("Senha incorreta. Tente novamente ou use recuperação de senha.");
+        }
+
+        await tryAuthUpdate(db.execute(
+          `UPDATE ativora_users
+           SET failed_login_attempts = 0
+           WHERE id = ?`,
+          [user.id],
+        ));
+
+        await tryAuthUpdate(db.execute(
+          `UPDATE ativora_users
+           SET last_login_at = NOW()
+           WHERE id = ?`,
+          [user.id],
+        ));
+
+        return {
+          id: user.id,
+          name: user.full_name,
+          email: user.email,
+          image: user.avatar_url,
+          role: user.role,
+          nickname: user.nickname,
+        };
       },
     }),
   ],

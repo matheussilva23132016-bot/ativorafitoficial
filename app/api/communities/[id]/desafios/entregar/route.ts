@@ -32,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const ex      = (existing as any[])[0];
     if (ex && ["em_analise", "aprovado"].includes(ex.status)) {
       return NextResponse.json(
-        { error: "Esta entrega ja esta em analise ou aprovada." },
+        { error: "Esta entrega já está em análise ou aprovada." },
         { status: 409 },
       );
     }
