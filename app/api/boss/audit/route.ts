@@ -18,7 +18,18 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const q = String(searchParams.get("q") || "").trim();
-    const like = `%${q}%`;
+    const params: any[] = [];
+    const filters: string[] = [];
+
+    if (q) {
+      const like = `%${q}%`;
+      filters.push(
+        "(actor_nickname LIKE ? OR target_nickname LIKE ? OR action LIKE ? OR details_json LIKE ?)",
+      );
+      params.push(like, like, like, like);
+    }
+
+    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 
     const [rows]: any = await db.execute(
       `SELECT
@@ -31,14 +42,10 @@ export async function GET(req: Request) {
         details_json,
         created_at
        FROM boss_audit_log
-       WHERE (? = ''
-          OR actor_nickname LIKE ?
-          OR target_nickname LIKE ?
-          OR action LIKE ?
-          OR details_json LIKE ?)
+       ${whereClause}
        ORDER BY created_at DESC
        LIMIT 120`,
-      [q, like, like, like, like],
+      params,
     );
 
     return NextResponse.json({ logs: rows || [] });

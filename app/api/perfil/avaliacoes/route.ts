@@ -26,7 +26,13 @@ export async function POST(req: Request) {
     if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
 
     const body = await req.json();
-    const payload = normalizeAssessmentPayload(body, user);
+    const existing = await loadAssessments(user.id);
+    const primaryId = existing[0]?.id;
+    const payload = normalizeAssessmentPayload(
+      primaryId ? { ...body, id: primaryId } : body,
+      user,
+      primaryId,
+    );
     const assessment = await saveAssessment(user.id, payload);
 
     return NextResponse.json({ success: true, assessment }, { status: 201 });

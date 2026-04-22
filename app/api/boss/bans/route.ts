@@ -28,15 +28,21 @@ const jsonError = (error: any, fallback: string) => {
 };
 
 async function findTarget(userId?: string, nickname?: string) {
-  const [rows]: any = await db.execute(
-    `SELECT id, nickname, email, full_name, account_status
-     FROM ativora_users
-     WHERE (? <> '' AND id = ?)
-        OR (? <> '' AND LOWER(nickname) = LOWER(?))
-        OR (? <> '' AND LOWER(email) = LOWER(?))
-     LIMIT 1`,
-    [userId || "", userId || "", nickname || "", nickname || "", nickname || "", nickname || ""],
-  );
+  let sql =
+    "SELECT id, nickname, email, full_name, account_status FROM ativora_users WHERE 1 = 0 LIMIT 1";
+  let params: any[] = [];
+
+  if (userId) {
+    sql =
+      "SELECT id, nickname, email, full_name, account_status FROM ativora_users WHERE id = ? LIMIT 1";
+    params = [userId];
+  } else if (nickname) {
+    sql =
+      "SELECT id, nickname, email, full_name, account_status FROM ativora_users WHERE LOWER(nickname) = LOWER(?) OR LOWER(email) = LOWER(?) LIMIT 1";
+    params = [nickname, nickname];
+  }
+
+  const [rows]: any = await db.execute(sql, params);
 
   return rows?.[0] || null;
 }

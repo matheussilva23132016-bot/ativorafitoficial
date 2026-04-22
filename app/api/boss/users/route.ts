@@ -38,7 +38,16 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const q = String(searchParams.get("q") || "").trim();
-    const like = `%${q}%`;
+    const params: any[] = [];
+    const filters: string[] = [];
+
+    if (q) {
+      const like = `%${q}%`;
+      filters.push("(email LIKE ? OR nickname LIKE ? OR full_name LIKE ?)");
+      params.push(like, like, like);
+    }
+
+    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 
     const [rows]: any = await db.execute(
       `SELECT
@@ -51,10 +60,9 @@ export async function GET(req: Request) {
         avatar_url,
         created_at
        FROM ativora_users
-       WHERE (? = '' OR email LIKE ? OR nickname LIKE ? OR full_name LIKE ?)
-       ORDER BY created_at DESC
-       LIMIT 40`,
-      [q, like, like, like],
+       ${whereClause}
+       ORDER BY created_at DESC`,
+      params,
     );
 
     return NextResponse.json({ users: rows || [] });

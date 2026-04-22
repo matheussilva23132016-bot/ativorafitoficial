@@ -83,6 +83,7 @@ export const ROLE_PROFILE_CONFIGS: RoleProfileConfig[] = [
 export const QUICK_MEASUREMENTS = [
   { categoria: "base", slug: "peso", nome: "Massa corporal", unidade: "kg" },
   { categoria: "base", slug: "altura", nome: "Estatura", unidade: "cm" },
+  { categoria: "perimetros", slug: "pescoco", nome: "Pescoço", unidade: "cm" },
   { categoria: "perimetros", slug: "cintura", nome: "Cintura", unidade: "cm" },
   { categoria: "perimetros", slug: "quadril", nome: "Quadril", unidade: "cm" },
 ] as const;
@@ -193,32 +194,61 @@ function ageFromDate(date?: string | null) {
   return Math.max(20, Math.min(69, age));
 }
 
-function rcqBand(sexo: string, idade: number) {
-  const female = sexo === "feminino";
-  const bands = female
-    ? [
-        { min: 20, low: 0.71, moderate: 0.77, high: 0.82 },
-        { min: 30, low: 0.72, moderate: 0.78, high: 0.84 },
-        { min: 40, low: 0.73, moderate: 0.79, high: 0.87 },
-        { min: 50, low: 0.74, moderate: 0.81, high: 0.88 },
-        { min: 60, low: 0.76, moderate: 0.83, high: 0.90 },
-      ]
-    : [
-        { min: 20, low: 0.83, moderate: 0.88, high: 0.94 },
-        { min: 30, low: 0.84, moderate: 0.91, high: 0.96 },
-        { min: 40, low: 0.88, moderate: 0.95, high: 1.0 },
-        { min: 50, low: 0.90, moderate: 0.96, high: 1.02 },
-        { min: 60, low: 0.91, moderate: 0.98, high: 1.03 },
-      ];
-  return [...bands].reverse().find(item => idade >= item.min) ?? bands[0];
+function classifyRcq(rcq: number, sexo: "masculino" | "feminino") {
+  // Referencia: WHO (2011) waist circumference and waist-hip ratio report.
+  if (sexo === "feminino") {
+    if (rcq <= 0.85) return "Risco reduzido";
+    if (rcq <= 0.9) return "Risco aumentado";
+    return "Risco muito aumentado";
+  }
+  if (rcq <= 0.9) return "Risco reduzido";
+  if (rcq <= 1.0) return "Risco aumentado";
+  return "Risco muito aumentado";
 }
 
-function classifyRcq(rcq: number, sexo: string, idade: number) {
-  const band = rcqBand(sexo, idade);
-  if (rcq < band.low) return "Baixo";
-  if (rcq <= band.moderate) return "Moderado";
-  if (rcq <= band.high) return "Alto";
+function classifyWaistCircumference(cintura: number, sexo: "masculino" | "feminino") {
+  // Referencia: WHO (2011), pontos de corte por sexo para cintura.
+  if (sexo === "feminino") {
+    if (cintura < 80) return "Risco reduzido";
+    if (cintura < 88) return "Risco aumentado";
+    return "Risco muito aumentado";
+  }
+  if (cintura < 94) return "Risco reduzido";
+  if (cintura < 102) return "Risco aumentado";
+  return "Risco muito aumentado";
+}
+
+function classifyRce(rce: number) {
+  if (rce < 0.4) return "Baixo";
+  if (rce < 0.5) return "Adequado";
+  if (rce < 0.6) return "Alto";
   return "Muito alto";
+}
+
+function classifyBodyFat(percentual: number, sexo: "masculino" | "feminino") {
+  if (sexo === "feminino") {
+    if (percentual < 14) return "Muito baixo";
+    if (percentual < 21) return "Atletico";
+    if (percentual < 33) return "Saudavel";
+    if (percentual < 40) return "Elevado";
+    return "Muito elevado";
+  }
+  if (percentual < 6) return "Muito baixo";
+  if (percentual < 14) return "Atletico";
+  if (percentual < 25) return "Saudavel";
+  if (percentual < 31) return "Elevado";
+  return "Muito elevado";
+}
+
+function classifyFfmi(ffmi: number, sexo: "masculino" | "feminino") {
+  if (sexo === "feminino") {
+    if (ffmi < 14) return "Baixo";
+    if (ffmi < 17) return "Moderado";
+    return "Elevado";
+  }
+  if (ffmi < 17) return "Baixo";
+  if (ffmi < 20) return "Moderado";
+  return "Elevado";
 }
 
 export function calculateAssessmentResults(input: {
@@ -231,10 +261,12 @@ export function calculateAssessmentResults(input: {
   const results: PerfilAvaliacaoResultado[] = [];
   const peso = getMeasure(medidas, "peso");
   const altura = getMeasure(medidas, "altura");
+  const pescoco = getMeasure(medidas, "pescoco");
   const cintura = getMeasure(medidas, "cintura");
   const quadril = getMeasure(medidas, "quadril");
   const sexo = String(input.sexo || "masculino").toLowerCase().includes("fem") ? "feminino" : "masculino";
   const idade = ageFromDate(input.dataNascimento);
+  const alturaM = altura ? altura / 100 : null;
 
   if (peso && altura) {
     const imc = peso / ((altura / 100) ** 2);
@@ -248,30 +280,84 @@ export function calculateAssessmentResults(input: {
     });
   }
 
+  if (cintura) {
+    results.push({
+      metodo: "Circunferência da cintura",
+      valor: round(cintura, 1),
+      unidade: "cm",
+      classificacao: classifyWaistCircumference(cintura, sexo),
+      observacao: "Classificação por sexo para risco cardiometabólico (referência WHO).",
+      origem: "calculado",
+    });
+  }
+
+  if (cintura && altura) {
+    const rce = cintura / altura;
+    results.push({
+      metodo: "RCEst",
+      valor: round(rce, 2),
+      unidade: "razão",
+      classificacao: classifyRce(rce),
+      observacao: "Relação cintura-estatura para risco cardiometabólico.",
+      origem: "calculado",
+    });
+  }
+
   if (cintura && quadril) {
     const rcq = cintura / quadril;
     results.push({
       metodo: "RCQ",
       valor: round(rcq, 2),
       unidade: "razão",
-      classificacao: classifyRcq(rcq, sexo, idade),
-      observacao: "Relação cintura-quadril classificada por sexo e faixa etária.",
+      classificacao: classifyRcq(rcq, sexo),
+      observacao: "Relação cintura-quadril com faixas diferentes para homens e mulheres.",
+      origem: "calculado",
+    });
+  }
+
+  let gorduraNavy: number | null = null;
+  if (altura && cintura && pescoco) {
+    if (sexo === "masculino") {
+      const diff = cintura - pescoco;
+      if (diff > 0) {
+        const densidade = 1.0324 - (0.19077 * Math.log10(diff)) + (0.15456 * Math.log10(altura));
+        const valor = (495 / densidade) - 450;
+        if (Number.isFinite(valor)) gorduraNavy = Math.max(2, Math.min(65, valor));
+      }
+    } else if (quadril) {
+      const diff = cintura + quadril - pescoco;
+      if (diff > 0) {
+        const densidade = 1.29579 - (0.35004 * Math.log10(diff)) + (0.221 * Math.log10(altura));
+        const valor = (495 / densidade) - 450;
+        if (Number.isFinite(valor)) gorduraNavy = Math.max(2, Math.min(65, valor));
+      }
+    }
+  }
+
+  if (gorduraNavy != null) {
+    results.push({
+      metodo: "% de gordura (US Navy)",
+      valor: round(gorduraNavy, 1),
+      unidade: "%",
+      classificacao: classifyBodyFat(gorduraNavy, sexo),
+      observacao: "Estimativa por circunferências (pescoço, cintura, altura e quadril para mulheres).",
       origem: "calculado",
     });
   }
 
   let gorduraPercentual = asNumber(input.percentualGorduraInformado);
   if (altura && cintura) {
+    // Referencia: Woolcott & Bergman (2018), Relative Fat Mass (RFM).
     const rfm = sexo === "feminino"
       ? 76 - (20 * (altura / cintura))
       : 64 - (20 * (altura / cintura));
     const safeRfm = Math.max(2, Math.min(65, rfm));
-    gorduraPercentual = gorduraPercentual ?? safeRfm;
+    gorduraPercentual = gorduraPercentual ?? gorduraNavy ?? safeRfm;
     results.push({
       metodo: "RFM",
       valor: round(safeRfm, 1),
       unidade: "%",
-      classificacao: "Estimativa de apoio",
+      classificacao: classifyBodyFat(safeRfm, sexo),
       observacao: "Estimativa por altura e cintura; deve ser revisada por profissional.",
       origem: "calculado",
     });
@@ -280,7 +366,7 @@ export function calculateAssessmentResults(input: {
       metodo: "% de gordura informado",
       valor: round(gorduraPercentual, 1),
       unidade: "%",
-      classificacao: "Informado manualmente",
+      classificacao: classifyBodyFat(gorduraPercentual, sexo),
       observacao: "Resultado registrado pelo usuário ou profissional.",
       origem: "manual",
     });
@@ -303,6 +389,73 @@ export function calculateAssessmentResults(input: {
       unidade: "kg",
       classificacao: "Estimativa",
       observacao: "Calculada a partir do percentual de gordura disponível.",
+      origem: "calculado",
+    });
+  }
+
+  if (peso && gorduraPercentual && alturaM) {
+    const massaMagra = peso - (peso * (gorduraPercentual / 100));
+    const ffmi = massaMagra / (alturaM ** 2);
+    results.push({
+      metodo: "FFMI estimado",
+      valor: round(ffmi, 1),
+      unidade: "kg/m2",
+      classificacao: classifyFfmi(ffmi, sexo),
+      observacao: "Indice de massa magra ajustado por estatura.",
+      origem: "calculado",
+    });
+  }
+
+  if (peso && altura) {
+    // Referencia: Mifflin-St Jeor (1990), equacoes diferentes por sexo.
+    const tmb = sexo === "feminino"
+      ? (10 * peso) + (6.25 * altura) - (5 * idade) - 161
+      : (10 * peso) + (6.25 * altura) - (5 * idade) + 5;
+    const manutencao = tmb * 1.45;
+    results.push({
+      metodo: "TMB estimada",
+      valor: round(tmb, 0),
+      unidade: "kcal/dia",
+      classificacao: "Mifflin-St Jeor",
+      observacao: "Taxa metabolica basal estimada para ponto de partida.",
+      origem: "calculado",
+    });
+    results.push({
+      metodo: "Gasto diario estimado",
+      valor: round(manutencao, 0),
+      unidade: "kcal/dia",
+      classificacao: "Atividade moderada (1.45)",
+      observacao: "Estimativa inicial para manutencao calorica.",
+      origem: "calculado",
+    });
+  }
+
+  if (alturaM) {
+    const pesoAlvo = 22 * (alturaM ** 2);
+    const diferenca = peso ? round(peso - pesoAlvo, 1) : null;
+    results.push({
+      metodo: "Peso alvo (IMC 22)",
+      valor: round(pesoAlvo, 1),
+      unidade: "kg",
+      classificacao:
+        diferenca == null
+          ? "Referencia"
+          : diferenca > 0
+            ? `Ajustar -${Math.abs(diferenca)}kg`
+            : `Faixa ok (+${Math.abs(diferenca)}kg)`,
+      observacao: "Referencia geral para acompanhamento.",
+      origem: "calculado",
+    });
+  }
+
+  if (peso && altura) {
+    const superficieCorporal = 0.007184 * (peso ** 0.425) * (altura ** 0.725);
+    results.push({
+      metodo: "Superficie corporal",
+      valor: round(superficieCorporal, 2),
+      unidade: "m2",
+      classificacao: "Du Bois",
+      observacao: "Indicador auxiliar de contexto clinico.",
       origem: "calculado",
     });
   }

@@ -87,6 +87,7 @@ export async function loadAssessments(userId: string, assessmentId?: string) {
       WHERE user_id = ?
         ${assessmentId ? "AND id = ?" : ""}
       ORDER BY COALESCE(data_avaliacao, created_at) DESC, created_at DESC
+      ${assessmentId ? "" : "LIMIT 1"}
     `,
     assessmentId ? [userId, assessmentId] : [userId],
   );
@@ -220,6 +221,19 @@ export async function saveAssessment(userId: string, payload: ReturnType<typeof 
         ],
       );
     }
+
+    await conn.execute(
+      "DELETE FROM perfil_avaliacao_medidas WHERE user_id = ? AND avaliacao_id <> ?",
+      [userId, payload.id],
+    );
+    await conn.execute(
+      "DELETE FROM perfil_avaliacao_resultados WHERE user_id = ? AND avaliacao_id <> ?",
+      [userId, payload.id],
+    );
+    await conn.execute(
+      "DELETE FROM perfil_avaliacoes WHERE user_id = ? AND id <> ?",
+      [userId, payload.id],
+    );
 
     await conn.commit();
     conn.release();

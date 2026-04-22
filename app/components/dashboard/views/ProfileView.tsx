@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   ClipboardCheck,
   FileText,
-  History,
   Loader2,
   LockKeyhole,
   Plus,
@@ -19,7 +18,6 @@ import {
 import { getRoleConfig } from "@/lib/profile/assessment";
 import type { PerfilAvaliacao, PerfilComplementar, PerfilUserSummary } from "@/lib/profile/types";
 import { ProfileAssessmentPanel } from "../profile/ProfileAssessmentPanel";
-import { ProfileHistoryPanel } from "../profile/ProfileHistoryPanel";
 import { emptyAssessment, emptyProfile } from "../profile/profileHelpers";
 import { ProfileRolePanel } from "../profile/ProfileRolePanel";
 import { labelClass } from "../profile/profileUi";
@@ -29,7 +27,7 @@ type ProfileViewProps = {
   onBack: () => void;
 };
 
-type Tab = "resumo" | "cargo" | "avaliacoes" | "histórico";
+type Tab = "resumo" | "cargo" | "avaliacoes";
 
 const DEFAULT_PROFILE_AVATAR = "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=180";
 const DEFAULT_AVATAR_FOCUS = { x: 50, y: 50 };
@@ -129,9 +127,9 @@ export function ProfileView({ currentUser, onBack }: ProfileViewProps) {
   const profileSummary = useMemo(
     () => [
       ["Objetivo", profile.objetivoPrincipal || "Ainda não definido"],
-      ["Frequencia", profile.frequencia || "Ainda não definida"],
+      ["Frequência", profile.frequencia || "Ainda não definida"],
       ["Disponibilidade", profile.disponibilidade || "Ainda não informada"],
-      ["Última avaliação", latestAssessment?.titulo || "Nenhuma avaliação salva"],
+      ["Avaliação atual", latestAssessment?.titulo || "Nenhuma avaliação salva"],
     ],
     [latestAssessment?.titulo, profile.disponibilidade, profile.frequencia, profile.objetivoPrincipal],
   );
@@ -155,7 +153,7 @@ export function ProfileView({ currentUser, onBack }: ProfileViewProps) {
       if (!assessmentsRes.ok) throw new Error(assessmentsJson.error || "Não foi possível carregar avaliações.");
 
       const loadedUser = profileJson.user as PerfilUserSummary;
-      const loadedAssessments = Array.isArray(assessmentsJson.assessments) ? assessmentsJson.assessments : [];
+      const loadedAssessments = Array.isArray(assessmentsJson.assessments) ? assessmentsJson.assessments.slice(0, 1) : [];
       setUser(loadedUser);
       setProfile(profileJson.profile ?? emptyProfile(currentUser, loadedUser));
       setAssessments(loadedAssessments);
@@ -277,22 +275,12 @@ export function ProfileView({ currentUser, onBack }: ProfileViewProps) {
       if (!response.ok) throw new Error(data.error || "Não foi possível salvar avaliação.");
       const saved = data.assessment as PerfilAvaliacao;
       setDraft(saved);
-      setAssessments(prev => [saved, ...prev.filter(item => item.id !== saved.id)]);
-      setTab("histórico");
+      setAssessments(saved ? [saved] : []);
+      setTab("resumo");
     } catch (err: any) {
       setError(err?.message || "Não foi possível salvar avaliação.");
     } finally {
       setSavingAssessment(false);
-    }
-  };
-
-  const deleteAssessment = async (assessmentId?: string) => {
-    if (!assessmentId) return;
-    const response = await fetch(`/api/perfil/avaliacoes/${assessmentId}`, { method: "DELETE" });
-    if (response.ok) {
-      const next = assessments.filter(item => item.id !== assessmentId);
-      setAssessments(next);
-      setDraft(next[0] ?? emptyAssessment(user, "rapida"));
     }
   };
 
@@ -463,9 +451,9 @@ export function ProfileView({ currentUser, onBack }: ProfileViewProps) {
             </div>
             <div className="rounded-xl border border-white/10 bg-black/25 p-3 sm:p-4">
               <FileText size={16} className="text-emerald-300" />
-              <p className="mt-2 text-[8px] font-black uppercase tracking-widest text-white/30">Avaliações</p>
-              <p className="mt-1 text-xl font-black text-white sm:text-2xl">{assessments.length}</p>
-              <p className="mt-2 text-[9px] text-white/35">histórico privado</p>
+              <p className="mt-2 text-[8px] font-black uppercase tracking-widest text-white/30">Avaliação</p>
+              <p className="mt-1 text-xl font-black text-white sm:text-2xl">{latestAssessment ? 1 : 0}</p>
+              <p className="mt-2 text-[9px] text-white/35">uma ficha por usuário</p>
             </div>
             <div className="col-span-2 rounded-xl border border-white/10 bg-black/25 p-3 sm:p-4 lg:col-span-1">
               <LockKeyhole size={16} className="text-amber-300" />
@@ -484,7 +472,6 @@ export function ProfileView({ currentUser, onBack }: ProfileViewProps) {
           { id: "resumo", label: "Resumo", mobileLabel: "Resumo", icon: UserRound },
           { id: "cargo", label: "Dados do cargo", mobileLabel: "Cargo", icon: ShieldCheck },
           { id: "avaliacoes", label: "Avaliações", mobileLabel: "Avaliações", icon: ClipboardCheck },
-          { id: "histórico", label: "Histórico", mobileLabel: "Histórico", icon: History },
         ] as const).map(({ id, label, mobileLabel, icon: Icon }) => (
           <button
             key={id}
@@ -536,15 +523,7 @@ export function ProfileView({ currentUser, onBack }: ProfileViewProps) {
                   className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-white/10 bg-black/25 px-3 text-[10px] font-black uppercase tracking-widest text-white/65 transition hover:text-white"
                 >
                   <ClipboardCheck size={13} />
-                  Nova avaliação
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTab("histórico")}
-                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-white/10 bg-black/25 px-3 text-[10px] font-black uppercase tracking-widest text-white/65 transition hover:text-white"
-                >
-                  <History size={13} />
-                  Ver histórico
+                  {latestAssessment ? "Editar avaliação" : "Criar avaliação"}
                 </button>
               </div>
 
@@ -602,7 +581,7 @@ export function ProfileView({ currentUser, onBack }: ProfileViewProps) {
                 className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 text-[10px] font-black uppercase tracking-widest text-black"
               >
                 <Plus size={14} />
-                Nova avaliação
+                {latestAssessment ? "Editar avaliação" : "Criar avaliação"}
               </button>
             </div>
           </motion.section>
@@ -636,22 +615,6 @@ export function ProfileView({ currentUser, onBack }: ProfileViewProps) {
           </motion.div>
         )}
 
-        {tab === "histórico" && (
-          <motion.div
-            key="histórico"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-          >
-            <ProfileHistoryPanel
-              assessments={assessments}
-              setDraft={setDraft}
-              setTab={setTab as any}
-              onDelete={deleteAssessment}
-              user={user}
-            />
-          </motion.div>
-        )}
       </AnimatePresence>
 
       <button

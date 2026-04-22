@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { signIn } from "next-auth/react";
 import {
   Activity, Ban, BarChart3, Bell, CheckCircle2, ChevronLeft, ClipboardList,
   Crown, Database, KeyRound, Loader2, Megaphone, Plus, RefreshCcw, Save,
@@ -210,6 +211,33 @@ export function BossPanelView({ onBack, currentUser, bossAccess }: BossPanelView
     }, loadUsers);
   };
 
+  const impersonateUser = async (target: any) => {
+    setLoading(true);
+    setFeedback("");
+    try {
+      const json = await apiJson("/api/boss/impersonate", {
+        method: "POST",
+        body: JSON.stringify({ targetUserId: target?.id }),
+      });
+
+      const loginResult = await signIn("boss-impersonate", {
+        token: String(json?.token || ""),
+        redirect: false,
+      });
+
+      if (loginResult?.error) {
+        throw new Error(loginResult.error);
+      }
+
+      setFeedback(`Sessão trocada para @${target?.nickname || "usuario"}. Redirecionando...`);
+      window.location.assign("/dashboard");
+    } catch (error: any) {
+      setFeedback(error?.message || "Não foi possível entrar com esta conta.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const submitBan = async () => {
     await runAction(async () => {
       const json = await apiJson("/api/boss/bans", { method: "POST", body: JSON.stringify(banForm) });
@@ -290,21 +318,21 @@ export function BossPanelView({ onBack, currentUser, bossAccess }: BossPanelView
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
-      className="mx-auto w-full max-w-7xl space-y-4 text-left"
+      className="mx-auto w-full max-w-7xl max-w-full min-w-0 space-y-4 overflow-x-hidden text-left"
     >
       <button type="button" onClick={onBack} className="flex min-h-10 items-center gap-2 rounded-lg px-1 text-[10px] font-black uppercase tracking-widest text-white/35 transition-colors hover:text-white">
         <ChevronLeft size={16} />
         Voltar ao painel
       </button>
 
-      <section className="relative overflow-hidden rounded-lg border border-sky-500/20 bg-[#050A12] p-5 sm:p-7 lg:p-8">
+      <section className="relative max-w-full overflow-hidden rounded-lg border border-sky-500/20 bg-[#050A12] p-4 sm:p-7 lg:p-8">
         <div className="relative grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
           <div>
             <div className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-black">
               <Crown size={12} />
               Painel Boss
             </div>
-            <h1 className="mt-5 text-4xl font-black italic leading-none tracking-tighter text-white sm:text-5xl">Centro de comando AtivoraFit.</h1>
+            <h1 className="mt-4 text-[1.85rem] font-black italic leading-none tracking-tighter text-white sm:mt-5 sm:text-5xl">Centro de comando AtivoraFit.</h1>
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/55">
               Controle contas, bloqueios, avisos, moderação, configurações, auditoria e ajustes técnicos do app em uma área protegida.
             </p>
@@ -318,9 +346,9 @@ export function BossPanelView({ onBack, currentUser, bossAccess }: BossPanelView
         </div>
       </section>
 
-      <div className="grid gap-3 lg:grid-cols-[270px_1fr]">
-        <aside className="rounded-lg border border-white/10 bg-white/5 p-3">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-1">
+      <div className="grid min-w-0 gap-3 lg:grid-cols-[270px_1fr]">
+        <aside className="min-w-0 rounded-lg border border-white/10 bg-white/5 p-2.5 sm:p-3">
+          <div className="flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0 lg:grid-cols-1">
             {visibleTabs.map((item) => {
               const Icon = item.icon;
               return (
@@ -328,7 +356,7 @@ export function BossPanelView({ onBack, currentUser, bossAccess }: BossPanelView
                   key={item.id}
                   type="button"
                   onClick={() => setTab(item.id)}
-                  className={`flex min-h-12 items-center justify-center gap-2 rounded-lg px-3 text-[10px] font-black uppercase tracking-widest transition lg:justify-start ${
+                  className={`flex min-h-12 min-w-[124px] items-center justify-center gap-2 rounded-lg px-3 text-[9px] font-black uppercase tracking-wide whitespace-nowrap transition sm:min-w-0 sm:text-[10px] sm:tracking-widest lg:justify-start ${
                     tab === item.id ? "bg-sky-500 text-black" : "bg-black/20 text-white/45 hover:bg-white/10 hover:text-white"
                   }`}
                 >
@@ -345,7 +373,7 @@ export function BossPanelView({ onBack, currentUser, bossAccess }: BossPanelView
           </button>
         </aside>
 
-        <section className="min-w-0 rounded-lg border border-white/10 bg-white/5 p-4 sm:p-5">
+        <section className="min-w-0 max-w-full overflow-x-hidden rounded-lg border border-white/10 bg-white/5 p-4 sm:p-5">
           {feedback && (
             <div className="mb-4 flex items-start gap-3 rounded-lg border border-sky-500/20 bg-sky-500/10 p-4">
               <CheckCircle2 className="mt-0.5 shrink-0 text-sky-300" size={16} />
@@ -372,7 +400,7 @@ export function BossPanelView({ onBack, currentUser, bossAccess }: BossPanelView
           )}
 
           {tab === "users" && (
-            <div className="grid gap-5 xl:grid-cols-[0.82fr_1.18fr]">
+            <div className="grid min-w-0 gap-5 xl:grid-cols-[0.82fr_1.18fr]">
               <div>
                 <SectionTitle icon={UserPlus} title="Criar conta" desc="Cadastro interno para liberar acesso sem passar pela tela pública." />
                 <div className="mt-5 grid gap-3">
@@ -389,8 +417,8 @@ export function BossPanelView({ onBack, currentUser, bossAccess }: BossPanelView
 
               <div>
                 <SectionTitle icon={UserCog} title="Gerenciar usuários" desc="Busque, altere perfil, bloqueie, reative ou redefina senha." />
-                <div className="mt-3 flex gap-2">
-                  <BossInput value={query} onChange={setQuery} placeholder="Buscar nome, e-mail ou @" onEnter={() => loadUsers(query)} />
+                <div className="mt-3 flex items-center gap-2">
+                  <BossInput value={query} onChange={setQuery} placeholder="Buscar nome, e-mail ou @" onEnter={() => loadUsers(query)} className="min-w-0 flex-1" />
                   <button type="button" onClick={() => loadUsers(query)} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-sky-500 text-black" aria-label="Buscar">
                     <Search size={17} />
                   </button>
@@ -403,6 +431,7 @@ export function BossPanelView({ onBack, currentUser, bossAccess }: BossPanelView
                       passwordValue={passwordDrafts[user.id] || ""}
                       setPasswordValue={(value) => setPasswordDrafts((current) => ({ ...current, [user.id]: value }))}
                       onPatch={(payload) => patchUser(user.id, payload)}
+                      onImpersonate={() => impersonateUser(user)}
                       loading={loading}
                     />
                   )) : <EmptyState text="Nenhum usuário encontrado." />}
@@ -454,7 +483,7 @@ export function BossPanelView({ onBack, currentUser, bossAccess }: BossPanelView
                       <p className="text-sm font-black text-white">{community.nome}</p>
                       <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-white/45">{community.descricao || "Sem descrição."}</p>
                       <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-white/25">{community.status || "ativa"} · {community.total_membros || 0} membros</p>
-                      <div className="mt-3 grid grid-cols-3 gap-2">
+                      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {["ativa", "pausada", "encerrada"].map((status) => (
                           <button key={status} type="button" onClick={() => moderationAction({ action: "update_community_status", id: community.id, status })} className="min-h-9 rounded-lg border border-white/10 bg-white/5 px-2 text-[9px] font-black uppercase tracking-widest text-white/50 hover:bg-white/10 hover:text-white">
                             {status}
@@ -469,7 +498,7 @@ export function BossPanelView({ onBack, currentUser, bossAccess }: BossPanelView
           )}
 
           {tab === "broadcasts" && (
-            <div className="grid gap-5 xl:grid-cols-[0.82fr_1.18fr]">
+            <div className="grid min-w-0 gap-5 xl:grid-cols-[0.82fr_1.18fr]">
               <div>
                 <SectionTitle icon={Megaphone} title="Aviso em massa" desc="Envie comunicados internos para todos, por perfil ou para um usuário específico." />
                 <div className="mt-5 grid gap-3">
@@ -533,7 +562,7 @@ export function BossPanelView({ onBack, currentUser, bossAccess }: BossPanelView
           )}
 
           {tab === "bans" && (
-            <div className="grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
+            <div className="grid min-w-0 gap-5 xl:grid-cols-[0.8fr_1.2fr]">
               <div>
                 <SectionTitle icon={Ban} title="Bloqueios e restrições" desc="Bloqueie o app inteiro ou apenas módulos específicos." />
                 <div className="mt-5 grid gap-3">
@@ -563,7 +592,7 @@ export function BossPanelView({ onBack, currentUser, bossAccess }: BossPanelView
           )}
 
           {tab === "access" && (
-            <div className="grid gap-5 xl:grid-cols-[0.82fr_1.18fr]">
+            <div className="grid min-w-0 gap-5 xl:grid-cols-[0.82fr_1.18fr]">
               <div>
                 <SectionTitle icon={KeyRound} title="Acessos Boss" desc="Conceda poderes por pessoa, sem entregar controle total quando não precisa." />
                 <div className="mt-5 grid gap-3">
@@ -596,7 +625,7 @@ export function BossPanelView({ onBack, currentUser, bossAccess }: BossPanelView
                         <button type="button" onClick={() => revokeAccess(item.id)} className="rounded-lg border border-white/10 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-white/55 hover:bg-white/10 hover:text-white">Remover</button>
                       ) : null}
                     </div>
-                    <p className="mt-3 text-xs leading-relaxed text-white/45">
+                    <p className="mt-3 break-words text-xs leading-relaxed text-white/45">
                       Contas: {yesNo(item.can_create_users)} · Bloqueios: {yesNo(item.can_ban_users)} · Acessos: {yesNo(item.can_grant_access)} · App: {yesNo(item.can_manage_app)} · Moderação: {yesNo(item.can_moderate_content)} · Avisos: {yesNo(item.can_send_broadcast)} · Auditoria: {yesNo(item.can_view_audit)} · SQL: {yesNo(item.can_run_sql)}
                     </p>
                   </div>
@@ -608,8 +637,8 @@ export function BossPanelView({ onBack, currentUser, bossAccess }: BossPanelView
           {tab === "audit" && (
             <div className="space-y-5">
               <SectionTitle icon={ClipboardList} title="Auditoria" desc="Registro das ações sensíveis feitas pelo Boss." />
-              <div className="flex gap-2">
-                <BossInput value={auditQuery} onChange={setAuditQuery} placeholder="Buscar ação, alvo ou responsável" onEnter={() => loadAudit(auditQuery)} />
+              <div className="flex items-center gap-2">
+                <BossInput value={auditQuery} onChange={setAuditQuery} placeholder="Buscar ação, alvo ou responsável" onEnter={() => loadAudit(auditQuery)} className="min-w-0 flex-1" />
                 <button type="button" onClick={() => loadAudit(auditQuery)} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-sky-500 text-black" aria-label="Buscar auditoria">
                   <Search size={17} />
                 </button>
@@ -630,7 +659,7 @@ export function BossPanelView({ onBack, currentUser, bossAccess }: BossPanelView
           )}
 
           {tab === "sql" && can("canRunSql") && (
-            <div className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
+            <div className="grid min-w-0 gap-5 xl:grid-cols-[0.85fr_1.15fr]">
               <div>
                 <SectionTitle icon={Database} title="Console SQL Boss" desc="Valide e execute ajustes técnicos pelo painel. O modo seguro vem ligado." />
                 <div className="mt-5 grid gap-3">
@@ -662,11 +691,13 @@ export function BossPanelView({ onBack, currentUser, bossAccess }: BossPanelView
 
 function BossMetric({ label, value, icon: Icon, tone = "sky" }: { label: string; value: any; icon: any; tone?: "sky" | "emerald" | "amber" | "rose" }) {
   const toneClass = { sky: "text-sky-300", emerald: "text-emerald-300", amber: "text-amber-300", rose: "text-rose-300" }[tone];
+  const valueText = String(value ?? "");
+  const compact = valueText.length > 22;
   return (
     <div className="rounded-lg border border-white/10 bg-black/25 p-4">
       <Icon className={toneClass} size={18} />
       <p className="mt-3 text-[9px] font-black uppercase tracking-widest text-white/30">{label}</p>
-      <p className="mt-1 break-words text-xl font-black text-white">{value}</p>
+      <p className={`mt-1 break-words font-black text-white ${compact ? "text-sm leading-relaxed sm:text-base" : "text-lg sm:text-xl"}`}>{valueText}</p>
     </div>
   );
 }
@@ -676,14 +707,14 @@ function SectionTitle({ icon: Icon, title, desc }: { icon: any; title: string; d
     <div>
       <div className="flex items-center gap-2">
         <Icon className="text-sky-300" size={18} />
-        <h2 className="text-2xl font-black italic text-white">{title}</h2>
+        <h2 className="text-xl font-black italic text-white sm:text-2xl">{title}</h2>
       </div>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/45">{desc}</p>
     </div>
   );
 }
 
-function BossInput({ value, onChange, placeholder, type = "text", onEnter }: { value: string; onChange: (value: string) => void; placeholder: string; type?: string; onEnter?: () => void }) {
+function BossInput({ value, onChange, placeholder, type = "text", onEnter, className = "" }: { value: string; onChange: (value: string) => void; placeholder: string; type?: string; onEnter?: () => void; className?: string }) {
   return (
     <input
       value={value}
@@ -691,7 +722,7 @@ function BossInput({ value, onChange, placeholder, type = "text", onEnter }: { v
       onChange={(event) => onChange(event.target.value)}
       onKeyDown={(event) => { if (event.key === "Enter" && onEnter) onEnter(); }}
       placeholder={placeholder}
-      className="h-12 min-w-0 rounded-lg border border-white/10 bg-black/25 px-4 text-sm text-white outline-none placeholder:text-white/20 focus:border-sky-500/50"
+      className={`h-12 w-full min-w-0 rounded-lg border border-white/10 bg-black/25 px-4 text-sm text-white outline-none placeholder:text-white/20 focus:border-sky-500/50 ${className}`}
     />
   );
 }
@@ -712,16 +743,16 @@ function BossButton({ children, onClick, disabled, icon: Icon, variant = "primar
     success: "bg-emerald-500 text-black",
   }[variant];
   return (
-    <button type="button" disabled={disabled} onClick={onClick} className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 text-[10px] font-black uppercase tracking-widest transition disabled:opacity-45 ${variantClass} ${className}`}>
+    <button type="button" disabled={disabled} onClick={onClick} className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 text-center text-[9px] font-black uppercase leading-tight tracking-wide whitespace-normal transition disabled:opacity-45 sm:text-[10px] sm:tracking-widest ${variantClass} ${className}`}>
       <Icon size={15} />
       {children}
     </button>
   );
 }
 
-function UserControlCard({ user, passwordValue, setPasswordValue, onPatch, loading }: { user: any; passwordValue: string; setPasswordValue: (value: string) => void; onPatch: (payload: Record<string, unknown>) => void; loading: boolean }) {
+function UserControlCard({ user, passwordValue, setPasswordValue, onPatch, onImpersonate, loading }: { user: any; passwordValue: string; setPasswordValue: (value: string) => void; onPatch: (payload: Record<string, unknown>) => void; onImpersonate: () => void; loading: boolean }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-black/25 p-4">
+    <div className="min-w-0 rounded-lg border border-white/10 bg-black/25 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-black text-white">{user.full_name || "Usuário"}</p>
@@ -731,20 +762,28 @@ function UserControlCard({ user, passwordValue, setPasswordValue, onPatch, loadi
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
         <BossSelect value={user.role || "aluno"} onChange={(role) => onPatch({ role })} options={roles} />
-        <button type="button" disabled={loading} onClick={() => onPatch({ status: "active" })} className="min-h-12 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 text-[10px] font-black uppercase tracking-widest text-emerald-200 disabled:opacity-40">Ativar</button>
-        <button type="button" disabled={loading} onClick={() => onPatch({ status: "banned" })} className="min-h-12 rounded-lg border border-rose-400/20 bg-rose-400/10 px-3 text-[10px] font-black uppercase tracking-widest text-rose-200 disabled:opacity-40">Bloquear</button>
+        <button type="button" disabled={loading} onClick={() => onPatch({ status: "active" })} className="min-h-12 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 text-[9px] font-black uppercase leading-tight tracking-wide text-emerald-200 disabled:opacity-40 sm:text-[10px] sm:tracking-widest">Ativar</button>
+        <button type="button" disabled={loading} onClick={() => onPatch({ status: "banned" })} className="min-h-12 rounded-lg border border-rose-400/20 bg-rose-400/10 px-3 text-[9px] font-black uppercase leading-tight tracking-wide text-rose-200 disabled:opacity-40 sm:text-[10px] sm:tracking-widest">Bloquear</button>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_150px]">
         <BossInput value={passwordValue} onChange={setPasswordValue} placeholder="Nova senha temporária" type="password" />
-        <button type="button" disabled={loading || passwordValue.length < 8} onClick={() => onPatch({ password: passwordValue })} className="min-h-12 rounded-lg border border-white/10 bg-white/5 px-3 text-[10px] font-black uppercase tracking-widest text-white/55 disabled:opacity-40">Redefinir</button>
+        <button type="button" disabled={loading || passwordValue.length < 8} onClick={() => onPatch({ password: passwordValue })} className="min-h-12 rounded-lg border border-white/10 bg-white/5 px-3 text-[9px] font-black uppercase leading-tight tracking-wide text-white/55 disabled:opacity-40 sm:text-[10px] sm:tracking-widest">Redefinir</button>
       </div>
+      <button
+        type="button"
+        disabled={loading}
+        onClick={onImpersonate}
+        className="mt-3 min-h-11 w-full rounded-lg border border-sky-400/30 bg-sky-500/10 px-3 text-[9px] font-black uppercase leading-tight tracking-wide text-sky-200 transition hover:bg-sky-500/20 disabled:opacity-45 sm:text-[10px] sm:tracking-widest"
+      >
+        Entrar como este usuário
+      </button>
     </div>
   );
 }
 
 function ModerationColumn({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <h3 className="text-sm font-black uppercase tracking-widest text-white/45">{title}</h3>
       <div className="mt-3 grid gap-3">{children}</div>
     </div>
@@ -753,7 +792,7 @@ function ModerationColumn({ title, children }: { title: string; children: React.
 
 function ListPanel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <h3 className="text-sm font-black uppercase tracking-widest text-white/45">{title}</h3>
       <div className="mt-3 grid gap-3">{children}</div>
     </div>
@@ -779,7 +818,7 @@ function StatusPill({ value }: { value: any }) {
   const active = ["active", "ativo", "aprovado", "resolvida"].includes(status);
   const danger = ["banned", "banido", "recusada", "encerrada"].includes(status);
   return (
-    <span className={`rounded-lg px-3 py-1 text-[9px] font-black uppercase tracking-widest ${active ? "bg-emerald-500/15 text-emerald-300" : danger ? "bg-rose-500/15 text-rose-300" : "bg-amber-500/15 text-amber-200"}`}>
+    <span className={`max-w-full break-words rounded-lg px-3 py-1 text-[9px] font-black uppercase tracking-widest ${active ? "bg-emerald-500/15 text-emerald-300" : danger ? "bg-rose-500/15 text-rose-300" : "bg-amber-500/15 text-amber-200"}`}>
       {status.replace("_", " ")}
     </span>
   );

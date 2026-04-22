@@ -2,6 +2,7 @@ import NextAuth from "next-auth/next";
 import CredentialsProvider from "next-auth/providers/credentials";
 import db from "@/lib/db";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import { AuthOptions } from "next-auth";
 import type { RowDataPacket } from "mysql2";
 
@@ -17,6 +18,13 @@ type AuthUserRow = RowDataPacket & {
 };
 
 const SIXTY_DAYS_IN_SECONDS = 60 * 24 * 60 * 60;
+const BOSS_IMPERSONATION_TOKEN_TYPE = "boss_impersonation";
+const AUTH_FALLBACK_SECRET = "ativorafit-dev-fallback-secret";
+const AUTH_SECRET =
+  process.env.NEXTAUTH_SECRET ||
+  process.env.AUTH_SECRET ||
+  process.env.JWT_SECRET ||
+  AUTH_FALLBACK_SECRET;
 
 async function tryAuthUpdate(operation: Promise<unknown>) {
   try {
@@ -94,6 +102,65 @@ export const authOptions: AuthOptions = {
         };
       },
     }),
+    CredentialsProvider({
+      id: "boss-impersonate",
+      name: "Boss Impersonate",
+      credentials: {
+        token: { label: "Token de Impersonacao", type: "text" },
+      },
+      async authorize(credentials) {
+        const rawToken = String(credentials?.token || "").trim();
+        if (!rawToken) {
+          throw new Error("Token de acesso ausente.");
+        }
+
+        const secret = process.env.BOSS_IMPERSONATE_SECRET || AUTH_SECRET;
+        if (!secret) {
+          throw new Error("Segredo de autenticação indisponível.");
+        }
+
+        let payload: any;
+        try {
+          payload = jwt.verify(rawToken, secret);
+        } catch {
+          throw new Error("Token de impersonação inválido ou expirado.");
+        }
+
+        if (!payload || payload.type !== BOSS_IMPERSONATION_TOKEN_TYPE || !payload.sub) {
+          throw new Error("Token de impersonação inválido.");
+        }
+
+        const targetUserId = String(payload.sub || "").trim();
+        const [users] = await db.execute<AuthUserRow[]>(
+          `SELECT id, email, password_hash, full_name, avatar_url, role, nickname, account_status
+           FROM ativora_users
+           WHERE id = ?
+           LIMIT 1`,
+          [targetUserId],
+        );
+        const user = users[0];
+
+        if (!user) {
+          throw new Error("Conta alvo não encontrada.");
+        }
+
+        const status = String(user.account_status || "active").toLowerCase();
+        if (!["active", "ativo"].includes(status)) {
+          throw new Error("A conta alvo está sem acesso liberado.");
+        }
+
+        return {
+          id: user.id,
+          name: user.full_name,
+          email: user.email,
+          image: user.avatar_url,
+          role: user.role,
+          nickname: user.nickname,
+          impersonatedById: String(payload.actorId || ""),
+          impersonatedByNickname: String(payload.actorNickname || ""),
+        } as any;
+      },
+    }),
   ],
   callbacks: {
     async jwt({ token, user }: any) {
@@ -101,6 +168,9 @@ export const authOptions: AuthOptions = {
         token.id = user.id;
         token.role = user.role;
         token.nickname = user.nickname;
+        token.impersonatedById = user.impersonatedById || null;
+        token.impersonatedByNickname = user.impersonatedByNickname || null;
+        token.isImpersonating = Boolean(user.impersonatedById);
       }
       return token;
     },
@@ -109,6 +179,9 @@ export const authOptions: AuthOptions = {
         session.user.id = token.id;
         session.user.role = token.role;
         session.user.nickname = token.nickname;
+        session.user.impersonatedById = token.impersonatedById || null;
+        session.user.impersonatedByNickname = token.impersonatedByNickname || null;
+        session.user.isImpersonating = Boolean(token.isImpersonating);
       }
       return session;
     },
@@ -125,5 +198,5 @@ export const authOptions: AuthOptions = {
   jwt: {
     maxAge: SIXTY_DAYS_IN_SECONDS,
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: AUTH_SECRET,
 };
